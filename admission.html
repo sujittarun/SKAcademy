@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Admission · Super Kings Academy</title>
+<meta name="description" content="Apply for cricket coaching at Super Kings Academy, VAKAMAN FE, Coimbatore. A short form: the player, a parent or guardian, and a preferred batch." />
+<script>
+  /* blocking: applies the persisted theme before first paint, else the
+     page renders dark and flashes. Raw string, not JSON. */
+  try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
+  document.documentElement.className += " lt-js";
+</script>
+<link rel="stylesheet" href="assets/css/glass.css?v=2" />
+<style>
+  /* Page-local layout only. Everything with a look — .glass, .field,
+     .choice, .adm-stepper, .adm-step, .adm-nav, .pill, .btn — comes from
+     glass.css. These are the few boxes the design system does not own,
+     kept to the same names and values the Academy Manager admission page
+     uses so the two pages stay diffable. */
+  .adm-wrap { max-width: 720px; margin: 0 auto; width: 100%; }
+  .adm-hero { text-align: center; margin-bottom: var(--gap-4); }
+  .adm-hero h1 { font-size: clamp(26px, 4vw, 38px); font-weight: 800; }
+  .adm-hero p { color: var(--ink-mid); margin-top: 8px; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-3); }
+  .form-grid .full { grid-column: 1 / -1; }
+  @media (max-width: 620px) { .form-grid { grid-template-columns: 1fr; } }
+
+  .hint { font-size: 12px; color: var(--ink-low); margin-top: 8px; line-height: 1.5; }
+  .hint.warn { color: var(--tx-red); }
+  /* an age worked out from the date of birth is shown, not typed */
+  input.derived { color: var(--ink-mid); background: var(--tile-bg); }
+
+  .pick-label { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-low); margin: var(--gap-3) 0 8px; }
+
+  .sum-row {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
+    padding: 11px 14px; border: 1px solid var(--tile-border);
+    border-radius: var(--r-md); background: var(--tile-bg);
+  }
+  .sum-row .k { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; font-weight: 650; color: var(--ink-low); white-space: nowrap; }
+  .sum-row .v { font-weight: 650; text-align: right; word-break: break-word; }
+
+  /* Consent is a required legal control, so unlike the system's other
+     .choice pills its input stays focusable: glass.css hides checkboxes
+     with display:none, which takes them out of the tab order entirely.
+     Positioned + transparent instead, so :checked + .dot still styles and
+     a keyboard user can still tick it. */
+  .consent { position: relative; align-items: flex-start; line-height: 1.5; }
+  .consent input { display: block; position: absolute; inset: 0 auto auto 0; width: 18px; height: 18px; margin: 0; opacity: 0; }
+  .consent .dot { margin-top: 2px; }
+  .consent:focus-within { border-color: var(--input-border-hover); }
+  .consent input:focus-visible + .dot { box-shadow: 0 0 0 3px rgba(247, 203, 21, .35); }
+
+  .fineprint { font-size: 11.5px; color: var(--ink-faint); margin-top: 12px; line-height: 1.55; }
+
+  .done-card { text-align: center; padding: clamp(36px, 6vh, 60px) var(--gap-4); display: none; }
+  .done-card.show { display: block; animation: lt-step-in .5s var(--ease-spring) both; }
+  .done-card .big-check {
+    width: 74px; height: 74px; margin: 0 auto var(--gap-3); border-radius: 50%;
+    display: grid; place-items: center;
+    background: rgba(52, 211, 153, .15); border: 1.5px solid rgba(52, 211, 153, .5); color: var(--tx-green);
+  }
+  .done-card .big-check svg { width: 34px; height: 34px; }
+  .next-list { list-style: none; padding: 0; margin: var(--gap-4) auto 0; max-width: 440px; text-align: left; display: flex; flex-direction: column; gap: 10px; }
+  .next-list li { display: flex; gap: 11px; align-items: flex-start; font-size: 13.5px; color: var(--ink-mid); }
+  .next-list .n {
+    width: 22px; height: 22px; flex: none; border-radius: 50%; display: grid; place-items: center;
+    font-size: 11px; font-weight: 800; color: #231d00; background: var(--gold-grad);
+  }
+</style>
+</head>
+<body>
+  <div class="lt-bg" aria-hidden="true"></div>
+
+  <nav class="lt-nav glass">
+    <a class="nav-brand" href="index.html">
+      <span class="mark" data-logo="48"></span>
+      <span class="t"><strong>Super Kings Academy</strong><span>VAKAMAN FE</span></span>
+    </a>
+    <div class="nav-actions">
+      <button type="button" class="theme-toggle"></button>
+      <a class="btn btn-ghost btn-sm hide-mobile" href="booking.html">Book a net</a>
+      <a class="btn btn-glass btn-sm" href="index.html">← Back to site</a>
+    </div>
+  </nav>
+
+  <!-- .lt-main is the shell class this app's pages carry; .lt-page is the
+       one glass.css actually styles (max width, nav offset, page-in). Both,
+       deliberately — dropping .lt-page puts the first card under the nav. -->
+  <main class="lt-page lt-main">
+    <div class="adm-wrap">
+
+      <div class="adm-hero reveal">
+        <span class="pill gold">Cricket coaching · VAKAMAN FE</span>
+        <h1 class="mt-2">Join the academy</h1>
+        <!-- No trial date, no callback window, no fee. The academy has not
+             agreed to any of those, and a public page that promises one
+             commits them to it. -->
+        <p>Three short steps — the player, a parent or guardian, and the batch you would prefer. The academy confirms everything with you afterwards.</p>
+      </div>
+
+      <div class="glass glass-card reveal d1" id="wizard">
+        <div class="adm-stepper" id="stepper">
+          <div class="step active" data-s="1"><span class="num"><span class="n">1</span></span><span class="lbl">The player</span></div>
+          <div class="bar" id="bar1"></div>
+          <div class="step" data-s="2"><span class="num"><span class="n">2</span></span><span class="lbl">Parent &amp; batch</span></div>
+          <div class="bar" id="bar2"></div>
+          <div class="step" data-s="3"><span class="num"><span class="n">3</span></span><span class="lbl">Confirm</span></div>
+        </div>
+
+        <form id="admForm" novalidate autocomplete="on">
+          <!-- step 1: the player -->
+          <section class="adm-step active" data-step="1">
+            <div class="form-grid">
+              <label class="field full">
+                <span>Player's full name</span>
+                <!-- autocomplete off on both of the player's fields: the person
+                     at the keyboard is the parent, and "name"/"bday" would
+                     helpfully fill the child's row with the adult's details. -->
+                <input type="text" id="player" name="player" autocomplete="off" placeholder="As it should appear on the register" required />
+              </label>
+              <label class="field">
+                <span>Date of birth</span>
+                <input type="date" id="dob" name="dob" autocomplete="off" />
+              </label>
+              <label class="field">
+                <span>Age <span class="opt">(if the date isn't handy)</span></span>
+                <input type="number" id="age" name="age" inputmode="numeric" min="3" max="75" step="1" placeholder="e.g. 11" />
+              </label>
+              <label class="field full">
+                <span>Gender <span class="opt">(optional)</span></span>
+                <select id="gender" name="gender">
+                  <option value="">Prefer not to say</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+            </div>
+            <p class="hint" id="ageHint">A date of birth is better than an age — an age stops being true on the next birthday. Either one is enough.</p>
+          </section>
+
+          <!-- step 2: parent / guardian and the preferred batch -->
+          <section class="adm-step" data-step="2">
+            <div class="form-grid">
+              <label class="field full">
+                <span>Parent or guardian's name</span>
+                <input type="text" id="parent" name="parent" autocomplete="name" placeholder="Who should the academy speak to?" required />
+              </label>
+              <label class="field">
+                <span>Mobile number</span>
+                <!-- No value= on anything here, ever. This repo is public and
+                     its history is permanent. -->
+                <input type="tel" id="phone" name="phone" inputmode="numeric" autocomplete="tel" maxlength="15" placeholder="10-digit mobile" required />
+              </label>
+              <label class="field">
+                <span>Email <span class="opt">(optional)</span></span>
+                <input type="email" id="email" name="email" autocomplete="email" placeholder="you@example.com" />
+              </label>
+              <label class="field full">
+                <span>Preferred batch <span class="opt">(optional)</span></span>
+                <select id="batch" name="batch">
+                  <option value="">No preference — whatever suits</option>
+                  <option value="Morning">Morning</option>
+                  <option value="Evening">Evening</option>
+                </select>
+              </label>
+            </div>
+            <p class="hint">The academy calls this number to confirm the batch, so please check it. Coaching runs at VAKAMAN FE, Coimbatore.</p>
+          </section>
+
+          <!-- step 3: check it, then consent -->
+          <section class="adm-step" data-step="3">
+            <div id="summary" class="lt-grid" style="gap: 10px;"></div>
+
+            <div class="pick-label">Parent / guardian consent</div>
+
+            <!-- ============================================================
+                 CONSENT — READ THIS BEFORE CHANGING THE PAYLOAD BELOW
+                 ============================================================
+                 The consent tick is validated here AND sent to the server as
+                 p_consent / p_terms. Whether it is STORED depends on which
+                 version of submit_application the database is running:
+
+                   · The original signature (AcademyManager/supabase/
+                     schema.sql:706) takes nine arguments — tenant, name,
+                     phone, email, level, goal, program, slot, trial — and
+                     has NO consent parameter and no parent, DOB or centre
+                     parameter either. Against that version consent cannot be
+                     persisted at all, and the demo app's form ticks a box
+                     and drops it on the floor (AcademyManagerDemo/
+                     admission.html:101 collects it, :214 omits it).
+
+                   · The widened signature adds p_dob, p_age, p_gender,
+                     p_parent_name, p_parent_phone, p_centre, p_consent,
+                     p_terms and p_source, and stamps consent_accepted_at
+                     server-side. It is AcademyManager/supabase/migrations/
+                     2026-08-17d-admission-captures-consent.sql.
+
+                 CHECKED, NOT ASSUMED: on 2026-08-17 both shapes were called
+                 over the real API with the real anon key, with p_name = 'Z'
+                 so the function raises 'name required' before it inserts
+                 anything. Both returned P0001 'name required' rather than
+                 PGRST202 — so the widened signature IS live today and this
+                 page's consent reaches applications.consent_accepted. Redo
+                 that probe rather than trusting this line: a dropped-and-
+                 recreated function can lose its signature or its grants, and
+                 reading the migration file proves neither.
+
+                 The page still sends the widened shape first. PostgREST
+                 resolves an RPC by argument NAME, so against the old
+                 nine-argument function the widened call fails with PGRST202
+                 ("could not find the function ... in the schema cache")
+                 BEFORE anything is inserted — no row, no duplicate. Only
+                 that specific failure falls back to the nine legacy
+                 arguments, which keeps the application from being lost, and
+                 folds the parent, the DOB and the consent into the free-text
+                 `goal` column so nothing typed here disappears.
+
+                 On that fallback path the consent is a sentence in a text
+                 column, NOT applications.consent_accepted — an audit
+                 querying that column still finds NULL. The page says so in
+                 the console and flags it on the telemetry event. Nothing on
+                 screen claims consent was stored.
+
+                 The fallback is for the day that function is rolled back,
+                 replaced by a narrower one, or the app is pointed at a
+                 project where the migration has not run. It is a safety net,
+                 not the design: consent for a minor belongs in a column with
+                 a server-stamped timestamp, never in prose. If you find the
+                 fallback firing in production, fix the database — do not
+                 improve the sentence.
+                 ============================================================ -->
+            <label class="choice consent" for="consent">
+              <input type="checkbox" id="consent" name="consent" />
+              <span class="dot"></span>
+              <span>I am the parent or guardian of the player named above. I consent to their taking part in cricket coaching at Super Kings Academy, VAKAMAN FE, and to the academy holding the details on this form so it can contact me about this application.</span>
+            </label>
+
+            <!-- The centre is captured for a reason: enrollments.centre_id
+                 is NOT NULL, and an approval inserts the member row first —
+                 so an application with no centre leaves a member behind and
+                 then aborts on the constraint. This page cannot read the
+                 centres table (anon has no read on it for this tenant, and
+                 rightly), so p_centre is sent as null and the server
+                 attributes it: SKA has exactly one active centre, VAKAMAN
+                 FE, and the widened function resolves a single-centre tenant
+                 itself rather than letting a client guess an id. -->
+            <p class="fineprint">Used only to process this application and to contact you about it. Not shared with anyone else. Ask the academy at any time to correct or remove it.</p>
+          </section>
+
+          <div class="form-msg" id="msg" role="status" aria-live="polite"></div>
+
+          <div class="adm-nav">
+            <button type="button" class="btn btn-ghost" id="backBtn" style="visibility:hidden;">← Back</button>
+            <span class="grow"></span>
+            <button type="button" class="btn btn-primary" id="nextBtn">Continue →</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- success -->
+      <div class="glass done-card" id="doneCard">
+        <div class="big-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <h2>Application received</h2>
+        <p class="muted mt-2" id="doneLine"></p>
+        <!-- What happens next, and nothing the academy has not agreed to:
+             no trial date, no callback window, no fee, no joining date. -->
+        <ol class="next-list">
+          <li><span class="n">1</span><span>The academy reviews the application at VAKAMAN FE.</span></li>
+          <li><span class="n">2</span><span>Someone calls the number you gave us to agree a batch and a joining date.</span></li>
+          <li><span class="n">3</span><span>Nothing is booked and nothing is payable until you have spoken to them.</span></li>
+        </ol>
+        <p class="fineprint" id="doneConsent"></p>
+        <div class="mt-4 flex" style="justify-content:center; flex-wrap:wrap;">
+          <a class="btn btn-primary" href="index.html">Back to home</a>
+          <button type="button" class="btn btn-glass" id="againBtn">Add another player</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="assets/js/core.js?v=2"></script>
+  <script src="assets/js/cloud.js?v=2"></script>
+  <!-- dev-data.js is loaded for shape consistency with the rest of the app.
+       Nothing on this page reads it: a public form has no reads to fall back
+       on, and its ONE write is real even while LT_CLOUD.DEV is true —
+       submit_application is anon-executable by design, so a parent filling
+       this in before staff sign-in is wired still reaches Postgres. There is
+       no fake success anywhere on this page. -->
+  <script src="assets/js/dev-data.js?v=2"></script>
+  <script>
+    /* page script last. core.js MUST NOT be in <head> — its ink-filter
+       IIFE returns early if document.body is missing and never retries. */
+    (function () {
+      "use strict";
+
+      var CENTRE_NAME = "VAKAMAN FE";      /* capitals, always. Not title case. */
+      var PROGRAM = "Cricket coaching";
+      var TOTAL = 3;
+
+      var step = 1;
+      var busy = false;
+
+      var form    = LT.$("#admForm");
+      var msg     = LT.$("#msg");
+      var nextBtn = LT.$("#nextBtn");
+      var backBtn = LT.$("#backBtn");
+      var dobEl   = LT.$("#dob");
+      var ageEl   = LT.$("#age");
+      var hintEl  = LT.$("#ageHint");
+
+      /* ---------- dates ----------
+         Local date parts only, never toISOString(): IST is UTC+5:30, so
+         before 05:30 IST toISOString() reports YESTERDAY, and a "born on or
+         before today" bound would reject a baby born this morning. LT.today()
+         builds the same way, for the same reason. */
+      dobEl.max = LT.today();
+      dobEl.min = (new Date().getFullYear() - 80) + "-01-01";
+
+      function ageFromDob(iso) {
+        var p = String(iso || "").split("-");
+        if (p.length !== 3) return null;
+        var y = Number(p[0]), m = Number(p[1]), d = Number(p[2]);
+        if (!y || !m || !d) return null;
+        var now = new Date();
+        var a = now.getFullYear() - y;
+        var mo = (now.getMonth() + 1) - m;
+        if (mo < 0 || (mo === 0 && now.getDate() < d)) a--;
+        return a;
+      }
+
+      /* DOB wins over a typed age — a date keeps being true, an age stops
+         being true on the next birthday. When one is given the other is
+         shown, read-only, so a parent can see what we worked out. */
+      function syncAge() {
+        var a = ageFromDob(dobEl.value);
+        if (a === null) {
+          ageEl.readOnly = false;
+          ageEl.className = "";
+          hintEl.className = "hint";
+          hintEl.textContent = "A date of birth is better than an age — an age stops being true on the next birthday. Either one is enough.";
+          return;
+        }
+        ageEl.readOnly = true;
+        ageEl.className = "derived";
+        ageEl.value = a < 0 ? "" : String(a);
+        if (a < 0) {
+          hintEl.className = "hint warn";
+          hintEl.textContent = "That date of birth is in the future.";
+        } else {
+          hintEl.className = "hint";
+          hintEl.textContent = "Age " + a + ", worked out from the date of birth.";
+        }
+      }
+      dobEl.addEventListener("change", syncAge);
+      dobEl.addEventListener("input", syncAge);
+
+      /* ---------- phone ----------
+         An Indian mobile is ten digits starting 6–9. Accept the shapes people
+         actually type (+91, 0091, a leading 0, spaces) and normalise to ten
+         before anything sees it — the server stores right(phone, 10), so a
+         number that differs only by a prefix must not read as a new family. */
+      function normPhone(raw) {
+        var d = String(raw || "").replace(/\D/g, "");
+        if (d.length === 11 && d.charAt(0) === "0") d = d.slice(1);
+        if (d.length === 12 && d.slice(0, 2) === "91") d = d.slice(2);
+        if (d.length === 13 && d.slice(0, 3) === "091") d = d.slice(3);
+        if (d.length === 14 && d.slice(0, 4) === "0091") d = d.slice(4);
+        return d;
+      }
+
+      function txt(sel) {
+        var el = LT.$(sel);
+        return el ? String(el.value || "").replace(/\s+/g, " ").replace(/^ | $/g, "") : "";
+      }
+
+      function collect() {
+        var dob = txt("#dob");
+        var derived = ageFromDob(dob);
+        var typed = txt("#age");
+        var batch = txt("#batch");
+        return {
+          player: txt("#player"),
+          dob: dob || null,
+          age: derived !== null ? derived : (typed ? Number(typed) : null),
+          gender: txt("#gender") || null,
+          parent: txt("#parent"),
+          phone: normPhone(txt("#phone")),
+          email: txt("#email") || null,
+          batch: batch,
+          batchLabel: batch ? batch + " batch" : "No preference"
+        };
+      }
+
+      /* ---------- steps ---------- */
+      function paint() {
+        LT.$$("#stepper .step").forEach(function (el) {
+          var s = Number(el.getAttribute("data-s"));
+          if (s === step) el.className = "step active";
+          else if (s < step) el.className = "step done";
+          else el.className = "step";
+        });
+        LT.$("#bar1").style.setProperty("--fill", step > 1 ? "100%" : "0%");
+        LT.$("#bar2").style.setProperty("--fill", step > 2 ? "100%" : "0%");
+        LT.$$(".adm-step").forEach(function (el) {
+          el.className = Number(el.getAttribute("data-step")) === step ? "adm-step active" : "adm-step";
+        });
+        backBtn.style.visibility = step === 1 ? "hidden" : "visible";
+        nextBtn.textContent = step === TOTAL ? "Submit application" : "Continue →";
+        say("");
+        if (step === TOTAL) fillSummary();
+      }
+
+      function say(text, isError) {
+        msg.textContent = text || "";
+        msg.className = isError ? "form-msg error" : "form-msg";
+      }
+
+      function fillSummary() {
+        var v = collect();
+        var age = v.age === null ? "Not given" :
+                  (v.age + (v.age === 1 ? " year" : " years") + (v.dob ? " · born " + LT.shortDate(v.dob) + " " + v.dob.slice(0, 4) : ""));
+        var rows = [
+          ["Player", v.player],
+          ["Age", age],
+          ["Gender", v.gender ? v.gender.charAt(0).toUpperCase() + v.gender.slice(1) : "Not given"],
+          ["Parent / guardian", v.parent],
+          ["Mobile", v.phone],
+          ["Email", v.email || "Not given"],
+          ["Preferred batch", v.batchLabel],
+          ["Venue", CENTRE_NAME]
+        ];
+        /* Every value here was typed by whoever is at the keyboard, and staff
+           tokens for this whole academy live in localStorage on a shared
+           github.io origin — so an unescaped name on any page lifts them. */
+        LT.$("#summary").innerHTML = rows.map(function (r) {
+          return '<div class="sum-row"><span class="k">' + LT.esc(r[0]) + '</span>' +
+                 '<span class="v">' + LT.esc(r[1]) + "</span></div>";
+        }).join("");
+      }
+
+      function validate() {
+        var v = collect();
+        if (step === 1) {
+          if (v.player.length < 2) return "Please enter the player's full name.";
+          var derived = ageFromDob(v.dob);
+          if (v.dob && derived !== null && derived < 0) return "That date of birth is in the future.";
+          if (v.age === null) return "Please give a date of birth, or an age.";
+          if (isNaN(v.age)) return "Please enter the age in years, as a number.";
+          if (v.age < 3 || v.age > 75) return "Please check the date of birth or the age.";
+        }
+        if (step === 2) {
+          if (v.parent.length < 2) return "Please enter the parent or guardian's name.";
+          if (v.phone.length !== 10) return "Please enter a 10-digit mobile number.";
+          if (!/^[6-9]/.test(v.phone)) return "That does not look like a mobile number — please check it.";
+          if (v.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)) return "Please check the email address, or leave it blank.";
+        }
+        if (step === TOTAL && !LT.$("#consent").checked) {
+          return "Please tick the consent box — the academy cannot accept an application for a child without it.";
+        }
+        return "";
+      }
+
+      /* ---------- submit ----------
+         ONE write, and it is real. No optimistic UI: the done card is shown
+         from the server's reply and from nothing else. */
+      function payloadWide(v) {
+        return {
+          p_tenant: LT_CLOUD.TENANT,
+          p_name: v.player,
+          p_phone: v.phone,
+          p_email: v.email,
+          p_level: null,                      /* not asked — basics only */
+          p_goal: null,
+          p_program: PROGRAM,
+          p_slot: CENTRE_NAME + " · " + v.batchLabel,
+          p_trial: null,                      /* no trial date is promised here */
+          p_dob: v.dob,
+          p_age: v.age,
+          p_gender: v.gender,
+          p_parent_name: v.parent,
+          p_parent_phone: v.phone,
+          p_centre: null,                     /* server resolves the single centre — see the comment at the form */
+          p_consent: true,
+          p_terms: true,
+          p_source: "website"
+        };
+      }
+
+      /* The nine-argument legacy shape. Used only when the widened function
+         is not in the database. Everything the old signature has nowhere for
+         rides into `goal` as readable prose rather than being dropped. */
+      function payloadLegacy(v) {
+        var note = [
+          "Parent/guardian: " + v.parent,
+          v.dob ? "DOB " + v.dob : (v.age !== null ? "Age " + v.age : null),
+          v.gender ? "Gender " + v.gender : null,
+          "Centre " + CENTRE_NAME,
+          "Consent ticked by the parent on the web form (not stored in consent_accepted — see 2026-08-17d)"
+        ].filter(function (x) { return !!x; }).join(" · ");
+        return {
+          p_tenant: LT_CLOUD.TENANT,
+          p_name: v.player,
+          p_phone: v.phone,
+          p_email: v.email,
+          p_level: null,
+          p_goal: note,
+          p_program: PROGRAM,
+          p_slot: CENTRE_NAME + " · " + v.batchLabel,
+          p_trial: null
+        };
+      }
+
+      /* PostgREST matches RPC arguments by NAME. Against the old nine-argument
+         function the widened call 404s with PGRST202 and inserts NOTHING, so
+         retrying cannot duplicate a row. Any OTHER error is rethrown — a
+         failure after an insert must never be retried. */
+      function signatureMissing(err) {
+        var m = String((err && err.message) || "");
+        return (err && err.status === 404) || /schema cache|could not find the function|PGRST202/i.test(m);
+      }
+
+      function humanError(err) {
+        var m = String((err && err.message) || "");
+        if (/too many requests|already have your enquiry/i.test(m)) {
+          return "We already have an application from this number today. The academy will call you.";
+        }
+        if (/unknown academy/i.test(m)) return "This form is not live yet. Please speak to the academy at VAKAMAN FE.";
+        if (/valid phone required/i.test(m)) return "Please enter a valid 10-digit mobile number.";
+        if (/name required/i.test(m)) return "Please enter the player's full name.";
+        if (/check the age or date of birth/i.test(m)) return "Please check the date of birth or the age.";
+        if (/no connection/i.test(m)) return "No connection — the application was not sent. Please check your network and try again.";
+        if (/permission denied|not authorised/i.test(m)) return "This form is not accepting applications right now. Please speak to the academy at VAKAMAN FE.";
+        /* Deliberately no phone number: the academy has not given one for
+           publication, and an invented one on a public page sends parents to
+           a stranger. */
+        return "Something went wrong and the application was not sent. Please try again in a moment.";
+      }
+
+      function submit() {
+        if (busy) return;
+        var v = collect();
+        busy = true;
+        nextBtn.disabled = true;
+        backBtn.disabled = true;
+        nextBtn.textContent = "Sending…";
+        say("Sending your application…");
+
+        LT_CLOUD.submitApplication(payloadWide(v))
+          .then(function () { done(v, true); })
+          .catch(function (err) {
+            if (!signatureMissing(err)) throw err;
+            /* Not silent: an engineer reading the console is told exactly
+               what did not happen and what fixes it. */
+            if (window.console && console.warn) {
+              console.warn(
+                "submit_application does not accept consent on this database. " +
+                "The application was filed through the nine-argument signature, so " +
+                "applications.consent_accepted is NULL for this row and the consent " +
+                "is prose in applications.goal. Fix: apply AcademyManager/supabase/" +
+                "migrations/2026-08-17d-admission-captures-consent.sql."
+              );
+            }
+            return LT_CLOUD.submitApplication(payloadLegacy(v)).then(function () { done(v, false); });
+          })
+          .catch(function (err) {
+            busy = false;
+            nextBtn.disabled = false;
+            backBtn.disabled = false;
+            nextBtn.textContent = "Submit application";
+            say(humanError(err), true);
+          });
+      }
+
+      function done(v, consentStored) {
+        busy = false;
+        nextBtn.disabled = false;
+        backBtn.disabled = false;
+
+        /* Counts and flags only — never a name, a number or an amount. The
+           consent flag is on the event so the operator console can see that a
+           tenant is taking admissions the database cannot record consent for. */
+        try {
+          LT_CLOUD.track("admission_submitted", {
+            batch: v.batch || "none",
+            has_dob: !!v.dob,
+            consent_stored: !!consentStored
+          });
+        } catch (e) {}
+
+        LT.$("#doneLine").innerHTML =
+          "The academy has " + LT.esc(v.player) + "'s application. Someone will call " +
+          LT.esc(v.phone) + " to confirm the batch and the joining date.";
+        LT.$("#doneConsent").textContent =
+          "Consent was submitted with this application on " +
+          LT.shortDate(LT.today()) + " " + LT.today().slice(0, 4) + ".";
+
+        LT.$("#wizard").style.display = "none";
+        LT.$(".adm-hero").style.display = "none";
+        LT.$("#doneCard").className = "glass done-card show";
+        window.scrollTo(0, 0);
+        LT.toast("Application received.");
+      }
+
+      /* ---------- wiring ---------- */
+      nextBtn.addEventListener("click", function () {
+        var err = validate();
+        if (err) { say(err, true); return; }
+        if (step < TOTAL) { step++; paint(); return; }
+        submit();
+      });
+
+      backBtn.addEventListener("click", function () {
+        if (busy || step === 1) return;
+        step--;
+        paint();
+      });
+
+      /* Enter anywhere in the form advances a step rather than doing a native
+         submit — a GET form post would put a child's name and a parent's
+         phone number in the URL, and in browser history. */
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        nextBtn.click();
+      });
+
+      /* Siblings enrol together often enough to be worth a button. A fresh
+         form, not a reload: nothing about this page is stored locally, so
+         there is no state to recover — LT.store holds UI preferences only,
+         never an application. */
+      LT.$("#againBtn").addEventListener("click", function () {
+        form.reset();
+        syncAge();
+        step = 1;
+        paint();
+        LT.$("#doneCard").className = "glass done-card";
+        LT.$("#wizard").style.display = "";
+        LT.$(".adm-hero").style.display = "";
+        window.scrollTo(0, 0);
+        LT.$("#player").focus();
+      });
+
+      syncAge();
+      paint();
+    })();
+  </script>
+</body>
+</html>

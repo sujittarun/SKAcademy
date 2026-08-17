@@ -1,0 +1,1740 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Members · Super Kings Academy</title>
+<meta name="description" content="The member roster for Super Kings Academy at VAKAMAN FE, Coimbatore — who is enrolled, who is due to renew, and the one place a coaching fee is recorded." />
+<script>
+  /* blocking: applies the persisted theme before first paint, else the
+     page renders dark and flashes. Raw string, not JSON. */
+  try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
+  document.documentElement.className += " lt-js";
+</script>
+<link rel="stylesheet" href="assets/css/glass.css?v=2" />
+<style>
+  /* Page-local layout only. Glass, pills, tables, chips, modals, empty
+     states and the money/skeleton helpers all come from glass.css. */
+
+  /* Toolbar: search + three dropdowns. Three or more mutually-exclusive
+     choices are a dropdown here, never a wrapping row of chips — that is
+     the design system's rule, and this page has three such filters. */
+  .pl-bar { display: flex; align-items: center; gap: var(--gap-2); flex-wrap: wrap; }
+  .pl-bar input[type="search"] { max-width: 260px; }
+
+  /* Roster row identity */
+  .pl-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .av {
+    width: 32px; height: 32px; flex: none; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 700; color: #231d00; background: var(--gold-grad);
+  }
+  .pl-name .who { min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+  .pl-name .sub2 { font-size: 11px; color: var(--ink-low); font-weight: 500; }
+  tr.mem-row { cursor: pointer; }
+  .pl-acts { display: inline-flex; gap: 6px; align-items: center; }
+  .pl-acts a { color: var(--ink-mid); }
+  .pl-acts a:hover { color: var(--tx-gold); }
+  .pl-acts svg { width: 15px; height: 15px; display: block; }
+
+  .pl-foot { font-size: 12px; line-height: 1.55; max-width: 92ch; }
+  .pl-foot b { color: var(--ink-mid); font-weight: 650; }
+
+  /* Reminder queue — the same visual language as the demo's renewal list,
+     but every field on the row is one reminder_queue() returned. */
+  /* This paragraph carries a real warning (no collection account yet), so
+     it sits at --ink-mid rather than the faint tone a decorative caption
+     would use — it has to survive the light theme. */
+  .rem-upi { font-size: 11.5px; margin: -2px 0 10px; color: var(--ink-mid); line-height: 1.5; }
+  .rem-upi b { color: var(--tx-gold); font-weight: 700; }
+  .rem-list { display: flex; flex-direction: column; gap: 8px; }
+  .rem-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+    border-radius: var(--r-md);
+    border: 1px solid rgba(220, 80, 86, 0.32); background: rgba(255, 107, 107, 0.07);
+  }
+  .rem-item.upcoming { border-color: rgba(247, 203, 21, 0.35); background: rgba(247, 203, 21, 0.08); }
+  .rem-item.stopped { border-color: var(--tile-border); background: var(--tile-bg); }
+  .rem-item.sent { border-color: rgba(52, 211, 153, 0.4); background: rgba(52, 211, 153, 0.08); }
+  .rem-item .rm-body { flex: 1 1 auto; min-width: 0; }
+  .rem-item .rm-name { display: block; font-weight: 700; font-size: 14px; color: var(--ink-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rem-item .rm-sub { display: block; font-size: 12px; margin-top: 1px; color: var(--ink-low); }
+  .rem-item .rm-sub .late { color: var(--tx-red); font-weight: 700; }
+  .rem-item .rm-sub .soon { color: var(--tx-gold); font-weight: 700; }
+  .rem-item .rm-sub .ok { color: var(--tx-green); font-weight: 700; }
+  .rem-item .rm-sub .amt { color: var(--ink-hi); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .rem-item .rm-acts { flex: none; display: flex; gap: 6px; align-items: center; }
+  .rem-item .rm-acts .btn svg { width: 15px; height: 15px; }
+  .rem-open { cursor: pointer; }
+
+  /* Member detail */
+  .md-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .md-id .av { width: 42px; height: 42px; font-size: 15px; }
+  .md-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 2px 0 14px; }
+  .bstat { border: 1px solid var(--tile-border); background: var(--tile-bg); border-radius: var(--r-md); padding: 11px 13px; min-width: 0; }
+  .bstat .k { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-low); }
+  .bstat .v { display: block; font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--ink-hi); margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .bstat .s { font-size: 11px; color: var(--ink-faint); }
+
+  .md-sec { margin-top: 16px; }
+  .md-sec > h3 {
+    font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-low); margin-bottom: 7px;
+  }
+  .md-note { font-size: 11.5px; color: var(--ink-faint); line-height: 1.5; margin-top: 6px; }
+  .md-note b { color: var(--ink-low); font-weight: 650; }
+
+  .md-facts { display: flex; flex-direction: column; }
+  .md-facts .f { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .md-facts .f:last-child { border-bottom: none; }
+  .md-facts .f .k { color: var(--ink-low); flex: none; }
+  .md-facts .f .v { font-weight: 650; color: var(--ink-hi); text-align: right; min-width: 0; overflow-wrap: anywhere; }
+  .md-facts .f .v.faint { font-weight: 500; color: var(--ink-low); }
+
+  /* Fee standing sits in its own framed block — it is the number a parent
+     is quoted, so it must not read like one row of a list. */
+  .fee-box { border: 1px solid rgba(247, 203, 21, 0.32); background: rgba(247, 203, 21, 0.07); border-radius: var(--r-md); padding: 12px 14px; }
+  .fee-box .fee-amt { font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink-hi); font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .fee-box .fee-src { font-size: 11.5px; color: var(--ink-low); margin-top: 3px; }
+  .fee-box .fee-src b { color: var(--tx-gold); font-weight: 700; }
+  .fee-box.unset { border-color: var(--tile-border); background: var(--tile-bg); }
+
+  .mini { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12.5px; }
+  .mini th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-faint); padding: 0 8px 6px 0; white-space: nowrap; }
+  .mini td { padding: 7px 8px 7px 0; border-top: 1px solid var(--line); color: var(--ink-mid); white-space: nowrap; }
+  .mini td.r { text-align: right; padding-right: 0; }
+  .mini .t-name { color: var(--ink-hi); font-weight: 650; }
+
+  .md-actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+  .md-actions .btn { flex: 1 1 150px; }
+  .md-actions .btn svg { width: 15px; height: 15px; }
+
+  .mp-hint { font-size: 11.5px; color: var(--ink-low); line-height: 1.5; }
+  .mp-hint b { color: var(--tx-gold); font-weight: 700; }
+  .mp-warn { font-size: 11.5px; color: var(--tx-red); line-height: 1.5; }
+
+  @media (max-width: 699px) {
+    .pl-bar input[type="search"] { max-width: none; width: 100%; }
+    .pl-bar .lt-filter, .pl-bar .lt-filter select { width: 100%; }
+    .md-stats { grid-template-columns: 1fr; }
+    .rem-item { flex-wrap: wrap; }
+    .rem-item .rm-acts { width: 100%; }
+    .rem-item .rm-acts .btn { flex: 1; }
+  }
+</style>
+</head>
+<body>
+  <div class="lt-bg" aria-hidden="true"></div>
+
+  <main class="lt-main lt-page">
+
+    <div class="card-head" style="margin-bottom:0;">
+      <div>
+        <div class="kicker">Roster</div>
+        <h2>Members</h2>
+        <div class="sub" id="countLine">Loading the roster…</div>
+      </div>
+      <div class="flex wrap">
+        <a class="btn btn-glass btn-sm" href="admission.html">New admission</a>
+        <button type="button" class="btn btn-glass btn-sm" id="reloadBtn">Refresh</button>
+      </div>
+    </div>
+
+    <!-- Search and the three filters. -->
+    <div class="glass glass-card tight reveal">
+      <div class="pl-bar">
+        <input type="search" id="q" placeholder="Search name or phone…" aria-label="Search members by name or phone" autocomplete="off" />
+        <span class="lt-filter"><select id="batchFilter" aria-label="Filter by batch"><option value="all">All batches</option></select></span>
+        <span class="lt-filter"><select id="statusFilter" aria-label="Filter by status"><option value="all">Any status</option></select></span>
+        <span class="lt-filter">
+          <select id="standingFilter" aria-label="Filter by renewal standing">
+            <option value="all">Any renewal standing</option>
+            <option value="queue">In today's reminder queue</option>
+            <option value="overdue">Overdue</option>
+            <option value="blocked">Reminder blocked</option>
+          </select>
+        </span>
+        <span class="grow"></span>
+        <span class="pill gold" id="shownPill" role="status" aria-live="polite">—</span>
+      </div>
+    </div>
+
+    <!-- Renewals. Every field on every row here was returned by
+         reminder_queue(): who is due, for how much, which account it
+         collects to, and whether the ladder has already stopped. -->
+    <div class="glass glass-card tight reveal d1">
+      <div class="card-head" style="margin-bottom:10px;">
+        <div>
+          <div class="kicker">Renewals</div>
+          <h2 style="font-size:16px;">Today's reminder queue</h2>
+          <div class="sub">The ladder — a heads-up two days before, the due day itself, +5, then daily to +14, and a full stop at +15 — belongs to the database. This screen shows what it returned and nothing else.</div>
+        </div>
+      </div>
+      <div class="rem-upi" id="remUpi"></div>
+      <div class="rem-list" id="remList"></div>
+    </div>
+
+    <!-- The roster. -->
+    <div class="glass reveal d2">
+      <div class="table-wrap">
+        <table class="lt-table tight">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Batch</th>
+              <th>Phone</th>
+              <th>Status</th>
+              <th>Renewal</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="pl-foot faint" id="foot">
+      <b>Renewal</b> shows only what today's reminder queue reports. A blank
+      means this member is not in today's window — the ladder skips the days
+      between its rungs — not that nothing is owed. Open a member to ask the
+      fee chain directly.
+    </div>
+
+  </main>
+
+  <!-- ============================================================
+       MEMBER DETAIL
+       Built entirely from reads. Nothing in it is derived here except
+       counts and dates; every rupee on this panel came back from
+       resolve_fee(), reminder_queue() or a bookings row.
+       ============================================================ -->
+  <div class="lt-modal-backdrop" id="mdBackdrop">
+    <div class="glass lt-modal" style="width:min(560px,100%);">
+      <div class="modal-head">
+        <div class="md-id">
+          <span class="av" id="mdAv" aria-hidden="true"></span>
+          <div style="min-width:0;">
+            <div class="kicker">Member</div>
+            <h2 id="mdName" style="font-size:21px;"></h2>
+            <div class="sub" id="mdSub"></div>
+          </div>
+        </div>
+        <button class="btn btn-icon btn-ghost" id="mdClose" type="button" aria-label="Close">✕</button>
+      </div>
+      <div id="mdBody"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       RECORD PAYMENT
+       One call: record_fee_payment(). It writes the payment, rolls the
+       enrolment's renewal date forward, writes the member timeline and
+       closes today's reminder. A raw insert into payments does none of
+       that, which is why this form has no other write path.
+       ============================================================ -->
+  <div class="lt-modal-backdrop" id="mpBackdrop" style="z-index:96;">
+    <div class="glass lt-modal" style="width:min(440px,100%);">
+      <div class="modal-head">
+        <div>
+          <div class="kicker">Record payment</div>
+          <h2 id="mpName" style="font-size:19px;"></h2>
+          <div class="sub" id="mpSub"></div>
+        </div>
+        <button class="btn btn-icon btn-ghost" id="mpClose" type="button" aria-label="Close">✕</button>
+      </div>
+
+      <form id="mpForm" class="lt-grid" style="gap:var(--gap-3);" autocomplete="off">
+        <label class="field">
+          <span>This pays for</span>
+          <div class="chip-row filters" id="mpMonths">
+            <button type="button" class="chip active" data-mo="1">1 month</button>
+            <button type="button" class="chip" data-mo="3">3 months</button>
+            <button type="button" class="chip" data-mo="6">6 months</button>
+            <button type="button" class="chip" data-mo="12">12 months</button>
+          </div>
+        </label>
+
+        <div class="mp-hint" id="mpFeeHint">Asking the academy's fee chain…</div>
+        <div class="mp-warn hide" id="mpWarn"></div>
+
+        <label class="field">
+          <span>Amount received</span>
+          <input type="number" name="amount" id="mpAmount" min="1" step="1" inputmode="numeric" placeholder="Amount in rupees" required />
+        </label>
+
+        <label class="field">
+          <span>Paid by</span>
+          <div class="chip-row filters" id="mpMode">
+            <button type="button" class="chip active" data-m="Cash">Cash</button>
+            <button type="button" class="chip" data-m="UPI">UPI</button>
+            <button type="button" class="chip" data-m="Card">Card</button>
+            <button type="button" class="chip" data-m="Bank">Bank transfer</button>
+          </div>
+        </label>
+
+        <label class="field">
+          <span>Kind</span>
+          <div class="chip-row filters" id="mpKind">
+            <button type="button" class="chip active" data-k="renewal">Renewal</button>
+            <button type="button" class="chip" data-k="admission">Joining fee</button>
+          </div>
+        </label>
+
+        <div class="lt-grid cols-2" style="gap:var(--gap-2);">
+          <label class="field"><span>Received on</span><input type="date" id="mpDate" /></label>
+          <label class="field"><span>Collected by</span><input type="text" id="mpBy" maxlength="60" placeholder="Who took the money" /></label>
+        </div>
+
+        <label class="field"><span>Note <span class="opt">(optional)</span></span>
+          <input type="text" id="mpNote" maxlength="140" placeholder="Anything the office should see later" />
+        </label>
+
+        <label class="choice">
+          <input type="checkbox" id="mpUnverified" /><span class="dot"></span>
+          <span>The family says they paid, but it is not in hand yet</span>
+        </label>
+
+        <div class="form-msg" id="mpMsg" style="min-height:0;"></div>
+        <button class="btn btn-primary btn-block" type="submit" id="mpSave">Record payment</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="assets/js/core.js?v=2"></script>
+  <script src="assets/js/cloud.js?v=2"></script>
+  <script src="assets/js/dev-data.js?v=2"></script>
+  <script>
+    /* page script last. core.js MUST NOT be in <head> — its ink-filter
+       IIFE returns early if document.body is missing and never retries. */
+    (function () {
+      "use strict";
+
+      /* ============================================================
+         WHERE EVERY NUMBER ON THIS PAGE COMES FROM
+
+         NO MONEY IS COMPUTED HERE. Not one rupee on this screen, in a
+         WhatsApp message or in a payment form was derived in JavaScript:
+
+           · a renewal amount is resolve_fee()'s answer — either the
+             `amount` column reminder_queue() already carries for that
+             enrolment (which is resolve_fee, run server-side, including
+             any per-enrolment override), or a direct resolveFee() call
+             for the plan length the operator picked;
+           · changing 1 month to 3 months RE-ASKS the server. It does not
+             multiply. plan_amounts may price three months at something
+             other than three times one, and only the fee rule knows;
+           · a booking's amount is the amount stored on the booking row;
+           · the collection account is resolve_upi()'s answer. This tenant
+             has NO UPI id configured yet (config.billing.upiIds is
+             deliberately empty until the client supplies a real one), so
+             resolve_upi returns source 'unset' and this page says so in
+             words rather than printing "undefined";
+           · recording a payment goes through record_fee_payment() and
+             nothing else. It rolls enrollments.renewal_on forward, writes
+             the member timeline and closes today's reminder. The renewal
+             date shown afterwards is the one that call returned.
+
+         The demo app this design is ported from does the opposite in six
+         places — a flat plans[0].amount is shown as every member's
+         renewal, embedded in the parent's WhatsApp message and put in a
+         payment link. Those numbers are already listed as debt in its own
+         notes. None of them are inherited here.
+
+         WHAT THIS SCREEN CANNOT SEE, AND SAYS SO
+
+         cloud.js exposes no read of enrollments or payments — one write
+         path for fees and no ledger read. So:
+
+           · the enrolment (its id, its batch) is learned from
+             attendance_roster(), which IS the list of active enrolments
+             in a batch. A member with no active enrolment in any batch
+             therefore has no id to pay against, and this page disables
+             "Record payment" for them and explains why instead of
+             guessing an id;
+           · the renewal DATE is known only for members reminder_queue()
+             returned today. Everyone else shows a blank, not "up to
+             date" — the ladder has gaps between its rungs and a blank is
+             an absence of information, not a clean bill;
+           · fee payment history is not read at all. The receipt shown
+             after recording one is the value record_fee_payment()
+             returned in this session, not a ledger.
+
+         A failed read renders "could not load" and never leaves stale or
+         invented rows behind. In DEV the sample fixtures below stand in,
+         always under the striped banner, and every write is refused
+         loudly rather than pretending to save.
+         ============================================================ */
+
+      if (!LT.auth.require({ staffOnly: true })) return;
+      LT.managerShell("players.html");
+
+      var $ = LT.$;
+      var TODAY = LT.today();
+      var ATT_DAYS = 30;         /* attendance window in the detail panel */
+      var BOOK_DAYS = 45;        /* facility-booking window in the detail  */
+      var PLAN_MONTHS = [1, 3, 6, 12];   /* record_fee_payment accepts only these */
+
+      var state = {
+        members: [],  membersErr: null,  membersLoaded: false,
+        batches: [],
+        centres: {},               /* id -> name */
+        enrol: {},                 /* member_id -> {enrollment_id, batch_id, batch_name} */
+        enrolLoaded: false,
+        queue: null,               /* array once loaded */
+        queueBy: {},               /* member_id -> queue row */
+        queueErr: null,
+        upi: null, upiErr: null,   /* the academy default, for the header line */
+        bookings: null, bookingsErr: null,
+        filter: { q: "", batch: "all", status: "all", standing: "all" },
+        openId: null,              /* member id shown in the detail panel */
+        detailSeq: 0,
+        feeSeq: 0,
+        receipts: {}               /* member_id -> what record_fee_payment returned, this session only */
+      };
+
+      /* ---------- tiny helpers ---------- */
+
+      function byId(id) { return document.getElementById(id); }
+      function digits(s) { return String(s == null ? "" : s).replace(/\D/g, ""); }
+      function firstName(s) { return String(s || "").trim().split(/\s+/)[0] || ""; }
+      function isNum(v) { return v !== null && v !== undefined && v !== "" && !isNaN(Number(v)); }
+
+      function shiftIso(iso, days) {
+        var d = new Date(iso + "T00:00:00");
+        d.setDate(d.getDate() + days);
+        return LT.isoDate(d);
+      }
+
+      /* A date the way an Indian parent writes it. Dates only — anything
+         with a clock in it carries its zone, see istStamp(). */
+      function niceDate(iso) {
+        if (!iso) return "—";
+        var d = new Date(String(iso).slice(0, 10) + "T00:00:00");
+        if (isNaN(d.getTime())) return "—";
+        return d.getDate() + " " +
+          ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()] +
+          " " + d.getFullYear();
+      }
+
+      /* Timestamps ALWAYS carry their zone. The database renders UTC and
+         the academy reads IST; a bare time is how two numbers that are
+         not comparable end up compared. */
+      function istStamp(ts) {
+        if (!ts) return "";
+        var d = new Date(ts);
+        if (isNaN(d.getTime())) return "";
+        try {
+          return d.toLocaleString("en-IN", {
+            day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+            hour12: false, timeZone: "Asia/Kolkata"
+          }) + " IST";
+        } catch (e) {
+          return d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
+        }
+      }
+
+      function daysSinceIso(iso) {
+        if (!iso) return null;
+        var a = new Date(String(iso).slice(0, 10) + "T00:00:00");
+        var b = new Date(TODAY + "T00:00:00");
+        if (isNaN(a.getTime())) return null;
+        return Math.round((b - a) / 864e5);
+      }
+
+      function plural(n, one, many) { return n === 1 ? one : many; }
+
+      var WA_ICON =
+        '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.05 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.14 1.6 5.95L.06 24l6.3-1.65a11.9 11.9 0 0 0 5.69 1.45c6.55 0 11.89-5.34 11.9-11.9C23.94 5.34 18.6 0 12.05 0m6.99 16.94c-.3.83-1.5 1.53-2.08 1.62-.53.08-1.2.11-1.94-.12-.45-.14-1.02-.33-1.76-.65-3.1-1.34-5.12-4.46-5.27-4.66-.15-.2-1.26-1.67-1.26-3.19s.8-2.27 1.08-2.58c.28-.31.61-.39.81-.39h.58c.19 0 .44-.07.68.52.25.6.85 2.06.92 2.21.08.15.13.33.03.53-.1.2-.15.32-.3.5-.14.17-.3.38-.44.51-.15.15-.3.3-.13.6.17.29.77 1.27 1.65 2.05 1.14 1.02 2.1 1.33 2.4 1.48.29.15.46.12.63-.07.2-.22.72-.84.91-1.13.2-.3.4-.25.66-.15.28.1 1.74.82 2.04.97.3.15.5.22.57.35.07.12.07.71-.23 1.54"/></svg>';
+      var CALL_ICON =
+        '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>';
+
+      /* ---------- table cell furniture ----------
+         LT.skeleton / LT.empty / LT.fail write a <div>, which is not legal
+         inside a <tbody>. Same components, wrapped in a row. */
+
+      function skelRows(n) {
+        var h = "";
+        for (var i = 0; i < n; i++) h += '<tr><td colspan="5"><div class="lt-skel"></div></td></tr>';
+        return h;
+      }
+      function noteRow(title, sub) {
+        return '<tr><td colspan="5"><div class="lt-empty">' +
+          '<div class="lt-empty-t">' + LT.esc(title) + "</div>" +
+          (sub ? '<div class="lt-empty-s">' + LT.esc(sub) + "</div>" : "") +
+          "</div></td></tr>";
+      }
+
+      /* ============================================================
+         DEV SAMPLE DATA
+
+         Reached only when the real call has already failed AND
+         LT_CLOUD.DEV is true. A live read that fails still renders "could
+         not load": an empty academy and a broken one must never look
+         alike.
+
+         Note what these fixtures do NOT do. devQueue() does not implement
+         the reminder ladder — it is the sample roster ordered by renewal
+         date, and nothing more. The ladder (−2, the due day, +5, +7 to
+         +14, stop at +15) lives in reminder_queue() and is never
+         re-derived in a client, not even for sample data. devFee() prices
+         one month and refuses to price three, because multiplying is
+         exactly the thing this page exists to not do.
+         ============================================================ */
+
+      function devMembers() {
+        var src = (window.SKA_DEV && SKA_DEV.members) || [];
+        return src.map(function (m, i) {
+          return {
+            id: m.id, name: m.name, phone: m.phone, sport: m.sport,
+            status: m.status, centre_id: 1,
+            created_at: SKA_DEV.date(-(40 + i * 13)) + "T04:30:00Z"
+          };
+        });
+      }
+
+      function devBatches() {
+        return ((window.SKA_DEV && SKA_DEV.batches) || []).map(function (b) {
+          return {
+            id: b.id, name: b.name, sport: b.sport, days: b.days,
+            start_time: b.start_time, end_time: b.end_time, centre_id: 1, active: true
+          };
+        });
+      }
+
+      /* attendance_roster()-shaped rows, which is how this page learns the
+         enrolment id and the batch a member sits in. */
+      function devRoster(batchId) {
+        var b = batchById(batchId);
+        if (!b) return [];
+        return ((window.SKA_DEV && SKA_DEV.members) || [])
+          .filter(function (m) { return m.batch === b.name; })
+          .map(function (m) {
+            return {
+              enrollment_id: 5000 + m.id, member_id: m.id, member_name: m.name,
+              parent_name: null, phone: m.phone, sport: m.sport,
+              attendance_status: null
+            };
+          });
+      }
+
+      /* The sample roster ordered by renewal date — not a queue. Which
+         rung an enrolment sits on, and when the platform stops chasing and
+         hands over to a human, are reminder_queue()'s answers; a threshold
+         written here would be this file's own stop rule wearing the
+         platform's clothes. So no row is filtered out, and stage and
+         blocked_reason are left null for the UI to report as unknown. */
+      function devQueue() {
+        var src = (window.SKA_DEV && SKA_DEV.members) || [];
+        var out = [];
+        src.forEach(function (m) {
+          var since = daysSinceIso(m.renews_on);
+          if (since === null) return;                 /* no renewal date, no row */
+          var en = state.enrol[String(m.id)] || {};
+          out.push({
+            enrollment_id: en.enrollment_id || (5000 + m.id),
+            member_id: m.id,
+            member_name: m.name,
+            parent_name: null,
+            phone: m.phone,
+            centre: "VAKAMAN FE",
+            batch: en.batch_name || m.batch,
+            sport: m.sport,
+            due_date: m.renews_on,
+            days_since: since,
+            stage: null,
+            amount: m.fee,
+            months: 1,
+            fee_source: "batch",
+            blocked_reason: null,
+            already_sent: false,
+            last_sent_at: null,
+            upi_id: null, upi_name: "Super Kings Academy", upi_source: "unset"
+          });
+        });
+        out.sort(function (a, b) { return b.days_since - a.days_since; });
+        return out;
+      }
+
+      /* Matches the live config exactly: billing.upiIds is empty on
+         purpose, so resolve_upi() answers 'unset' until the client hands
+         over a real collection id. */
+      function devUpi() {
+        return { vpa: null, name: "Super Kings Academy", source: "unset" };
+      }
+
+      function devFee(memberId, months) {
+        var src = (window.SKA_DEV && SKA_DEV.members) || [];
+        var m = null, i;
+        for (i = 0; i < src.length; i++) if (String(src[i].id) === String(memberId)) m = src[i];
+        if (!m) return { amount: null, monthly: null, source: "unset" };
+        if (Number(months) !== 1) {
+          /* Deliberately not priced. Three months is not three times one
+             unless the fee rule says so, and sample data is not a fee
+             rule. On the live academy resolve_fee() answers this. */
+          return { amount: null, monthly: m.fee, source: "sample_month_only" };
+        }
+        return { amount: m.fee, monthly: m.fee, source: "sample" };
+      }
+
+      function devDashboard(memberId) {
+        var i = Number(memberId) % 5;
+        var sessions = [12, 10, 12, 9, 11][i];
+        var present = [12, 8, 7, 9, 5][i];
+        return {
+          summary: {
+            sessions: sessions, students: 1, present: present,
+            absent: sessions - present,
+            rate: Math.round((present / sessions) * 1000) / 10
+          },
+          students: [{
+            member_id: memberId, sessions: sessions, attended: present,
+            absent: sessions - present, absence_streak: [0, 1, 3, 0, 2][i],
+            last_session_on: SKA_DEV.date(-([1, 2, 6, 1, 4][i]))
+          }],
+          trend: []
+        };
+      }
+
+      function devBookings() { return (window.SKA_DEV && SKA_DEV.bookings) || []; }
+
+      /* ============================================================
+         LOOKUPS
+         ============================================================ */
+
+      function batchById(id) {
+        for (var i = 0; i < state.batches.length; i++) {
+          if (String(state.batches[i].id) === String(id)) return state.batches[i];
+        }
+        return null;
+      }
+      function memberById(id) {
+        for (var i = 0; i < state.members.length; i++) {
+          if (String(state.members[i].id) === String(id)) return state.members[i];
+        }
+        return null;
+      }
+      function enrolOf(m) { return m ? (state.enrol[String(m.id)] || null) : null; }
+      function queueOf(m) { return m ? (state.queueBy[String(m.id)] || null) : null; }
+
+      function centreName(id) {
+        if (id == null) return "";
+        return state.centres[String(id)] || "";
+      }
+
+      /* Labels for the sources resolve_fee() and resolve_upi() report, so
+         the screen can say WHERE a number came from — which is the whole
+         point of a 7-level chain nobody can hold in their head. */
+      var FEE_SOURCE = {
+        custom: "this student's own agreed fee",
+        member: "a rule for this student",
+        batch: "the batch rate",
+        centre_sport: "the venue's cricket rate",
+        sport: "the cricket rate",
+        centre: "the venue rate",
+        "default": "the academy default",
+        unset: "no fee rule matches yet",
+        sample: "sample data",
+        sample_month_only: "sample data"
+      };
+      var UPI_SOURCE = {
+        batch: "this batch's account",
+        centre: "the venue's account",
+        academy: "the academy account",
+        unset: "not configured"
+      };
+      var BLOCKED = {
+        missing_phone: "No usable phone number on file",
+        wrong_phone_number: "The number on file is wrong",
+        whatsapp_opted_out: "This family opted out of WhatsApp",
+        overdue_15_days: "Past +15 days — the ladder stops here, call instead",
+        fee_not_set: "No fee rule matches this student yet"
+      };
+      var STATUS_LABEL = {
+        active: "Active", paused: "Paused", trial: "Trial",
+        discontinued: "Left", inactive: "Inactive"
+      };
+      function statusClass(s) {
+        if (s === "active") return "green";
+        if (s === "paused" || s === "trial") return "gold";
+        if (s === "discontinued" || s === "inactive") return "red";
+        return "";
+      }
+
+      /* ============================================================
+         READS
+
+         Fired together, not chained. The database answers each in
+         single-digit milliseconds; the ~180 ms is the round trip to
+         Tokyo, so the only thing that makes this page fast is not waiting
+         for one read before starting the next.
+         ============================================================ */
+
+      function loadAll() {
+        loadMembers();
+        loadStructure();
+        loadQueue();
+        loadUpi();
+        loadBookings();
+        loadCourtLabels();
+      }
+
+      function loadMembers() {
+        state.membersLoaded = false;
+        state.membersErr = null;
+        byId("rows").innerHTML = skelRows(6);
+        byId("countLine").textContent = "Loading the roster…";
+
+        LT_CLOUD.members()
+          .then(function (rows) { haveMembers(rows || []); })
+          .catch(function (err) {
+            if (LT_CLOUD.DEV) { haveMembers(devMembers()); return; }
+            state.members = [];
+            state.membersErr = err;
+            state.membersLoaded = true;
+            byId("countLine").textContent = "The roster did not load.";
+            byId("shownPill").textContent = "—";
+            byId("rows").innerHTML = noteRow("Could not load the roster",
+              (err && err.message) || "The members read failed.");
+          });
+      }
+
+      function haveMembers(rows) {
+        state.members = rows;
+        state.membersLoaded = true;
+        state.membersErr = null;
+        fillStatusFilter();
+        renderRows();
+      }
+
+      /* Batches and centres, then the enrolment map. */
+      function loadStructure() {
+        LT_CLOUD.centres()
+          .then(function (rows) { haveCentres(rows || []); })
+          .catch(function () {
+            if (LT_CLOUD.DEV) haveCentres([{ id: 1, name: "VAKAMAN FE", short_name: "VAKAMAN FE" }]);
+            /* A centre name is a label. Without it the panel shows the id
+               nothing else changes, so this failure is not worth shouting
+               about on screen. */
+          });
+
+        LT_CLOUD.batches()
+          .then(function (rows) { haveBatches(rows || []); })
+          .catch(function () {
+            if (LT_CLOUD.DEV) { haveBatches(devBatches()); return; }
+            var sel = byId("batchFilter");
+            sel.innerHTML = '<option value="all">Batches unavailable</option>';
+            sel.disabled = true;
+            state.enrolLoaded = true;
+            renderRows();
+          });
+      }
+
+      function haveCentres(rows) {
+        rows.forEach(function (c) {
+          state.centres[String(c.id)] = c.short_name || c.name || "";
+        });
+        if (state.openId) renderDetail();
+      }
+
+      function haveBatches(rows) {
+        state.batches = rows.filter(function (b) { return b.active !== false; });
+        var sel = byId("batchFilter");
+        sel.disabled = false;
+        sel.innerHTML = '<option value="all">All batches</option>' +
+          state.batches.map(function (b) {
+            return '<option value="' + LT.esc(b.id) + '">' + LT.esc(b.name) + "</option>";
+          }).join("");
+        if (!state.batches.length) {
+          sel.innerHTML = '<option value="all">No batches yet</option>';
+          sel.disabled = true;
+          state.enrolLoaded = true;
+          renderRows();
+          return;
+        }
+        loadEnrolments();
+      }
+
+      /* THE ENROLMENT MAP.
+         attendance_roster(tenant, batch, date) returns the active
+         enrolments in a batch — that is what a register IS — so it is the
+         one read this client has that answers "which enrolment is this
+         member, and in which batch". One call per batch, all in flight at
+         once. A batch whose read fails simply contributes nothing; the
+         members in it show "—" rather than a guess. */
+      function loadEnrolments() {
+        state.enrol = {};
+        state.enrolLoaded = false;
+        var pending = state.batches.length;
+
+        state.batches.forEach(function (b) {
+          LT_CLOUD.attendanceRoster(b.id, TODAY)
+            .then(function (rows) { absorbRoster(b, rows || []); })
+            .catch(function () {
+              if (LT_CLOUD.DEV) absorbRoster(b, devRoster(b.id));
+            })
+            .then(function () {
+              pending -= 1;
+              if (pending <= 0) {
+                state.enrolLoaded = true;
+                renderRows();
+                if (state.openId) renderDetail();
+              }
+            });
+        });
+      }
+
+      function absorbRoster(batch, rows) {
+        rows.forEach(function (r) {
+          if (r.member_id == null || r.enrollment_id == null) return;
+          state.enrol[String(r.member_id)] = {
+            enrollment_id: r.enrollment_id,
+            batch_id: batch.id,
+            batch_name: batch.name,
+            parent_name: r.parent_name || null,
+            sport: r.sport || null
+          };
+        });
+      }
+
+      function loadQueue() {
+        state.queue = null;
+        state.queueErr = null;
+        LT.skeleton(byId("remList"), 3);
+        byId("remUpi").textContent = "";
+
+        LT_CLOUD.reminderQueue()
+          .then(function (rows) { haveQueue(rows || []); })
+          .catch(function (err) {
+            if (LT_CLOUD.DEV) { haveQueue(devQueue()); return; }
+            state.queue = null;
+            state.queueBy = {};
+            state.queueErr = err;
+            LT.fail(byId("remList"), err);
+            renderRows();
+          });
+      }
+
+      function haveQueue(rows) {
+        state.queue = rows;
+        state.queueBy = {};
+        rows.forEach(function (r) {
+          if (r.member_id != null) state.queueBy[String(r.member_id)] = r;
+        });
+        renderQueue();
+        renderRows();
+        if (state.openId) renderDetail();
+      }
+
+      /* The academy's default collection account, for the line above the
+         queue. Each row still quotes the account resolved for its own
+         enrolment (batch → centre → academy), which is what the queue
+         carries per row. */
+      function loadUpi() {
+        LT_CLOUD.resolveUpi({})
+          .then(function (res) { state.upi = res || null; renderUpiLine(); })
+          .catch(function (err) {
+            if (LT_CLOUD.DEV) { state.upi = devUpi(); renderUpiLine(); return; }
+            state.upiErr = err;
+            renderUpiLine();
+          });
+      }
+
+      /* The rental side of a family's history. One read, used only in the
+         member panel — the booking board owns the day-to-day view. */
+      function loadBookings() {
+        LT_CLOUD.bookingsBetween(shiftIso(TODAY, -BOOK_DAYS), TODAY)
+          .then(function (rows) { state.bookings = rows || []; if (state.openId) renderDetail(); })
+          .catch(function (err) {
+            if (LT_CLOUD.DEV) { state.bookings = devBookings(); if (state.openId) renderDetail(); return; }
+            state.bookingsErr = err;
+            if (state.openId) renderDetail();
+          });
+      }
+
+      /* Court labels are decoration: without them the panel shows N1/G1,
+         which is honest. Never a source of truth for anything priced. */
+      function loadCourtLabels() {
+        LT_CLOUD.tenantConfig()
+          .then(function (row) {
+            var cfg = (row && row.config) || null;
+            /* An anon read that RLS refuses comes back as [] with HTTP 200,
+               not as an error — so "no config" must be raised here or the
+               DEV fallback below never runs and the panel silently keeps
+               showing raw court codes. */
+            if (!cfg || !cfg.courtLabels) throw new Error("no court labels in config");
+            LT.setCourtLabels(cfg.courtLabels);
+            if (state.openId) renderDetail();
+          })
+          .catch(function () {
+            if (LT_CLOUD.DEV && window.SKA_DEV) {
+              LT.setCourtLabels(SKA_DEV.courtLabels);
+              if (state.openId) renderDetail();
+            }
+          });
+      }
+
+      /* ============================================================
+         THE RENEWAL QUEUE
+         ============================================================ */
+
+      function renderUpiLine() {
+        var host = byId("remUpi");
+        if (state.upiErr) {
+          host.innerHTML = "The collection account could not be read, so no reminder below will quote one.";
+          return;
+        }
+        if (!state.upi) { host.textContent = ""; return; }
+        if (!state.upi.vpa) {
+          host.innerHTML =
+            "<b>No UPI id is configured for this academy yet.</b> " +
+            "Reminders will go out without a payment handle — which is the right behaviour: " +
+            "a plausible-looking id that belongs to someone else is how a parent's fee reaches a stranger. " +
+            "Add the real collection id in billing before go-live.";
+          return;
+        }
+        host.innerHTML = "Fees collect to <b>" + LT.esc(state.upi.vpa) + "</b>" +
+          (state.upi.name ? " (" + LT.esc(state.upi.name) + ")" : "") +
+          " · " + LT.esc(UPI_SOURCE[state.upi.source] || state.upi.source) +
+          ". Each reminder below quotes the account resolved for that enrolment.";
+      }
+
+      function standingText(row) {
+        var d = Number(row.days_since);
+        if (d < 0) return '<span class="soon">Renews in ' + (-d) + " " + plural(-d, "day", "days") + "</span>";
+        if (d === 0) return '<span class="late">Due today</span>';
+        return '<span class="late">' + d + " " + plural(d, "day", "days") + " overdue</span>";
+      }
+
+      function renderQueue() {
+        var host = byId("remList");
+        var rows = state.queue;
+        if (!rows) return;
+
+        if (!rows.length) {
+          LT.empty(host, "Nobody is due today",
+            "The queue is what reminder_queue() returned for today. It is empty when no enrolment sits on one of the ladder's rungs — not necessarily when every fee is paid.");
+          return;
+        }
+
+        host.innerHTML = rows.map(function (r) {
+          var blocked = r.blocked_reason ? String(r.blocked_reason) : "";
+          var cls = "rem-item rem-open";
+          if (blocked) cls += " stopped";
+          else if (Number(r.days_since) < 0) cls += " upcoming";
+          if (r.already_sent) cls += " sent";
+
+          var money = isNum(r.amount)
+            ? '<span class="amt">' + LT.esc(LT.fmtINR(r.amount)) + "</span>" +
+              (r.months ? " · " + LT.esc(r.months) + " " + plural(Number(r.months), "month", "months") : "") +
+              (r.fee_source ? " · " + LT.esc(FEE_SOURCE[r.fee_source] || r.fee_source) : "")
+            : '<span class="faint">no amount — ' + LT.esc(FEE_SOURCE.unset) + "</span>";
+
+          var sub = standingText(r) + " · " + money +
+            (r.batch ? " · " + LT.esc(r.batch) : "") +
+            (r.already_sent ? ' · <span class="ok">reminded today ✓</span>' : "") +
+            (blocked ? '<br /><span class="late">' + LT.esc(BLOCKED[blocked] || blocked) + "</span>" : "");
+
+          var phone = digits(r.phone);
+          var acts;
+          if (blocked === "overdue_15_days" || blocked === "whatsapp_opted_out" || blocked === "wrong_phone_number") {
+            acts = phone.length >= 10
+              ? '<a class="btn btn-glass btn-sm" href="tel:+91' + LT.esc(phone.slice(-10)) + '">' + CALL_ICON + " Call</a>"
+              : '<span class="faint" style="font-size:11.5px;">Manual follow-up</span>';
+          } else if (blocked) {
+            acts = '<span class="faint" style="font-size:11.5px;">Fix this first</span>';
+          } else {
+            acts = '<button type="button" class="btn btn-primary btn-sm" data-wa="' + LT.esc(r.member_id) + '">' +
+              WA_ICON + " Remind</button>";
+          }
+
+          return '<div class="' + cls + '" data-open="' + LT.esc(r.member_id) + '" role="button" tabindex="0">' +
+            '<span class="av" aria-hidden="true">' + LT.esc(LT.initials(r.member_name)) + "</span>" +
+            '<span class="rm-body">' +
+              '<span class="rm-name">' + LT.esc(r.member_name) + "</span>" +
+              '<span class="rm-sub">' + sub + "</span>" +
+            "</span>" +
+            '<span class="rm-acts">' + acts + "</span>" +
+            "</div>";
+        }).join("");
+      }
+
+      byId("remList").addEventListener("click", function (e) {
+        var wa = e.target.closest ? e.target.closest("[data-wa]") : null;
+        if (wa) { e.stopPropagation(); remindFromQueue(wa.getAttribute("data-wa")); return; }
+        if (e.target.closest && e.target.closest("a")) return;   /* tel: link */
+        var row = e.target.closest ? e.target.closest("[data-open]") : null;
+        if (row) openMember(row.getAttribute("data-open"));
+      });
+      byId("remList").addEventListener("keydown", function (e) {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        var row = e.target.closest ? e.target.closest("[data-open]") : null;
+        if (row) { e.preventDefault(); openMember(row.getAttribute("data-open")); }
+      });
+
+      /* ============================================================
+         THE ROSTER TABLE
+         ============================================================ */
+
+      function fillStatusFilter() {
+        var seen = {}, order = [];
+        state.members.forEach(function (m) {
+          var s = String(m.status || "");
+          if (!s || seen[s]) return;
+          seen[s] = 1; order.push(s);
+        });
+        var sel = byId("statusFilter");
+        var keep = sel.value || "all";
+        sel.innerHTML = '<option value="all">Any status</option>' +
+          order.map(function (s) {
+            return '<option value="' + LT.esc(s) + '">' + LT.esc(STATUS_LABEL[s] || s) + "</option>";
+          }).join("");
+        sel.value = seen[keep] ? keep : "all";
+        state.filter.status = sel.value;
+      }
+
+      function visibleMembers() {
+        var f = state.filter;
+        var qText = f.q, qDigits = digits(f.q);
+        return state.members.filter(function (m) {
+          if (f.status !== "all" && String(m.status || "") !== f.status) return false;
+
+          if (f.batch !== "all") {
+            var en = state.enrol[String(m.id)];
+            if (!en || String(en.batch_id) !== f.batch) return false;
+          }
+
+          var qr = state.queueBy[String(m.id)];
+          if (f.standing === "queue" && !qr) return false;
+          if (f.standing === "overdue" && !(qr && Number(qr.days_since) > 0)) return false;
+          if (f.standing === "blocked" && !(qr && qr.blocked_reason)) return false;
+
+          if (qText) {
+            var nameHit = String(m.name || "").toLowerCase().indexOf(qText) !== -1;
+            var phoneHit = qDigits.length >= 3 && digits(m.phone).indexOf(qDigits) !== -1;
+            if (!nameHit && !phoneHit) return false;
+          }
+          return true;
+        });
+      }
+
+      function renewalCell(m) {
+        var r = queueOf(m);
+        if (!r) {
+          if (state.queueErr) return '<span class="faint" title="The reminder queue did not load">unknown</span>';
+          if (state.queue === null) return '<span class="faint">…</span>';
+          return '<span class="faint" title="Not on a rung of today\'s ladder. This is an absence of information, not a clean bill.">—</span>';
+        }
+        var d = Number(r.days_since);
+        var txt = d < 0
+          ? '<span class="cell-status gold">in ' + (-d) + "d</span>"
+          : d === 0
+            ? '<span class="cell-status gold">due today</span>'
+            : '<span class="cell-status red">' + d + "d overdue</span>";
+        return txt + ' <span class="faint" style="font-size:11.5px;">' + LT.esc(niceDate(r.due_date)) + "</span>";
+      }
+
+      function renderRows() {
+        if (!state.membersLoaded) return;
+        var host = byId("rows");
+
+        if (state.membersErr) return;   /* the failure row is already on screen */
+
+        if (!state.members.length) {
+          byId("countLine").textContent = "Nobody on the roster yet.";
+          byId("shownPill").textContent = "0";
+          host.innerHTML = noteRow("No members yet",
+            "This academy has no members in the database. New families arrive through the admission form, and the first row appears here the moment one is enrolled.");
+          return;
+        }
+
+        var list = visibleMembers();
+        var queued = state.queue ? state.queue.length : 0;
+
+        byId("countLine").textContent =
+          state.members.length + " " + plural(state.members.length, "member", "members") +
+          " · VAKAMAN FE" +
+          (state.queue ? " · " + queued + " in today's reminder queue" : "");
+        byId("shownPill").textContent = list.length === state.members.length
+          ? String(state.members.length)
+          : list.length + " of " + state.members.length;
+
+        if (!list.length) {
+          host.innerHTML = noteRow("Nothing matches those filters",
+            "Clear the search or widen the filters to see the rest of the roster.");
+          return;
+        }
+
+        host.innerHTML = list.map(function (m) {
+          var en = enrolOf(m);
+          var qr = queueOf(m);
+          var parent = (en && en.parent_name) || (qr && qr.parent_name) || "";
+          var phone = digits(m.phone);
+          var status = String(m.status || "");
+
+          var batchCell = en
+            ? LT.esc(en.batch_name)
+            : (state.enrolLoaded
+                ? '<span class="faint" title="No active enrolment in a batch">—</span>'
+                : '<span class="faint">…</span>');
+
+          var phoneCell = phone.length >= 10
+            ? '<span class="pl-acts"><a href="tel:+91' + LT.esc(phone.slice(-10)) + '" title="Call ' + LT.esc(m.name) + '">' + LT.esc(LT.phone10(phone)) + "</a>" +
+              '<a href="' + LT.esc(LT.waLink(phone, "")) + '" target="_blank" rel="noopener" title="WhatsApp ' + LT.esc(m.name) + '">' + WA_ICON + "</a></span>"
+            : '<span class="faint">no number</span>';
+
+          return '<tr class="mem-row" data-mid="' + LT.esc(m.id) + '" tabindex="0">' +
+            '<td><div class="pl-name"><span class="av" aria-hidden="true">' + LT.esc(LT.initials(m.name)) + "</span>" +
+              '<span class="who"><span class="t-name">' + LT.esc(m.name) + "</span>" +
+              (parent ? '<span class="sub2">' + LT.esc(parent) + "</span>" : "") +
+              "</span></div></td>" +
+            "<td>" + batchCell + "</td>" +
+            '<td class="num">' + phoneCell + "</td>" +
+            '<td><span class="cell-status ' + statusClass(status) + '">' + LT.esc(STATUS_LABEL[status] || status || "—") + "</span></td>" +
+            "<td>" + renewalCell(m) + "</td>" +
+            "</tr>";
+        }).join("");
+      }
+
+      byId("rows").addEventListener("click", function (e) {
+        if (e.target.closest && e.target.closest("a")) return;   /* tel: / wa.me */
+        var row = e.target.closest ? e.target.closest(".mem-row") : null;
+        if (row) openMember(row.getAttribute("data-mid"));
+      });
+      byId("rows").addEventListener("keydown", function (e) {
+        if (e.key !== "Enter") return;
+        var row = e.target.closest ? e.target.closest(".mem-row") : null;
+        if (row) openMember(row.getAttribute("data-mid"));
+      });
+
+      /* ---------- filters ---------- */
+      byId("q").addEventListener("input", function () {
+        state.filter.q = this.value.trim().toLowerCase();
+        renderRows();
+      });
+      byId("batchFilter").addEventListener("change", function () {
+        state.filter.batch = this.value; renderRows();
+      });
+      byId("statusFilter").addEventListener("change", function () {
+        state.filter.status = this.value; renderRows();
+      });
+      byId("standingFilter").addEventListener("change", function () {
+        state.filter.standing = this.value; renderRows();
+      });
+      byId("reloadBtn").addEventListener("click", function () { loadAll(); });
+
+      /* ============================================================
+         MEMBER DETAIL
+         ============================================================ */
+
+      var mdBackdrop = byId("mdBackdrop");
+      var detail = { att: null, attErr: null, fee: null, feeErr: null, upi: null };
+
+      function openMember(id) {
+        var m = memberById(id);
+        if (!m) return;
+        state.openId = String(m.id);
+        detail = { att: null, attErr: null, fee: null, feeErr: null, upi: null };
+
+        var seq = ++state.detailSeq;
+        byId("mdAv").textContent = LT.initials(m.name);
+        byId("mdName").textContent = m.name;
+        var en = enrolOf(m);
+        byId("mdSub").textContent = (en ? en.batch_name + " · " : "") + "VAKAMAN FE";
+        renderDetail();
+        mdBackdrop.classList.add("open");
+
+        /* Attendance over the last 30 days, from the shared function that
+           the platform's own reporting is built on. */
+        LT_CLOUD.attendanceDashboard({ from: shiftIso(TODAY, -(ATT_DAYS - 1)), to: TODAY, member: m.id })
+          .then(function (res) { if (seq === state.detailSeq) { detail.att = res || {}; renderDetail(); } })
+          .catch(function (err) {
+            if (seq !== state.detailSeq) return;
+            if (LT_CLOUD.DEV) { detail.att = devDashboard(m.id); renderDetail(); return; }
+            detail.attErr = err; renderDetail();
+          });
+
+        /* The fee chain's answer for this member, for one month. The queue
+           row is preferred when it exists because it also carries the
+           per-enrolment override, which this client cannot read. */
+        var qr = queueOf(m);
+        if (qr && isNum(qr.amount)) {
+          detail.fee = { amount: qr.amount, months: qr.months || 1, source: qr.fee_source || "unset" };
+          renderDetail();
+        } else {
+          askFee(m, 1).then(function (res) {
+            if (seq !== state.detailSeq) return;
+            detail.fee = { amount: res.amount, months: 1, source: res.source };
+            renderDetail();
+          }).catch(function (err) {
+            if (seq !== state.detailSeq) return;
+            detail.feeErr = err; renderDetail();
+          });
+        }
+
+        /* Which account this member's fee collects to. */
+        askUpi(m).then(function (res) {
+          if (seq !== state.detailSeq) return;
+          detail.upi = res; renderDetail();
+        }).catch(function () { /* the panel simply omits the line */ });
+
+        LT_CLOUD.track("member_open", {});
+      }
+
+      /* resolve_fee() — the 7-level chain, asked per plan length. Never
+         multiplied, never cached across lengths. */
+      function askFee(m, months) {
+        var en = enrolOf(m);
+        return LT_CLOUD.resolveFee({
+          member: m.id,
+          centre: m.centre_id || null,
+          sport: m.sport || (en && en.sport) || null,
+          batch: en ? en.batch_id : null,
+          months: months
+        }).then(function (res) {
+          return res || { amount: null, source: "unset" };
+        }).catch(function (err) {
+          if (LT_CLOUD.DEV) return devFee(m.id, months);
+          throw err;
+        });
+      }
+
+      function askUpi(m) {
+        var en = enrolOf(m);
+        return LT_CLOUD.resolveUpi({
+          centre: m.centre_id || null,
+          batch: en ? en.batch_id : null
+        }).catch(function (err) {
+          if (LT_CLOUD.DEV) return devUpi();
+          throw err;
+        });
+      }
+
+      function memberBookings(m) {
+        if (!state.bookings) return null;
+        var ph = digits(m.phone).slice(-10);
+        if (ph.length < 10) return [];
+        return state.bookings.filter(function (b) {
+          return b.status !== "cancelled" && digits(b.phone).slice(-10) === ph;
+        }).sort(function (a, b) {
+          return a.date === b.date ? Number(b.hour) - Number(a.hour) : (a.date < b.date ? 1 : -1);
+        });
+      }
+
+      function renderDetail() {
+        if (!state.openId) return;
+        var m = memberById(state.openId);
+        if (!m) return;
+        var en = enrolOf(m);
+        var qr = queueOf(m);
+        var host = byId("mdBody");
+
+        /* ----- three tiles: attendance, standing, tenure ----- */
+        var att = detail.att || null;
+        var summary = (att && att.summary) || {};
+        var perStudent = (att && att.students && att.students[0]) || {};
+        var attTile = detail.attErr
+          ? '<span class="v" style="font-size:14px;">—</span><span class="s">could not load</span>'
+          : !att
+            ? '<span class="v" style="font-size:14px;">…</span><span class="s">last ' + ATT_DAYS + " days</span>"
+            : (isNum(summary.rate)
+                ? '<span class="v">' + LT.esc(summary.rate) + '%</span><span class="s">' +
+                  LT.esc(summary.present || 0) + " of " + LT.esc((summary.present || 0) + (summary.absent || 0)) + " sessions</span>"
+                : '<span class="v" style="font-size:14px;">no sessions</span><span class="s">last ' + ATT_DAYS + " days</span>");
+
+        var standTile = qr
+          ? (Number(qr.days_since) > 0
+              ? '<span class="v" style="color:var(--tx-red);">' + LT.esc(qr.days_since) + "d</span><span class=\"s\">overdue</span>"
+              : Number(qr.days_since) === 0
+                ? '<span class="v" style="font-size:16px;color:var(--tx-gold);">due today</span><span class="s">' + LT.esc(niceDate(qr.due_date)) + "</span>"
+                : '<span class="v" style="color:var(--tx-gold);">' + (-Number(qr.days_since)) + 'd</span><span class="s">until renewal</span>')
+          : '<span class="v" style="font-size:14px;">—</span><span class="s">not in today\'s queue</span>';
+
+        var joinedDays = m.created_at ? daysSinceIso(String(m.created_at).slice(0, 10)) : null;
+        var tenureTile;
+        if (joinedDays === null || joinedDays < 0) {
+          tenureTile = '<span class="v" style="font-size:14px;">—</span><span class="s">joining date unknown</span>';
+        } else if (joinedDays >= 30) {
+          var mo = Math.floor(joinedDays / 30);
+          tenureTile = '<span class="v">' + mo + "</span><span class=\"s\">" + plural(mo, "month", "months") + " with the academy</span>";
+        } else {
+          tenureTile = '<span class="v">' + joinedDays + "</span><span class=\"s\">" + plural(joinedDays, "day", "days") + " with the academy</span>";
+        }
+
+        /* ----- fee standing ----- */
+        var feeHtml;
+        if (detail.feeErr) {
+          feeHtml = '<div class="fee-box unset"><div class="fee-amt" style="font-size:15px;">Could not ask the fee chain</div>' +
+            '<div class="fee-src">' + LT.esc((detail.feeErr && detail.feeErr.message) || "The read failed.") + "</div></div>";
+        } else if (!detail.fee) {
+          feeHtml = '<div class="lt-skel" style="height:64px;margin:0;"></div>';
+        } else if (!isNum(detail.fee.amount)) {
+          feeHtml = '<div class="fee-box unset"><div class="fee-amt" style="font-size:16px;">No fee set</div>' +
+            '<div class="fee-src">' + LT.esc(FEE_SOURCE[detail.fee.source] || detail.fee.source) +
+            ". Add a fee rule for this student, batch or the academy, and every screen — and every reminder — quotes it from that moment.</div></div>";
+        } else {
+          feeHtml = '<div class="fee-box"><div class="fee-amt">' + LT.esc(LT.fmtINR(detail.fee.amount)) + "</div>" +
+            '<div class="fee-src">for ' + LT.esc(detail.fee.months || 1) + " " + plural(Number(detail.fee.months || 1), "month", "months") +
+            " · from <b>" + LT.esc(FEE_SOURCE[detail.fee.source] || detail.fee.source) + "</b></div></div>";
+        }
+
+        var upiLine = "";
+        if (detail.upi) {
+          upiLine = detail.upi.vpa
+            ? '<div class="md-note">Collects to <b>' + LT.esc(detail.upi.vpa) + "</b> · " +
+              LT.esc(UPI_SOURCE[detail.upi.source] || detail.upi.source) + "</div>"
+            : '<div class="md-note">No UPI id is configured yet, so a reminder cannot quote one. Cash or card at the office still works.</div>';
+        }
+
+        var receipt = state.receipts[String(m.id)];
+        var receiptLine = receipt
+          ? '<div class="md-note">Recorded in this session: renewal now <b>' + LT.esc(niceDate(receipt.renewal_on)) + "</b>" +
+            (receipt.months ? " · covered " + LT.esc(receipt.months) + " " + plural(Number(receipt.months), "month", "months") : "") +
+            (receipt.period_to ? " to " + LT.esc(niceDate(receipt.period_to)) : "") + "</div>"
+          : "";
+
+        /* ----- facts ----- */
+        var phone = digits(m.phone);
+        var factRows = [
+          ["Batch", en ? LT.esc(en.batch_name) : '<span class="faint">no active enrolment</span>'],
+          ["Enrolment", en ? '<span class="num">#' + LT.esc(en.enrollment_id) + "</span>" : '<span class="faint">unknown to this screen</span>'],
+          ["Sport", LT.esc(m.sport || (qr && qr.sport) || "cricket")],
+          ["Venue", LT.esc(centreName(m.centre_id) || (qr && qr.centre) || "VAKAMAN FE")],
+          ["Status", LT.esc(STATUS_LABEL[m.status] || m.status || "—")],
+          ["Phone", phone.length >= 10
+            ? '<a href="tel:+91' + LT.esc(phone.slice(-10)) + '">' + LT.esc(LT.phone10(phone)) + "</a>"
+            : '<span class="faint">none on file</span>'],
+          ["On the roster since", m.created_at ? LT.esc(niceDate(String(m.created_at).slice(0, 10))) : '<span class="faint">unknown</span>']
+        ];
+        if (qr && qr.parent_name) factRows.splice(5, 0, ["Parent", LT.esc(qr.parent_name)]);
+        if (qr && qr.last_sent_at) factRows.push(["Last reminded", LT.esc(istStamp(qr.last_sent_at))]);
+
+        var factsHtml = '<div class="md-facts">' + factRows.map(function (f) {
+          return '<div class="f"><span class="k">' + LT.esc(f[0]) + '</span><span class="v">' + f[1] + "</span></div>";
+        }).join("") + "</div>";
+
+        /* ----- attendance detail ----- */
+        var attHtml;
+        if (detail.attErr) {
+          attHtml = '<div class="md-note">Could not load attendance: ' + LT.esc(detail.attErr.message || "the read failed") + "</div>";
+        } else if (!att) {
+          attHtml = '<div class="lt-skel" style="height:38px;margin:0;"></div>';
+        } else if (!isNum(summary.rate)) {
+          attHtml = '<div class="md-note">No sessions recorded for this student in the last ' + ATT_DAYS + " days.</div>";
+        } else {
+          attHtml =
+            '<table class="mini"><tbody>' +
+            '<tr><td>Sessions marked</td><td class="r t-name">' + LT.esc((summary.present || 0) + (summary.absent || 0)) + "</td></tr>" +
+            '<tr><td>Present</td><td class="r t-name">' + LT.esc(summary.present || 0) + "</td></tr>" +
+            '<tr><td>Absent</td><td class="r t-name">' + LT.esc(summary.absent || 0) + "</td></tr>" +
+            (isNum(perStudent.absence_streak)
+              ? '<tr><td>Absences in a row</td><td class="r ' + (Number(perStudent.absence_streak) >= 3 ? "cell-tag red" : "t-name") + '">' + LT.esc(perStudent.absence_streak) + "</td></tr>"
+              : "") +
+            (perStudent.last_session_on
+              ? '<tr><td>Last session</td><td class="r t-name">' + LT.esc(niceDate(perStudent.last_session_on)) + "</td></tr>"
+              : "") +
+            "</tbody></table>";
+        }
+
+        /* ----- facility bookings (the rental side of the same family) ----- */
+        var bk = memberBookings(m);
+        var bkHtml;
+        if (state.bookingsErr) {
+          bkHtml = '<div class="md-note">Could not load bookings: ' + LT.esc(state.bookingsErr.message || "the read failed") + "</div>";
+        } else if (bk === null) {
+          bkHtml = '<div class="lt-skel" style="height:38px;margin:0;"></div>';
+        } else if (!bk.length) {
+          bkHtml = '<div class="md-note">No net or ground bookings on this number in the last ' + BOOK_DAYS + " days.</div>";
+        } else {
+          bkHtml = '<table class="mini"><thead><tr><th>When</th><th>Facility</th><th>Amount</th></tr></thead><tbody>' +
+            bk.slice(0, 6).map(function (b) {
+              var when = LT.shortDate(b.date) + " · " +
+                (String(b.sport) === "ground" ? "full day" : LT.hourLabel(Number(b.hour)));
+              var paid = b.paid_at
+                ? '<span class="paid-dot yes"></span>'
+                : '<span class="paid-dot no"></span>';
+              return "<tr><td>" + LT.esc(when) + "</td>" +
+                "<td>" + LT.esc(LT.courtLabel(b.court) || b.court || b.sport) + "</td>" +
+                '<td class="r t-name">' + paid + LT.esc(LT.fmtINR(b.amount)) + "</td></tr>";
+            }).join("") +
+            "</tbody></table>" +
+            '<div class="md-note">Matched on this member\'s phone number. A filled dot means the money was collected.</div>';
+        }
+
+        /* ----- actions ----- */
+        var canRemind = digits(m.phone).length >= 10 &&
+          !(qr && (qr.blocked_reason === "overdue_15_days" || qr.blocked_reason === "whatsapp_opted_out" || qr.blocked_reason === "wrong_phone_number"));
+        var canPay = !!(en && en.enrollment_id) || !!(qr && qr.enrollment_id);
+
+        var actions =
+          '<div class="md-actions">' +
+          (canRemind
+            ? '<button type="button" class="btn btn-primary" data-remind="' + LT.esc(m.id) + '">' + WA_ICON + " Send a reminder</button>"
+            : '<button type="button" class="btn btn-glass" disabled title="' +
+              LT.esc(qr && qr.blocked_reason ? (BLOCKED[qr.blocked_reason] || qr.blocked_reason) : "No usable phone number on file") +
+              '">Reminder unavailable</button>') +
+          (canPay
+            ? '<button type="button" class="btn btn-glass" data-pay="' + LT.esc(m.id) + '">Record payment</button>'
+            : '<button type="button" class="btn btn-glass" disabled title="A fee payment is recorded against an enrolment, and this member has no active enrolment this screen can see.">Record payment</button>') +
+          "</div>" +
+          (canPay ? "" : '<div class="md-note">A fee is recorded against an <b>enrolment</b>, not a member. This one has no active enrolment in any batch, so there is nothing to pay against — enrol them in a batch first.</div>') +
+          (canRemind || !qr || !qr.blocked_reason ? "" :
+            '<div class="md-note">' + LT.esc(BLOCKED[qr.blocked_reason] || qr.blocked_reason) + ".</div>");
+
+        host.innerHTML =
+          '<div class="md-stats">' +
+            '<div class="bstat"><span class="k">Attendance</span>' + attTile + "</div>" +
+            '<div class="bstat"><span class="k">Renewal</span>' + standTile + "</div>" +
+            '<div class="bstat"><span class="k">Member for</span>' + tenureTile + "</div>" +
+          "</div>" +
+
+          '<div class="md-sec"><h3>Fee standing</h3>' + feeHtml + upiLine + receiptLine +
+            '<div class="md-note">The amount is the fee chain\'s answer for this student — enrolment override, then member, batch, venue and sport, then the academy default. It is not a plan price this screen keeps.</div>' +
+          "</div>" +
+
+          '<div class="md-sec"><h3>Enrolment</h3>' + factsHtml + "</div>" +
+
+          '<div class="md-sec"><h3>Attendance · last ' + ATT_DAYS + ' days</h3>' + attHtml + "</div>" +
+
+          '<div class="md-sec"><h3>Facility bookings · last ' + BOOK_DAYS + ' days</h3>' + bkHtml + "</div>" +
+
+          actions;
+      }
+
+      byId("mdBody").addEventListener("click", function (e) {
+        var rem = e.target.closest ? e.target.closest("[data-remind]") : null;
+        var pay = e.target.closest ? e.target.closest("[data-pay]") : null;
+        if (rem) { remindMember(rem.getAttribute("data-remind")); return; }
+        if (pay) { openPayment(pay.getAttribute("data-pay")); }
+      });
+
+      function closeDetail() {
+        mdBackdrop.classList.remove("open");
+        state.openId = null;
+        state.detailSeq++;
+      }
+      byId("mdClose").addEventListener("click", closeDetail);
+      mdBackdrop.addEventListener("click", function (e) { if (e.target === mdBackdrop) closeDetail(); });
+
+      /* ============================================================
+         THE WHATSAPP REMINDER
+
+         Composes a message. THE ONLY AMOUNT IT MAY CARRY is the one
+         resolve_fee() produced — either the queue row's `amount` (which
+         is resolve_fee run server-side for that enrolment) or a fresh
+         resolveFee() call. When neither has an answer the message goes
+         out with no figure at all, because a wrong number in a parent's
+         hand is worse than no number.
+         ============================================================ */
+
+      function reminderText(m, opts) {
+        var parent = opts.parent ? firstName(opts.parent) : "";
+        var greet = parent || firstName(m.name) || "there";
+        var who = parent ? m.name + "'s" : "your";
+        var lines = [];
+
+        lines.push("Hi " + greet + ", this is Super Kings Academy (VAKAMAN FE).");
+        lines.push("");
+
+        /* When the member is not in today's queue we do NOT know a due
+           date, so the message must not claim one. It says what the fee
+           is; it does not tell a parent they are late on the strength of
+           a date this screen never read. */
+        var dueKnown = opts.daysSince !== null && opts.daysSince !== undefined;
+
+        if (!dueKnown) {
+          lines.push("A quick note about " + who + " cricket coaching fee at the academy.");
+        } else if (Number(opts.daysSince) < 0) {
+          lines.push(who.charAt(0).toUpperCase() + who.slice(1) + " cricket coaching renews on " +
+            niceDate(opts.dueDate) + ", in " + (-Number(opts.daysSince)) + " " +
+            plural(-Number(opts.daysSince), "day", "days") + ".");
+        } else if (Number(opts.daysSince) === 0) {
+          lines.push(who.charAt(0).toUpperCase() + who.slice(1) + " cricket coaching renews today, " +
+            niceDate(opts.dueDate) + ".");
+        } else {
+          lines.push(who.charAt(0).toUpperCase() + who.slice(1) + " cricket coaching was due on " +
+            niceDate(opts.dueDate) + ", " + Number(opts.daysSince) + " " +
+            plural(Number(opts.daysSince), "day", "days") + " ago.");
+        }
+
+        if (isNum(opts.amount)) {
+          lines.push("");
+          lines.push((dueKnown ? "Amount: " : "Fee: ") + LT.fmtINR(opts.amount) +
+            (opts.months ? " for " + opts.months + " " + plural(Number(opts.months), "month", "months") : ""));
+          if (opts.upiVpa) {
+            lines.push("UPI: " + opts.upiVpa + (opts.upiName ? " (" + opts.upiName + ")" : ""));
+          }
+          lines.push("Cash or card at the academy office also works.");
+        } else {
+          /* resolve_fee() had no answer, so the message carries no figure
+             at all. A number invented to fill the gap is the one thing a
+             parent must never receive. */
+          lines.push("");
+          lines.push("Please drop by the academy office and we will confirm the amount for you.");
+        }
+
+        lines.push("");
+        lines.push("Thank you — Super Kings Academy, VAKAMAN FE.");
+        return lines.join("\n");
+      }
+
+      function openWhatsApp(m, text, stage) {
+        var phone = digits(m.phone);
+        if (phone.length < 10) { LT.toast("No usable phone number for " + firstName(m.name) + "."); return; }
+        window.open(LT.waLink(phone, text), "_blank", "noopener");
+        /* Telemetry carries no name, no number and no amount — ever. The
+           rung is reminder_queue()'s to name: if the row carried none,
+           report none rather than inventing one. */
+        LT_CLOUD.track("reminder_opened", { stage: stage || null });
+        LT.toast("WhatsApp opened for " + firstName(m.name) + " — send it there to actually deliver it.");
+      }
+
+      function remindFromQueue(memberId) {
+        var m = memberById(memberId);
+        var r = state.queueBy[String(memberId)];
+        if (!m || !r) { LT.toast("That member is no longer in the queue — refresh the page."); return; }
+        openWhatsApp(m, reminderText(m, {
+          parent: r.parent_name,
+          daysSince: r.days_since,
+          dueDate: r.due_date,
+          amount: r.amount,
+          months: r.months,
+          upiVpa: r.upi_id,
+          upiName: r.upi_name
+        }), r.stage);
+      }
+
+      function remindMember(memberId) {
+        var m = memberById(memberId);
+        if (!m) return;
+        var r = queueOf(m);
+        if (r) { remindFromQueue(memberId); return; }
+
+        /* Not in today's window: ask the fee chain and the UPI resolver
+           directly, then compose. No cached plan price is used. */
+        var fee = detail.fee;
+        var upi = detail.upi;
+        if (!fee) {
+          LT.toast("Still asking the academy's fee rule — try again in a moment.");
+          return;
+        }
+        openWhatsApp(m, reminderText(m, {
+          parent: null,
+          daysSince: null,
+          dueDate: null,
+          amount: fee.amount,
+          months: fee.months || 1,
+          upiVpa: upi && upi.vpa,
+          upiName: upi && upi.name
+        }), "manual");
+      }
+
+      /* ============================================================
+         RECORD PAYMENT — record_fee_payment(), and nothing else
+         ============================================================ */
+
+      var mpBackdrop = byId("mpBackdrop");
+      var pay = { member: null, enrollment: null, months: 1, mode: "Cash", kind: "renewal" };
+
+      function chipGroup(hostId, attr, onPick) {
+        byId(hostId).addEventListener("click", function (e) {
+          var b = e.target.closest ? e.target.closest(".chip") : null;
+          if (!b) return;
+          LT.$$(".chip", this).forEach(function (c) { c.classList.toggle("active", c === b); });
+          onPick(b.getAttribute("data-" + attr));
+        });
+      }
+
+      function resetChips(hostId, value, attr) {
+        LT.$$("#" + hostId + " .chip").forEach(function (c) {
+          c.classList.toggle("active", c.getAttribute("data-" + attr) === String(value));
+        });
+      }
+
+      chipGroup("mpMonths", "mo", function (v) {
+        pay.months = Number(v) || 1;
+        priceIt();               /* ASKS THE SERVER. Never multiplies. */
+      });
+      chipGroup("mpMode", "m", function (v) { pay.mode = v; });
+      chipGroup("mpKind", "k", function (v) { pay.kind = v; });
+
+      function openPayment(memberId) {
+        var m = memberById(memberId);
+        if (!m) return;
+        var en = enrolOf(m);
+        var qr = queueOf(m);
+        var enrollment = (en && en.enrollment_id) || (qr && qr.enrollment_id) || null;
+        if (!enrollment) {
+          LT.toast("This member has no active enrolment to record a fee against.");
+          return;
+        }
+
+        pay.member = m;
+        pay.enrollment = enrollment;
+        pay.months = (qr && PLAN_MONTHS.indexOf(Number(qr.months)) !== -1) ? Number(qr.months) : 1;
+        pay.mode = "Cash";
+        pay.kind = "renewal";
+
+        byId("mpName").textContent = m.name;
+        byId("mpSub").textContent = (en ? en.batch_name + " · " : "") + "enrolment #" + enrollment;
+        resetChips("mpMonths", pay.months, "mo");
+        resetChips("mpMode", pay.mode, "m");
+        resetChips("mpKind", pay.kind, "k");
+        byId("mpAmount").value = "";
+        byId("mpAmount").setAttribute("data-touched", "0");
+        byId("mpDate").value = TODAY;
+        var s = LT.auth.session();
+        byId("mpBy").value = (s && s.email) || "";
+        byId("mpNote").value = "";
+        byId("mpUnverified").checked = false;
+        byId("mpMsg").textContent = "";
+        byId("mpMsg").className = "form-msg";
+        byId("mpWarn").classList.add("hide");
+        byId("mpSave").disabled = false;
+
+        priceIt();
+        mpBackdrop.classList.add("open");
+      }
+
+      /* The amount field is filled by the SERVER's answer for the chosen
+         plan length. If the operator has typed over it, their figure is
+         left alone — what they collected is what gets recorded. */
+      function priceIt() {
+        var m = pay.member;
+        if (!m) return;
+        var seq = ++state.feeSeq;
+        var hint = byId("mpFeeHint");
+        var warn = byId("mpWarn");
+        var amountEl = byId("mpAmount");
+        var touched = amountEl.getAttribute("data-touched") === "1";
+
+        hint.innerHTML = "Asking the academy's fee chain for " + pay.months + " " + plural(pay.months, "month", "months") + "…";
+        warn.classList.add("hide");
+
+        var qr = queueOf(m);
+        var fromQueue = qr && isNum(qr.amount) && Number(qr.months || 1) === pay.months;
+
+        var p = fromQueue
+          ? Promise.resolve({ amount: qr.amount, source: qr.fee_source || "unset" })
+          : askFee(m, pay.months);
+
+        p.then(function (res) {
+          if (seq !== state.feeSeq) return;
+          if (isNum(res.amount)) {
+            hint.innerHTML = "The fee chain says <b>" + LT.esc(LT.fmtINR(res.amount)) + "</b> for " +
+              pay.months + " " + plural(pay.months, "month", "months") +
+              " — from " + LT.esc(FEE_SOURCE[res.source] || res.source) +
+              ". Change it only if you collected something else.";
+            if (!touched) amountEl.value = Math.round(Number(res.amount));
+          } else {
+            hint.innerHTML = res.source === "sample_month_only"
+              ? "Sample data prices one month only. On the live academy resolve_fee() prices every plan length — it is never three times the monthly figure unless the fee rule says so."
+              : "No fee rule matches this student for " + pay.months + " " + plural(pay.months, "month", "months") +
+                ", so there is nothing to quote. Type what you actually collected.";
+            if (!touched) amountEl.value = "";
+          }
+
+          /* A per-enrolment override exists but we are pricing a plan
+             length the queue did not quote — the chain answer below does
+             NOT include that override, because this client cannot read
+             it. Say so rather than letting the operator assume. */
+          if (!fromQueue && qr && qr.fee_source === "custom") {
+            warn.textContent = "This student has an agreed fee of their own. The figure above is the academy's rule for " +
+              pay.months + " " + plural(pay.months, "month", "months") + ", not that agreement — check before saving.";
+            warn.classList.remove("hide");
+          }
+        }).catch(function (err) {
+          if (seq !== state.feeSeq) return;
+          hint.textContent = "Could not reach the fee chain (" + ((err && err.message) || "read failed") +
+            "). Type the amount you collected.";
+          if (!touched) amountEl.value = "";
+        });
+      }
+
+      byId("mpAmount").addEventListener("input", function () {
+        this.setAttribute("data-touched", this.value === "" ? "0" : "1");
+      });
+
+      function closePayment() {
+        mpBackdrop.classList.remove("open");
+        byId("mpAmount").setAttribute("data-touched", "0");
+        state.feeSeq++;
+      }
+      byId("mpClose").addEventListener("click", closePayment);
+      mpBackdrop.addEventListener("click", function (e) { if (e.target === mpBackdrop) closePayment(); });
+
+      byId("mpForm").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var m = pay.member;
+        if (!m || !pay.enrollment) return;
+
+        var msg = byId("mpMsg");
+        var amount = Number(byId("mpAmount").value);
+        if (!isNum(byId("mpAmount").value) || amount <= 0) {
+          msg.textContent = "Enter the amount you actually received.";
+          msg.className = "form-msg error";
+          byId("mpAmount").focus();
+          return;
+        }
+        msg.textContent = "Recording…";
+        msg.className = "form-msg";
+        byId("mpSave").disabled = true;
+
+        LT_CLOUD.recordFeePayment({
+          enrollment: pay.enrollment,
+          amount: amount,
+          months: pay.months,
+          mode: pay.mode,
+          kind: pay.kind,
+          onDate: byId("mpDate").value || TODAY,
+          status: byId("mpUnverified").checked ? "pending_verification" : "paid",
+          collectedBy: byId("mpBy").value || null,
+          note: byId("mpNote").value || null
+        }).then(function (res) {
+          res = res || {};
+          /* Everything shown from here is what the SERVER returned. The
+             renewal date in particular is the one record_fee_payment()
+             rolled forward, not a date this page worked out. */
+          state.receipts[String(m.id)] = {
+            renewal_on: res.renewal_on || null,
+            months: res.months,
+            period_to: res.period_to || null
+          };
+          closePayment();
+          LT.toast(res.renewal_on
+            ? "Recorded ✓ renewal now " + niceDate(res.renewal_on)
+            : "Recorded ✓");
+          LT_CLOUD.track("fee_recorded", { months: pay.months, mode: pay.mode, kind: pay.kind });
+
+          /* Re-read rather than patch. The queue closes the reminder and
+             the enrolment moves — both of those happened in Postgres. */
+          loadQueue();
+          if (state.openId === String(m.id)) {
+            detail.fee = null;
+            renderDetail();
+            askFee(m, 1).then(function (f) {
+              detail.fee = { amount: f.amount, months: 1, source: f.source };
+              renderDetail();
+            }).catch(function (err) { detail.feeErr = err; renderDetail(); });
+          }
+        }).catch(function (err) {
+          byId("mpSave").disabled = false;
+          /* DEV refuses every write, loudly. Nothing on screen is allowed
+             to move as though it saved. */
+          msg.textContent = (err && err.message) || "The payment was not recorded.";
+          msg.className = "form-msg error";
+          if (err && err.dev) LT.toast(err.message);
+        });
+      });
+
+      /* keyboard: escape closes the topmost sheet */
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        if (mpBackdrop.classList.contains("open")) { closePayment(); return; }
+        if (mdBackdrop.classList.contains("open")) { closeDetail(); }
+      });
+
+      /* ---------- go ---------- */
+      loadAll();
+    })();
+  </script>
+</body>
+</html>

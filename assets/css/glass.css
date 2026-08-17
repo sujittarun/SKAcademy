@@ -1,0 +1,1408 @@
+/* ============================================================
+   ACADEMY MANAGER — LIQUID GLASS DESIGN SYSTEM v1
+   Dark-first luxury glass (charcoal-indigo night + amber-orange,
+   from the Sports Academy brand) with an Apple-style "clear glass" light override.
+   Token NAMES are inherited from the Leo system (--forest-* = the
+   dark base ramp, --gold-* = the brand accent ramp, --optic-* =
+   the cool indigo accent) so component CSS ports verbatim.
+   Theme is controlled by <html data-theme="dark|light">.
+   ============================================================ */
+
+/* ---------- Design tokens — DARK (default) ---------- */
+/* SUPER KINGS ACADEMY re-skin.
+   ONLY THE VALUES BELOW CHANGED. Every token NAME is left exactly as the
+   Academy Manager system defines it — --forest-* is the dark base ramp,
+   --gold-* the brand accent, --optic-* the cool accent — because the
+   1,300 lines of component CSS underneath reference those names. Rename
+   one and the components stop resolving; that is why the original file
+   says the names are inherited "so component CSS ports verbatim".
+   So --gold-* is no longer gold here: it is CSK yellow. The name is a
+   slot, not a description.
+
+   The raw rgba(255,156,51,·) glows scattered through the components were
+   re-pointed to the new accent in the same pass, along with the #221204
+   ink-on-accent literals — neither would have re-skinned from :root. */
+:root {
+  /* Brand constants (theme-independent) */
+  /* Deep navy base rather than the demo's charcoal-indigo: CSK is
+     yellow-on-blue, and an indigo field turns the yellow muddy. */
+  --forest-950: #04101f;
+  --forest-900: #08192e;
+  --forest-800: #0e2540;
+  --forest-600: #1b4173;
+  --emerald-400: #34d399;
+  /* CSK yellow ramp. --gold-500 is the anchor; everything else is tuned
+     around it so the existing gradients keep their light-to-dark shape. */
+  --gold-600: #d9ad00;
+  --gold-500: #f7cb15;
+  --gold-400: #ffd83d;
+  --gold-300: #fff0a8;
+  --optic-400: #7fb3ff;   /* CSK blue accent */
+  --optic-300: #a9ccff;
+  --red-400: #ff6b6b;
+  --sky-300: #7dd3fc;
+
+  /* Ink */
+  --ink-hi: rgba(255, 255, 255, 0.96);
+  --ink-mid: rgba(230, 230, 244, 0.72);
+  --ink-low: rgba(230, 230, 244, 0.48);
+  --ink-faint: rgba(230, 230, 244, 0.28);
+
+  /* Accent text (readable per theme) */
+  --tx-gold: var(--gold-400);
+  --tx-green: #5eead4;
+  --tx-red: var(--red-400);
+  --tx-optic: var(--optic-400);
+
+  /* Glass surfaces — low-opacity fill over a vivid field. Never milky. */
+  --glass-bg: rgba(255, 255, 255, 0.09);
+  --glass-border: rgba(255, 255, 255, 0.26);
+  --glass-blur: 22px;
+  --glass-sat: 1.25;
+  --glass-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  --glass-shadow-soft:
+    0 12px 32px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.26);
+  --glass-border-hover: rgba(255, 255, 255, 0.48);
+  --specular: linear-gradient(90deg, transparent 4%, rgba(255, 255, 255, 0.5) 30%, rgba(255, 255, 255, 0.12) 65%, transparent 96%);
+  --corner-glow: rgba(255, 255, 255, 0.1);
+
+  /* Inputs, tiles, lines */
+  --input-bg: rgba(255, 255, 255, 0.07);
+  --input-bg-focus: rgba(255, 255, 255, 0.13);
+  --input-border: rgba(255, 255, 255, 0.2);
+  --input-border-hover: rgba(255, 255, 255, 0.38);
+  --input-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.22);
+  --tile-bg: rgba(255, 255, 255, 0.07);
+  --tile-border: rgba(255, 255, 255, 0.2);
+  --line: rgba(255, 255, 255, 0.1);
+  --row-hover: rgba(255, 255, 255, 0.06);
+  --chip-bg: rgba(255, 255, 255, 0.08);
+  --chip-border: rgba(255, 255, 255, 0.24);
+  --thead-bg: rgba(13, 12, 26, 0.55);
+  --pill-bg: rgba(255, 255, 255, 0.08);
+  --pill-border: rgba(255, 255, 255, 0.22);
+  --dot-border: rgba(255, 255, 255, 0.3);
+  --ghost-hover: rgba(255, 255, 255, 0.07);
+  --option-bg: var(--forest-800);
+  --backdrop: rgba(5, 4, 12, 0.6);
+  --toast-bg: linear-gradient(135deg, rgba(26, 24, 48, 0.92), rgba(10, 9, 20, 0.92));
+  --toast-border: rgba(255, 255, 255, 0.18);
+  --scroll-thumb: rgba(255, 255, 255, 0.14);
+  --scroll-thumb-hover: rgba(255, 255, 255, 0.26);
+  --stat-grad: linear-gradient(135deg, #fff 30%, var(--gold-400));
+  --gold-grad: linear-gradient(115deg, var(--gold-300), var(--gold-400) 45%, var(--gold-500) 80%);
+  --scheme: dark;
+  --glass-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%23e6e6f2' stroke-opacity='.6' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+
+  /* Radii */
+  --r-xl: 28px;
+  --r-lg: 22px;
+  --r-md: 16px;
+  --r-sm: 12px;
+  --r-pill: 999px;
+
+  /* Type */
+  --font-display: "Outfit", "SF Pro Display", -apple-system, sans-serif;
+  --font-body: "Inter", "SF Pro Text", -apple-system, system-ui, sans-serif;
+  --font-brand: "Outfit", "SF Pro Display", -apple-system, sans-serif;
+
+  /* Spacing */
+  --gap-1: 6px;
+  --gap-2: 10px;
+  --gap-3: 16px;
+  --gap-4: 24px;
+  --gap-5: 36px;
+
+  --nav-h: 72px;
+  --dock-h: 76px;
+  --page-max: 1240px;
+
+  --ease-spring: cubic-bezier(0.34, 1.3, 0.5, 1);
+}
+
+/* ---------- Design tokens — LIGHT override ("clear glass") ---------- */
+:root[data-theme="light"] {
+  --ink-hi: #17181c;
+  --ink-mid: rgba(25, 28, 38, 0.74);
+  --ink-low: rgba(25, 28, 38, 0.52);
+  --ink-faint: rgba(25, 28, 38, 0.34);
+
+  /* Accent TEXT on a light field must not be the brand yellow. #f7cb15 on
+     white is about 1.6:1 — invisible. This is a darkened yellow that keeps
+     the hue and clears AA at ~5.5:1. Do not "correct" it back to the brand
+     value; the brand value is for fills, not for text on white. */
+  --tx-gold: #7a5f00;
+  --tx-green: #0f766e;
+  --tx-red: #c2383f;
+  --tx-optic: #1d4f91;
+
+  /* Apple Liquid Glass recipe (iOS 26): ~15–18% white fill + a brightness
+     lift in the backdrop filter — the light comes THROUGH the panel, the
+     fill itself stays nearly clear. Edges carry the material: a bright
+     specular top rim and a soft dim bottom rim, not flat borders. */
+  /* Liquid glass, tuned to the approved login-page reference: a gradient
+     fill that fades from a faint white sheen (top-left) to almost nothing,
+     so the field's blue/peach/lavender visibly TRANSMITS through the card;
+     blur 30 + saturate 170% + a touch of contrast does the optics; the
+     specular border is strongest along the top and left edges. */
+  --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.1));
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-blur: 30px;
+  --glass-sat: 1.7;
+  --glass-bright: 1.04;
+  --glass-contrast: 1.05;
+  --glass-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)) brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+  --glass-shadow:
+    0 28px 70px rgba(45, 55, 90, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 1px 0 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 16px 30px -18px rgba(45, 55, 90, 0.13),
+    inset 0 -18px 32px -18px rgba(255, 255, 255, 0.5);
+  --glass-shadow-soft:
+    0 12px 32px rgba(45, 55, 90, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.14);
+  --glass-border-hover: rgba(255, 255, 255, 0.95);
+  --specular: linear-gradient(90deg, transparent 4%, rgba(255, 255, 255, 0.98) 30%, rgba(255, 255, 255, 0.45) 65%, transparent 96%);
+  --corner-glow: rgba(255, 255, 255, 0.55);
+
+  --input-bg: rgba(255, 255, 255, 0.18);
+  --input-bg-focus: rgba(255, 255, 255, 0.38);
+  --input-border: rgba(255, 255, 255, 0.55);
+  --input-border-hover: rgba(255, 255, 255, 0.85);
+  --input-shadow: inset 0 1px 2px rgba(28, 32, 44, 0.05);
+  --tile-bg: rgba(255, 255, 255, 0.2);
+  --tile-border: rgba(255, 255, 255, 0.52);
+  --line: rgba(28, 32, 44, 0.1);
+  --row-hover: rgba(255, 255, 255, 0.26);
+  --chip-bg: rgba(255, 255, 255, 0.24);
+  --chip-border: rgba(255, 255, 255, 0.56);
+  --thead-bg: rgba(255, 255, 255, 0.4);
+  --pill-bg: rgba(255, 255, 255, 0.24);
+  --pill-border: rgba(255, 255, 255, 0.56);
+  --dot-border: rgba(28, 32, 44, 0.32);
+  --ghost-hover: rgba(255, 255, 255, 0.6);
+  --option-bg: #ffffff;
+  --backdrop: rgba(18, 22, 34, 0.3);
+  --toast-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(246, 248, 252, 0.94));
+  --toast-border: rgba(255, 255, 255, 0.6);
+  --scroll-thumb: rgba(28, 32, 44, 0.22);
+  --scroll-thumb-hover: rgba(28, 32, 44, 0.38);
+  --stat-grad: linear-gradient(135deg, #17181c 30%, #a3560a);
+  --scheme: light;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%232b3040' stroke-opacity='.55' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* ---------- Reset & base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-hi);
+  background-color: var(--forest-950);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  transition: color 0.3s ease;
+}
+:root[data-theme="light"] body { background-color: #f2f3f7; }
+
+/* Vivid liquid color field — the saturated backdrop is what makes the
+   low-opacity glass read as "liquid". Emerald + gold + optic glows. */
+.lt-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  /* pin the ambient background to its own GPU layer. Without this the fixed
+     bg re-rasterizes on every scroll, and the backdrop-filter glass above it
+     re-samples each frame — which reads as flicker on Android / fold hardware
+     (most visible on the wide fold viewport). translateZ(0) caches it as a
+     composited texture so scrolling never repaints it. */
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  background:
+    radial-gradient(46% 42% at 12% 10%, rgba(91, 108, 255, 0.4), transparent 68%),
+    radial-gradient(40% 36% at 86% 14%, rgba(247, 203, 21, 0.3), transparent 66%),
+    radial-gradient(48% 44% at 82% 84%, rgba(124, 77, 255, 0.32), transparent 70%),
+    radial-gradient(34% 30% at 16% 86%, rgba(247, 203, 21, 0.12), transparent 66%),
+    radial-gradient(30% 28% at 52% 50%, rgba(154, 168, 255, 0.12), transparent 70%),
+    linear-gradient(165deg, #0b0a18 0%, #070710 52%, #100d1e 100%);
+}
+/* Light = "clear glass" over a cool luminous field: the base stays airy
+   near-white (never warm/sandy — eye comfort), but the indigo/amber glows
+   are strong enough that low-opacity panels visibly frost them — that
+   contrast is what makes light mode read as liquid glass, not flat white. */
+:root[data-theme="light"] .lt-bg {
+  background:
+    radial-gradient(52% 48% at 8% 18%, rgba(112, 132, 255, 0.6), transparent 68%),
+    radial-gradient(46% 42% at 88% 10%, rgba(255, 160, 74, 0.55), transparent 66%),
+    radial-gradient(50% 46% at 84% 82%, rgba(150, 126, 255, 0.48), transparent 70%),
+    radial-gradient(42% 38% at 14% 88%, rgba(255, 178, 100, 0.38), transparent 66%),
+    radial-gradient(38% 34% at 54% 46%, rgba(168, 180, 255, 0.42), transparent 70%),
+    radial-gradient(32% 30% at 36% 66%, rgba(255, 196, 130, 0.3), transparent 66%),
+    linear-gradient(165deg, #edeff8 0%, #e8eaf4 45%, #e2e5ef 100%);
+}
+.lt-bg::before {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  background:
+    radial-gradient(34% 30% at 30% 32%, rgba(122, 138, 255, 0.28), transparent 66%),
+    radial-gradient(30% 26% at 70% 62%, rgba(255, 216, 61, 0.28), transparent 64%),
+    radial-gradient(24% 22% at 48% 78%, rgba(154, 168, 255, 0.16), transparent 66%);
+  /* ambient drift, tuned below perception: one direction change per ~40s
+     and a gentle range, so the background never reads as "shifting" */
+  animation: lt-drift 80s ease-in-out infinite alternate;
+  filter: blur(42px);
+  /* keep the big blurred drift layer on its own composited plane so the
+     42px blur is rasterized once, not re-blurred every scrolled frame */
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+:root[data-theme="light"] .lt-bg::before {
+  background:
+    radial-gradient(34% 30% at 30% 32%, rgba(150, 160, 250, 0.4), transparent 66%),
+    radial-gradient(30% 26% at 70% 62%, rgba(255, 196, 122, 0.38), transparent 64%),
+    radial-gradient(26% 24% at 48% 78%, rgba(178, 188, 252, 0.3), transparent 66%);
+}
+.lt-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@keyframes lt-drift {
+  from { transform: translate3d(-2%, -1%, 0) rotate(-1deg) scale(1); }
+  to { transform: translate3d(2%, 1.5%, 0) rotate(1deg) scale(1.05); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lt-bg::before { animation: none; }
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0;
+  color: var(--ink-hi);
+  text-wrap: balance;
+}
+p { margin: 0; }
+a { color: var(--tx-green); text-decoration: none; }
+a:hover { color: var(--tx-gold); }
+img { max-width: 100%; display: block; }
+button { font-family: inherit; }
+::selection { background: rgba(247, 203, 21, 0.4); }
+
+/* ---------- Layout ---------- */
+.lt-page {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: calc(var(--nav-h) + var(--gap-4)) var(--gap-4) calc(var(--gap-5) + 24px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-4);
+}
+
+.lt-grid { display: grid; gap: var(--gap-3); }
+.lt-grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.lt-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.lt-grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* ---------- Glass primitives ---------- */
+.glass {
+  position: relative;
+  background: var(--glass-bg);
+  /* --glass-bright is Apple's Liquid Glass trick: brightening what's BEHIND
+     the blur makes a barely-there white fill read luminous, not milky.
+     Dark theme leaves it at 1. */
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--glass-shadow);
+  overflow: hidden;
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: var(--specular);
+  pointer-events: none;
+}
+.glass::after {
+  content: "";
+  position: absolute;
+  top: -42%;
+  left: -12%;
+  width: 60%;
+  height: 80%;
+  background: radial-gradient(closest-side, var(--corner-glow), transparent);
+  transform: rotate(-12deg);
+  pointer-events: none;
+}
+
+.glass-card { padding: var(--gap-4); }
+.glass-card.tight { padding: var(--gap-3); }
+
+.glass-hover {
+  --mx: 50%; --my: 0%;
+  transition: transform 0.45s var(--ease-spring), box-shadow 0.45s ease, border-color 0.3s ease, background 0.3s ease;
+}
+.glass-hover:hover {
+  transform: translateY(-4px);
+  border-color: var(--glass-border-hover);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.34);
+  background: radial-gradient(240px circle at var(--mx) var(--my), rgba(255, 255, 255, 0.1), transparent 55%), var(--glass-bg);
+}
+/* light hover sheen: pure white is invisible on white glass — pair a hot
+   white core with a faint amber halo so the cursor light reads in light
+   mode exactly like the dark-mode specular does */
+:root[data-theme="light"] .glass-hover:hover {
+  box-shadow: 0 30px 70px rgba(24, 34, 60, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  background:
+    radial-gradient(150px circle at var(--mx) var(--my), rgba(255, 255, 255, 0.85), transparent 60%),
+    radial-gradient(300px circle at var(--mx) var(--my), rgba(255, 176, 92, 0.22), transparent 62%),
+    var(--glass-bg);
+}
+
+/* Section headers */
+.kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--tx-gold);
+  margin-bottom: 2px;
+}
+.card-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--gap-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--gap-3);
+}
+.card-head h2 { font-size: 21px; }
+.card-head .sub { color: var(--ink-mid); font-size: 13px; margin-top: 3px; }
+
+/* ---------- Top navigation ---------- */
+.lt-nav {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(var(--page-max) - 16px, calc(100% - 24px));
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: var(--gap-3);
+  padding: 10px 14px;
+  border-radius: var(--r-pill);
+}
+.lt-nav.glass::after { display: none; }
+
+.nav-brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+/* Dark signboard tile keeps the venue's ivory-and-gold player emblem
+   legible in both themes and echoes the physical North sign. */
+/* The player emblem is a full two-player composition (solid gold smasher
+   + a second player and shuttles in WHITE linework) that fills its whole
+   canvas — no box, no crop: render the complete artwork. A theme-aware
+   drop-shadow keeps the white strokes legible over light glass. */
+.nav-brand .mark {
+  width: 60px;
+  height: 46px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+.nav-brand .mark svg, .nav-brand .mark img {
+  width: 60px; height: auto; max-width: none; flex: none;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.55));
+}
+:root[data-theme="light"] .nav-brand .mark svg,
+:root[data-theme="light"] .nav-brand .mark img {
+  /* light mode: white players → dark ink, gold centre stays amber —
+     mirrors the dark theme's white+gold structure (filter defined by
+     core.js, see injectInkFilter) */
+  filter: url(#mxInk);
+}
+.nav-brand .t { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.nav-brand .t strong {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-hi);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-brand .t span {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tx-gold);
+  font-weight: 600;
+}
+
+.nav-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 auto;
+  padding: 4px;
+  border-radius: var(--r-pill);
+  background: var(--pill-bg);
+  border: 1px solid var(--tile-border);
+}
+.nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 15px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink-mid);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+  text-decoration: none;
+}
+.nav-tab svg { width: 16px; height: 16px; }
+.nav-tab:hover { color: var(--ink-hi); }
+.nav-tab.active {
+  color: #231d00;
+  background: var(--gold-grad);
+  box-shadow: 0 6px 18px rgba(247, 203, 21, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.nav-actions { display: flex; align-items: center; gap: var(--gap-2); margin-left: auto; }
+
+/* Theme toggle */
+.theme-toggle {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--chip-border);
+  background: var(--chip-bg);
+  color: var(--ink-mid);
+  cursor: pointer;
+  transition: color 0.25s ease, border-color 0.25s ease, transform 0.4s var(--ease-spring), background 0.3s ease;
+}
+.theme-toggle:hover { color: var(--tx-gold); border-color: var(--input-border-hover); transform: rotate(18deg); }
+.theme-toggle svg { width: 18px; height: 18px; }
+
+/* ---------- Mobile bottom dock ---------- */
+.lt-dock {
+  position: fixed;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: none;
+  align-items: stretch;
+  gap: 2px;
+  padding: 7px;
+  border-radius: var(--r-pill);
+  width: min(440px, calc(100% - 20px));
+}
+.lt-dock.glass::after { display: none; }
+.dock-tab {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 7px 4px 6px;
+  border: none;
+  border-radius: 18px;
+  background: transparent;
+  color: var(--ink-low);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: color 0.25s ease, background 0.25s ease;
+  text-decoration: none;
+}
+.dock-tab svg { width: 21px; height: 21px; }
+.dock-tab.active { color: var(--tx-gold); background: rgba(247, 203, 21, 0.14); }
+.dock-tab:hover { color: var(--ink-hi); }
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border-radius: var(--r-pill);
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 650;
+  font-family: var(--font-body);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.35s var(--ease-spring), box-shadow 0.3s ease, background 0.3s ease, border-color 0.3s ease, opacity 0.2s ease, color 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn svg { width: 16px; height: 16px; }
+
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  color: #231d00;
+  background: var(--gold-grad);
+  box-shadow: 0 10px 26px rgba(247, 203, 21, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+}
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 28%, rgba(255, 255, 255, 0.5) 50%, transparent 72%);
+  transform: translateX(-130%);
+  pointer-events: none;
+}
+.btn-primary:hover::after { transform: translateX(130%); transition: transform 0.7s ease; }
+.btn-primary:hover { box-shadow: 0 14px 34px rgba(247, 203, 21, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.6); transform: translateY(-1px); }
+@media (prefers-reduced-motion: reduce) { .btn-primary::after { display: none; } }
+
+.btn-glass {
+  color: var(--ink-hi);
+  background: var(--chip-bg);
+  border-color: var(--chip-border);
+  /* No own backdrop-filter: these sit inside already-frosted .glass surfaces,
+     and Safari renders a nested backdrop-filter as an opaque WHITE block. The
+     translucent background alone reads as glass over the parent. */
+  box-shadow: var(--glass-shadow-soft);
+}
+.btn-glass:hover { border-color: var(--input-border-hover); }
+
+.btn-ghost { color: var(--ink-mid); background: transparent; border-color: transparent; }
+.btn-ghost:hover { color: var(--ink-hi); background: var(--ghost-hover); }
+
+
+.btn-sm { padding: 7px 14px; font-size: 12.5px; }
+.btn-lg { padding: 14px 30px; font-size: 15.5px; }
+.btn-block { width: 100%; }
+.btn-icon { width: 38px; height: 38px; padding: 0; border-radius: 50%; }
+
+/* ---------- Forms ---------- */
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field > span, .field > label {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: var(--ink-mid);
+  text-transform: uppercase;
+}
+.field .opt { color: var(--ink-faint); text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+input[type="text"], input[type="email"], input[type="password"], input[type="tel"],
+input[type="number"], input[type="date"], input[type="search"], select, textarea {
+  width: 100%;
+  padding: 12px 15px;
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  color: var(--ink-hi);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--r-md);
+  outline: none;
+  box-shadow: var(--input-shadow);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+textarea { resize: vertical; min-height: 64px; }
+input::placeholder, textarea::placeholder { color: var(--ink-faint); }
+input:hover, select:hover, textarea:hover { border-color: var(--input-border-hover); }
+input:focus, select:focus, textarea:focus {
+  border-color: rgba(255, 216, 61, 0.75);
+  background: var(--input-bg-focus);
+  box-shadow: 0 0 0 3px rgba(247, 203, 21, 0.2), var(--input-shadow);
+}
+
+select {
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 38px;
+}
+select option { background: var(--option-bg); color: var(--ink-hi); }
+
+input[type="date"] { color-scheme: var(--scheme); }
+input[type="number"]::-webkit-inner-spin-button { opacity: 0.4; }
+
+/* Checkbox / radio pills */
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--input-border);
+  background: var(--tile-bg);
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--ink-mid);
+  transition: border-color 0.25s ease, background 0.25s ease, color 0.25s ease;
+  user-select: none;
+}
+.choice:hover { border-color: var(--input-border-hover); color: var(--ink-hi); }
+.choice input { display: none; }
+.choice .dot {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 6px;
+  border: 1.5px solid var(--dot-border);
+  display: grid;
+  place-items: center;
+  transition: all 0.25s ease;
+}
+.choice input[type="radio"] + .dot { border-radius: 50%; }
+.choice input:checked + .dot {
+  border-color: var(--gold-500);
+  background: var(--gold-grad);
+  box-shadow: 0 2px 10px rgba(247, 203, 21, 0.4);
+}
+.choice input:checked + .dot::after {
+  content: "";
+  width: 9px;
+  height: 5px;
+  margin-top: -2px;
+  border-left: 2px solid #231d00;
+  border-bottom: 2px solid #231d00;
+  transform: rotate(-45deg);
+}
+.choice input:checked ~ span { color: var(--ink-hi); }
+.choice:has(input:checked) {
+  border-color: rgba(255, 216, 61, 0.55);
+  background: rgba(247, 203, 21, 0.12);
+}
+
+.form-msg { font-size: 13.5px; color: var(--tx-gold); min-height: 18px; }
+.form-msg.error { color: var(--tx-red); }
+
+/* ---------- Pills, badges, stats ---------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  border: 1px solid var(--pill-border);
+  background: var(--pill-bg);
+  color: var(--ink-mid);
+  white-space: nowrap;
+}
+.pill.gold { color: var(--tx-gold); border-color: rgba(247, 203, 21, 0.45); background: rgba(247, 203, 21, 0.14); }
+.pill.green { color: var(--tx-green); border-color: rgba(52, 211, 153, 0.35); background: rgba(52, 211, 153, 0.12); }
+.pill.red { color: var(--tx-red); border-color: rgba(220, 80, 86, 0.4); background: rgba(255, 107, 107, 0.12); }
+.pill.optic { color: var(--tx-optic); border-color: rgba(154, 168, 255, 0.35); background: rgba(154, 168, 255, 0.1); }
+
+/* ---------- Filter dropdown ----------
+   DESIGN RULE: 1–2 mutually-exclusive choices may use chips / a tab toggle.
+   3+ filter options use this compact dropdown — never a long wrapping row of
+   chip buttons. Keeps toolbars calm and consistent across every page. */
+.lt-filter { width: auto; display: inline-block; }
+.lt-filter select {
+  width: auto;
+  padding: 8px 34px 8px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-hi);
+  border-radius: var(--r-pill);
+  background-color: var(--chip-bg);
+  background-position: right 12px center;
+  box-shadow: none;
+}
+.lt-filter select:hover { border-color: var(--input-border-hover); }
+
+/* ---------- Inline table-cell status / tags ----------
+   Pills are for standalone status chips (cards, headers), NOT dense table
+   data. In tables use plain coloured text — a leading dot for a status,
+   nothing for a plain category/type/mode label. */
+.cell-status { display: inline-flex; align-items: center; gap: 6px; font-weight: 650; font-size: 12.5px; }
+.cell-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.cell-status.green { color: var(--tx-green); }
+.cell-status.red { color: var(--tx-red); }
+.cell-status.gold { color: var(--tx-gold); }
+.cell-tag { font-weight: 600; font-size: 12.5px; color: var(--ink-mid); }
+.cell-tag.gold { color: var(--tx-gold); }
+.cell-tag.green { color: var(--tx-green); }
+.cell-tag.red { color: var(--tx-red); }
+
+.stat-card { padding: var(--gap-3) var(--gap-4); display: flex; flex-direction: column; gap: 2px; }
+.stat-card .stat-value {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: var(--stat-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.stat-card .stat-copy { font-size: 12.5px; color: var(--ink-low); }
+.stat-value[data-countup] { font-variant-numeric: tabular-nums; }
+
+/* ---------- Tables ---------- */
+.table-wrap { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; border-radius: var(--r-lg); }
+table.lt-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13.5px; }
+/* `tight` = one clean line per cell; the wrapper scrolls sideways instead of
+   wrapping names/details across rows. Consistent data-table feel everywhere. */
+.lt-table.tight th, .lt-table.tight td { white-space: nowrap; vertical-align: middle; }
+.lt-table.tight td .faint { white-space: nowrap; }
+.lt-table thead th {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-low);
+  padding: 12px 14px;
+  background: var(--thead-bg);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+  z-index: 1;
+}
+/* clip scrolling tables cleanly so the sticky header doesn't bleed past the
+   rounded corners (backdrop-filter on a sticky cell escapes the radius clip) */
+.table-wrap { -webkit-mask-image: -webkit-radial-gradient(white, black); }
+.lt-table tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-mid);
+  vertical-align: middle;
+}
+.lt-table tbody tr { transition: background 0.2s ease; }
+.lt-table tbody tr:hover { background: var(--row-hover); }
+.lt-table tbody tr:last-child td { border-bottom: none; }
+.lt-table .t-name { color: var(--ink-hi); font-weight: 650; }
+
+/* ---------- Modal ---------- */
+.lt-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: var(--backdrop);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.lt-modal-backdrop.open { opacity: 1; pointer-events: auto; }
+/* freeze the page behind an open modal so touch-scroll moves the modal, not
+   the page underneath it */
+body.lt-noscroll { overflow: hidden; }
+/* Modals sit over busy photo content — give them a much more solid fill
+   than ambient glass so rows and bars stay legible in BOTH themes. */
+.lt-modal.glass { background: rgba(16, 15, 32, 0.82); }
+:root[data-theme="light"] .lt-modal.glass { background: rgba(255, 255, 255, 0.82); }
+:root[data-theme="light"] .lt-modal-backdrop { background: rgba(18, 22, 34, 0.45); }
+.lt-modal {
+  width: min(620px, 100%);
+  max-height: min(86vh, 86dvh);
+  overflow-y: auto;
+  border-radius: var(--r-xl);
+  padding: var(--gap-4);
+  transform: translateY(14px) scale(0.97);
+  transition: transform 0.4s var(--ease-spring);
+}
+.lt-modal-backdrop.open .lt-modal { transform: translateY(0) scale(1); }
+.lt-modal .modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--gap-3);
+  margin-bottom: var(--gap-3);
+}
+
+/* ---------- Toast ---------- */
+.lt-toast {
+  position: fixed;
+  bottom: calc(var(--dock-h) + 18px);
+  left: 50%;
+  transform: translate(-50%, 16px);
+  z-index: 120;
+  padding: 13px 22px;
+  border-radius: var(--r-pill);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-hi);
+  background: var(--toast-bg);
+  border: 1px solid var(--toast-border);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.4s var(--ease-spring);
+  max-width: min(480px, calc(100vw - 32px));
+  text-align: center;
+}
+.lt-toast.show { opacity: 1; transform: translate(-50%, 0); }
+@media (min-width: 700px) { .lt-toast { bottom: 26px; } }
+
+/* ---------- Chips ---------- */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 7px 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--chip-border);
+  background: var(--chip-bg);
+  color: var(--ink-mid);
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  /* No own backdrop-filter — nested inside .glass it renders white in Safari
+     (WebKit nested backdrop-filter bug). Translucent bg + border is enough. */
+  text-decoration: none;
+}
+.chip:hover { border-color: var(--input-border-hover); color: var(--ink-hi); }
+.chip.active {
+  color: #231d00;
+  background: var(--gold-grad);
+  border-color: transparent;
+  box-shadow: 0 6px 16px rgba(247, 203, 21, 0.3);
+}
+/* compact filter pills — smaller + flatter than action chips, for filter rows */
+.chip-row.filters { gap: 6px; }
+.chip-row.filters .chip { padding: 5px 12px; font-size: 11.5px; font-weight: 600; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.chip-row.filters .chip.active { box-shadow: none; }
+
+/* ---------- Empty state ---------- */
+.empty-state { padding: var(--gap-5) var(--gap-4); text-align: center; color: var(--ink-low); font-size: 14px; }
+
+/* ---------- Utilities ---------- */
+.muted { color: var(--ink-mid); }
+.faint { color: var(--ink-low); }
+.gold { color: var(--tx-gold); }
+.center { text-align: center; }
+.flex { display: flex; gap: var(--gap-2); align-items: center; }
+.flex.between { justify-content: space-between; }
+.flex.wrap { flex-wrap: wrap; }
+.grow { flex: 1; min-width: 0; }
+.hide { display: none !important; }
+.mt-1 { margin-top: var(--gap-1); } .mt-2 { margin-top: var(--gap-2); }
+.mt-3 { margin-top: var(--gap-3); } .mt-4 { margin-top: var(--gap-4); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Scroll-reveal — progressive enhancement (needs .lt-js on <html>) */
+.reveal { opacity: 1; transform: none; }
+html.lt-js .reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.8s ease, transform 0.8s var(--ease-spring);
+  will-change: opacity, transform;
+}
+html.lt-js .reveal.in { opacity: 1; transform: none; }
+html.lt-js .reveal.d1 { transition-delay: 0.07s; } html.lt-js .reveal.d2 { transition-delay: 0.14s; }
+html.lt-js .reveal.d3 { transition-delay: 0.21s; } html.lt-js .reveal.d4 { transition-delay: 0.28s; }
+@media (prefers-reduced-motion: reduce) {
+  html.lt-js .reveal { opacity: 1; transform: none; transition: none; }
+}
+
+/* Page enter transition */
+html.lt-js .lt-page { animation: lt-page-in 0.55s var(--ease-spring) both; }
+/* Slide-up only, NO opacity fade: with `both` fill-mode an opacity:0 start frame
+   left the whole page invisible on Safari whenever it didn't start the animation
+   (intermittent blank page). Transform-only keeps content always visible. */
+@keyframes lt-page-in { from { transform: translateY(10px); } }
+@media (prefers-reduced-motion: reduce) { html.lt-js .lt-page { animation: none; } }
+
+/* ---------- Badminton-themed animated backdrop ---------- */
+.lt-court-scene { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+
+/* Shuttles gliding along arcs (rendered as glowing amber orbs w/ skirt ring) */
+.lt-court-scene .tb {
+  position: absolute; top: 0; left: 0;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #fff4c9 0%, #ffd83d 55%, #b38a00 100%);
+  box-shadow: inset -4px -4px 7px rgba(120, 60, 10, 0.45), inset 3px 3px 6px rgba(255, 255, 255, 0.4);
+  opacity: 0.3;
+  offset-rotate: auto;
+}
+.lt-court-scene .tb::after {
+  content: ""; position: absolute; inset: -1px; border-radius: 50%;
+  border-top: 1.6px solid rgba(255, 255, 255, 0.85);
+  transform: rotate(30deg) scaleY(0.82);
+}
+.lt-court-scene .tb1 { offset-path: path("M -60 620 Q 520 100 1460 450"); animation: tb-fly 18s linear infinite; }
+.lt-court-scene .tb2 { width: 20px; height: 20px; offset-path: path("M 1500 700 Q 720 220 -90 360"); animation: tb-fly 25s linear infinite -8s; }
+.lt-court-scene .tb3 { width: 34px; height: 34px; offset-path: path("M 160 -70 Q 640 420 1180 920"); animation: tb-fly 22s linear infinite -12s; }
+@keyframes tb-fly { from { offset-distance: 0%; } to { offset-distance: 100%; } }
+
+/* Court baseline perspective lines (bottom of hero) */
+.lt-court-scene .court-lines {
+  position: absolute; left: 50%; bottom: -2%; transform: translateX(-50%);
+  width: min(1400px, 130%); height: 34%; opacity: 0.16;
+}
+:root[data-theme="light"] .lt-court-scene .court-lines { opacity: 0.22; }
+.lt-court-scene .court-lines line, .lt-court-scene .court-lines path {
+  stroke: #fff; stroke-width: 2; fill: none;
+}
+:root[data-theme="light"] .lt-court-scene .court-lines line,
+:root[data-theme="light"] .lt-court-scene .court-lines path { stroke: #5b6474; }
+
+/* Racquet silhouette swinging (bottom-right) */
+.lt-court-scene .racquet {
+  position: absolute; right: 3%; bottom: -4%;
+  width: clamp(120px, 13vw, 200px); height: auto; opacity: 0.12;
+  transform-origin: 85% 95%;
+  animation: rq-swing 8s ease-in-out infinite;
+  color: #fff;
+}
+:root[data-theme="light"] .lt-court-scene .racquet { color: #4a5164; opacity: 0.14; }
+@keyframes rq-swing {
+  0%, 40% { transform: rotate(-14deg); }
+  52%, 60% { transform: rotate(10deg); }
+  74%, 100% { transform: rotate(-14deg); }
+}
+@media (prefers-reduced-motion: reduce) { .lt-court-scene { display: none; } }
+
+/* ---------- Dashboard components ---------- */
+.kpi { display: flex; flex-direction: column; gap: 2px; padding: var(--gap-3) var(--gap-4); }
+.kpi .delta { font-size: 11.5px; font-weight: 700; }
+.kpi .delta.up { color: var(--tx-green); } .kpi .delta.down { color: var(--tx-red); }
+@keyframes lt-grow-bar { from { transform: scaleY(0); } }
+
+.dash-main { display: grid; grid-template-columns: 1.7fr 1fr; gap: var(--gap-3); align-items: stretch; }
+.dash-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-3); }
+@media (max-width: 1099px) { .dash-main, .dash-bottom { grid-template-columns: 1fr; } }
+
+.chart-card { display: flex; flex-direction: column; }
+.chart-host { position: relative; width: 100%; }
+.chart-host svg { width: 100%; height: auto; display: block; overflow: visible; }
+.area-line { fill: none; stroke: url(#ltLineGrad); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.area-fill { opacity: 0; transition: opacity 0.9s ease 0.3s; }
+.area-fill.in { opacity: 1; }
+.chart-grid line { stroke: var(--line); stroke-width: 1; }
+.chart-xlabel { fill: var(--ink-faint); font-size: 10px; font-family: var(--font-body); }
+
+.donut-wrap { display: flex; flex-direction: column; align-items: center; gap: var(--gap-3); justify-content: center; flex: 1; }
+.donut { position: relative; width: 180px; height: 180px; }
+.donut svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.donut .ring { fill: none; stroke-width: 18; stroke-linecap: round; }
+.donut .ring.track { stroke: var(--tile-border); opacity: 0.5; }
+.donut .ring.val { stroke: url(#ltDonutGrad); transition: stroke-dashoffset 1.1s var(--ease-spring); }
+.donut .center { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+.donut .center .pct { font-family: var(--font-display); font-size: 34px; font-weight: 800; color: var(--ink-hi); line-height: 1; }
+.donut .center .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-low); margin-top: 3px; }
+.donut-legend { display: flex; gap: var(--gap-3); flex-wrap: wrap; justify-content: center; }
+.donut-legend .lg { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-mid); }
+.donut-legend .sw { width: 11px; height: 11px; border-radius: 3px; }
+
+/* Activity feed */
+.feed { display: flex; flex-direction: column; }
+.feed-item { display: flex; gap: 13px; padding: 12px 2px; border-bottom: 1px solid var(--line); align-items: flex-start; }
+.feed-item:last-child { border-bottom: none; }
+.feed-item .fi-ic {
+  width: 34px; height: 34px; flex: none; border-radius: 11px;
+  display: grid; place-items: center;
+  background: var(--tile-bg); border: 1px solid var(--tile-border); color: var(--tx-gold);
+}
+.feed-item .fi-ic svg { width: 16px; height: 16px; }
+.feed-item .fi-body { font-size: 13.5px; color: var(--ink-mid); }
+.feed-item .fi-body strong { color: var(--ink-hi); font-weight: 650; }
+.feed-item .fi-time { font-size: 11.5px; color: var(--ink-faint); margin-top: 1px; }
+
+/* ---------- Attendance mark grid ---------- */
+.att-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.att-tile {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: var(--r-md); min-width: 0;
+  border: 1px solid var(--tile-border); background: var(--tile-bg);
+  cursor: pointer; user-select: none;
+  transition: border-color 0.25s ease, background 0.25s ease, transform 0.3s var(--ease-spring);
+}
+.att-tile:active { transform: scale(0.97); }
+.att-tile .av { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #231d00; background: var(--gold-grad); }
+.att-tile .nm { font-size: 13px; font-weight: 650; color: var(--ink-hi); line-height: 1.2; }
+.att-tile .bt { font-size: 10.5px; color: var(--ink-low); }
+.att-tile.present {
+  border-color: rgba(52, 211, 153, 0.55);
+  background: rgba(52, 211, 153, 0.13);
+}
+.att-tile.present .av { background: linear-gradient(135deg, #6ee7b7, #34d399); }
+
+/* ---------- Court slot grid (hourly booking) ---------- */
+.slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.slot {
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 13px 14px 13px 18px; border-radius: 14px;
+  border: 1px solid var(--tile-border); background: var(--tile-bg);
+  cursor: pointer; user-select: none; text-align: left;
+  font-family: var(--font-body); color: var(--ink-mid);
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.25s var(--ease-spring), box-shadow 0.25s ease;
+}
+/* left accent bar: gold = peak/floodlit, cool = daytime — reads at a glance */
+.slot::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--ink-faint); opacity: 0.35; }
+.slot.pk::before { background: var(--gold-grad); opacity: 1; }
+.slot:hover { border-color: var(--input-border-hover); transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18); }
+.slot:active { transform: scale(0.97); }
+.slot .sl-time { font-weight: 700; font-size: 14px; color: var(--ink-hi); }
+.slot .sl-rate { font-size: 12px; color: var(--ink-low); }
+.slot .sl-rate .peak { color: var(--tx-gold); font-weight: 700; }
+.slot.sel {
+  border-color: rgba(255, 216, 61, 0.7);
+  background: rgba(247, 203, 21, 0.16);
+  box-shadow: 0 8px 22px rgba(247, 203, 21, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.slot.sel::after { content: "✓"; position: absolute; top: 9px; right: 12px; color: var(--tx-gold); font-weight: 800; font-size: 14px; }
+.slot.sel .sl-time { color: var(--tx-gold); }
+.slot:disabled, .slot.taken { opacity: 0.4; cursor: not-allowed; }
+.slot:disabled::before, .slot.taken::before { opacity: 0.2; }
+
+
+/* ---------- Court cards (staff bookings view) ----------
+   Compact photo band up top for identity; the day timeline and numbers
+   live on a quiet glass panel below so the data — not the photo — leads. */
+.court-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: var(--gap-3); }
+@media (max-width: 699px) { .court-grid { grid-template-columns: 1fr; } }
+
+.court-card {
+  position: relative;
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  transition: transform 0.45s var(--ease-spring), box-shadow 0.45s ease, border-color 0.3s ease;
+}
+.court-card:hover { transform: translateY(-4px); border-color: var(--glass-border-hover); box-shadow: 0 30px 70px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+.court-card .cc-media { position: relative; height: 118px; }
+.court-card img.cc-photo {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  filter: saturate(0.72) brightness(0.86);
+  transform: scale(1.02); transition: transform 0.7s ease, filter 0.5s ease;
+}
+.court-card:hover img.cc-photo { transform: scale(1.06); filter: saturate(0.95) brightness(0.95); }
+.court-card .cc-shade {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(7, 7, 16, 0.16) 0%, rgba(7, 7, 16, 0.4) 58%, rgba(7, 7, 16, 0.72) 100%);
+}
+.court-card .cc-status { position: absolute; top: 12px; right: 12px; }
+/* status pills sit on photos: give them a solid dark backdrop so they stay
+   readable over bright skies in both themes */
+.court-card .cc-status .pill {
+  background: rgba(7, 7, 16, 0.62);
+  border-color: rgba(255, 255, 255, 0.28);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.court-card .cc-name { position: absolute; left: 16px; bottom: 10px; font-family: var(--font-display); font-weight: 800; font-size: 18px; color: #fff; line-height: 1.15; }
+.court-card .cc-name small { display: block; font-family: var(--font-body); font-weight: 600; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 216, 61, 0.95); margin-top: 2px; }
+.court-card .cc-body { padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 9px; }
+.court-card .cc-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 11.5px; color: var(--ink-mid); }
+.court-card .cc-meta b { color: var(--tx-gold); font-weight: 700; }
+
+/* Hour occupancy strip: one segment per bookable hour */
+.tl { display: flex; gap: 3px; height: 24px; }
+.tl .seg {
+  flex: 1; border-radius: 5px;
+  background: rgba(255, 255, 255, 0.14);
+  transform-origin: bottom;
+  animation: lt-grow-bar 0.6s var(--ease-spring) both;
+}
+:root[data-theme="light"] .tl .seg { background: rgba(28, 32, 44, 0.13); }
+.tl .seg.past { opacity: 0.22; }
+.tl .seg.booked { background: var(--gold-grad); box-shadow: 0 2px 8px rgba(247, 203, 21, 0.5); }
+.tl .seg.pending {
+  position: relative; overflow: hidden;
+  background: repeating-linear-gradient(45deg, rgba(154, 168, 255, 0.55) 0 4px, rgba(154, 168, 255, 0.12) 4px 8px);
+  outline: 1px dashed rgba(154, 168, 255, 0.7); outline-offset: -1px;
+}
+.tl .seg.pending::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(110deg, transparent 25%, rgba(255, 255, 255, 0.45) 50%, transparent 75%);
+  transform: translateX(-120%);
+  animation: lt-seg-sweep 2.4s ease-in-out infinite;
+}
+@keyframes lt-seg-sweep { 45% { transform: translateX(-120%); } 80%, 100% { transform: translateX(120%); } }
+.tl .seg.now {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 2px 8px rgba(247, 203, 21, 0.5);
+  animation: lt-grow-bar 0.6s var(--ease-spring) both, lt-now-pulse 2.2s ease-in-out infinite 0.6s;
+}
+@keyframes lt-now-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 0 0 0 rgba(154, 168, 255, 0.55); }
+  50% { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95), 0 0 14px 3px rgba(154, 168, 255, 0.55); }
+}
+.court-card:hover .tl .seg.booked { filter: brightness(1.15); }
+@media (prefers-reduced-motion: reduce) { .tl .seg, .tl .seg.pending::after, .tl .seg.now { animation: none; } }
+.tl-hours { display: flex; justify-content: space-between; font-size: 9.5px; letter-spacing: 0.04em; color: var(--ink-faint); }
+
+/* Legend chips shared by cards + modal */
+.tl-legend { display: flex; gap: var(--gap-3); flex-wrap: wrap; font-size: 12px; color: var(--ink-low); align-items: center; }
+.tl-legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 6px; vertical-align: -2px; }
+
+/* ---------- Court schedule modal ---------- */
+/* court modal: pinned hero + internally-scrolling body so a long day (17
+   slots) scrolls INSIDE the modal, never the page behind it, and the close
+   button stays reachable at the top. */
+.lt-modal.court-modal { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.court-modal .cm-hero { position: relative; height: 140px; flex: none; }
+.court-modal .cm-hero img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(0.78) brightness(0.88); }
+.court-modal .cm-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 30%, rgba(7, 7, 16, 0.85)); }
+.court-modal .cm-hero .cm-title { position: absolute; left: 20px; bottom: 14px; z-index: 1; }
+.court-modal .cm-hero .cm-title h2 { color: #fff; font-size: 22px; }
+.court-modal .cm-hero .cm-title .sub { color: rgba(255, 216, 61, 0.95); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.court-modal .cm-hero .cm-close { position: absolute; top: 12px; right: 12px; z-index: 1; color: #fff; background: rgba(7, 7, 16, 0.45); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.court-modal .cm-body { padding: var(--gap-3) var(--gap-4) var(--gap-4); flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+
+.sched { display: flex; flex-direction: column; gap: 6px; margin-top: var(--gap-2); }
+.sched-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 12px; border-radius: var(--r-sm);
+  border: 1px solid var(--tile-border); background: var(--tile-bg);
+  animation: lt-sched-in 0.45s var(--ease-spring) both;
+}
+@keyframes lt-sched-in { from { opacity: 0; transform: translateX(14px); } }
+@media (prefers-reduced-motion: reduce) { .sched-row { animation: none; } }
+:root[data-theme="light"] .sched-row { background: rgba(255, 255, 255, 0.6); border-color: rgba(28, 32, 44, 0.14); }
+.sched-row .sr-time { flex: none; width: 92px; font-size: 12px; font-weight: 700; color: var(--ink-mid); font-variant-numeric: tabular-nums; }
+.sched-row .sr-bar { flex: 1; height: 10px; border-radius: 6px; background: var(--line); position: relative; overflow: hidden; }
+:root[data-theme="light"] .sched-row .sr-bar { background: rgba(28, 32, 44, 0.14); }
+.sched-row .sr-bar i { position: absolute; inset: 0; border-radius: 6px; transform-origin: left; animation: lt-fill-bar 0.7s var(--ease-spring) both; }
+@keyframes lt-fill-bar { from { transform: scaleX(0); } }
+.sched-row.free .sr-bar i { display: none; }
+.sched-row.booked .sr-bar i { background: var(--gold-grad); box-shadow: 0 2px 8px rgba(247, 203, 21, 0.4); }
+.sched-row.pending .sr-bar i { background: repeating-linear-gradient(45deg, rgba(154, 168, 255, 0.6) 0 5px, rgba(154, 168, 255, 0.15) 5px 10px); }
+.sched-row .sr-who { flex: 1 1 auto; min-width: 0; text-align: right; font-size: 12.5px; font-weight: 650; color: var(--ink-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sched-row .sr-who small { text-align: right; }
+.sched-row .sr-who small { display: block; font-weight: 500; font-size: 10.5px; color: var(--ink-low); }
+.sched-row.free .sr-who { color: var(--ink-faint); font-weight: 500; }
+.sched-row.past { opacity: 0.45; }
+.sched-row.now { border-color: rgba(255, 216, 61, 0.6); background: rgba(247, 203, 21, 0.1); }
+
+/* ---------- Wizard stepper (membership / trial form) ---------- */
+.adm-stepper { display: flex; align-items: center; gap: 6px; margin-bottom: var(--gap-4); }
+.adm-stepper .step { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; }
+.adm-stepper .step .num {
+  width: 30px; height: 30px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  font-family: var(--font-display); font-weight: 700; font-size: 13px;
+  color: var(--ink-low);
+  background: var(--tile-bg);
+  border: 1.5px solid var(--tile-border);
+  transition: all 0.4s var(--ease-spring);
+}
+.adm-stepper .step .lbl { font-size: 12.5px; font-weight: 650; color: var(--ink-low); white-space: nowrap; transition: color 0.3s ease; }
+.adm-stepper .step.active .num {
+  color: #231d00;
+  background: var(--gold-grad);
+  border-color: transparent;
+  box-shadow: 0 6px 16px rgba(247, 203, 21, 0.4);
+  transform: scale(1.08);
+}
+.adm-stepper .step.active .lbl { color: var(--ink-hi); }
+.adm-stepper .step.done .num { color: var(--tx-green); background: rgba(52, 211, 153, 0.14); border-color: rgba(52, 211, 153, 0.4); }
+.adm-stepper .step.done .num::after { content: "✓"; font-size: 14px; }
+.adm-stepper .step.done .num .n { display: none; }
+.adm-stepper .bar { flex: 1; height: 2px; min-width: 12px; border-radius: 2px; background: var(--line); position: relative; overflow: hidden; }
+.adm-stepper .bar::after {
+  content: ""; position: absolute; inset: 0; width: var(--fill, 0%);
+  background: linear-gradient(90deg, var(--gold-400), var(--gold-500));
+  transition: width 0.5s var(--ease-spring);
+}
+.adm-step { display: none; }
+.adm-step.active { display: block; animation: lt-step-in 0.5s var(--ease-spring) both; }
+@keyframes lt-step-in { from { opacity: 0; transform: translateX(16px); } }
+@media (prefers-reduced-motion: reduce) { .adm-step.active { animation: none; } }
+.adm-nav { display: flex; gap: var(--gap-2); align-items: center; margin-top: var(--gap-4); }
+@media (max-width: 699px) {
+  .adm-stepper .step .lbl { display: none; }
+  .adm-stepper .step.active .lbl { display: inline; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); background-clip: content-box; }
+
+/* ---------- Responsive: mobile <700 (fold inner screens get desktop), tablet 700–1099, desktop ≥1100 ---------- */
+@media (max-width: 1099px) {
+  .lt-grid.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lt-grid.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nav-tab { padding: 8px 11px; }
+  .nav-tab span { display: none; }
+  .nav-tab svg { width: 19px; height: 19px; }
+}
+@media (max-width: 699px) {
+  body { font-size: 14px; }
+  .sched-row { gap: 8px; padding: 9px 10px; }
+  .sched-row .sr-time { width: 74px; font-size: 11px; white-space: nowrap; }
+  .sched-row .sr-who { font-size: 11.5px; }
+  /* the decorative status bar is dropped on phones so the name + action
+     buttons fit the row without overflowing off the right edge */
+  .sched-row .sr-bar { display: none; }
+  .sched-row .sr-acts { gap: 3px; }
+  .sched-row .sr-acts .btn-icon { width: 28px; height: 28px; font-size: 12px; }
+  .court-modal .cm-hero { height: 130px; }
+  .lt-page {
+    padding: calc(var(--nav-h) + var(--gap-2)) var(--gap-2) calc(var(--dock-h) + 26px);
+    gap: var(--gap-3);
+  }
+  .lt-grid.cols-2, .lt-grid.cols-3, .lt-grid.cols-4 { grid-template-columns: 1fr; }
+  .glass-card { padding: var(--gap-3); }
+  .glass { border-radius: var(--r-lg); }
+  .lt-nav { top: 10px; padding: 8px 12px; }
+  .lt-nav .nav-tabs { display: none; }
+  .lt-dock { display: flex; }
+  .card-head h2 { font-size: 18px; }
+  .stat-card .stat-value { font-size: 26px; }
+  .lt-modal { padding: var(--gap-3); border-radius: var(--r-lg); }
+  .hide-mobile { display: none !important; }
+}
+@media (min-width: 700px) {
+  .only-mobile { display: none !important; }
+}
+
+/* ---------- Fallback: no backdrop-filter support ----------
+   Translucent fills would sit unblurred over the field and text would
+   swim — fall back to a mostly solid surface per theme. */
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .glass, .court-card { background: rgba(16, 15, 30, 0.92); }
+  :root[data-theme="light"] .glass,
+  :root[data-theme="light"] .court-card { background: rgba(250, 250, 253, 0.92); }
+}
+
+/* ============================================================
+   SUPER KINGS ADDITIONS
+   Components core.js renders that the inherited system does not define.
+   Appended, not interleaved, so a future diff against the Academy Manager
+   stylesheet stays readable.
+   ============================================================ */
+
+/* ---------- Loading ----------
+   A skeleton, not a spinner: every read here goes ~180ms to Tokyo and
+   back, so the shape of what is coming is more use than a wait cursor. */
+.lt-skel {
+  height: 46px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  background: linear-gradient(90deg,
+    rgba(255,255,255,.05) 25%, rgba(255,255,255,.12) 37%, rgba(255,255,255,.05) 63%);
+  background-size: 400% 100%;
+  animation: lt-sk 1.2s ease-in-out infinite;
+}
+:root[data-theme="light"] .lt-skel {
+  background: linear-gradient(90deg, rgba(15,20,35,.05) 25%, rgba(15,20,35,.11) 37%, rgba(15,20,35,.05) 63%);
+  background-size: 400% 100%;
+}
+@keyframes lt-sk { from { background-position: 100% 50%; } to { background-position: 0 50%; } }
+
+/* ---------- Empty / failed ----------
+   A brand-new academy sees these constantly in its first week, so they
+   get real design. "Could not load" and "nothing here yet" are rendered
+   by the same component but must never read the same — an empty academy
+   and a broken one looking alike is how a dashboard shows an academy
+   that has never taken a rupee. */
+.lt-empty { padding: 40px 18px; text-align: center; }
+.lt-empty-t { font-weight: 700; color: var(--ink-mid); margin-bottom: 6px; }
+.lt-empty-s { font-size: 13px; color: var(--ink-low); max-width: 44ch; margin: 0 auto; line-height: 1.5; }
+
+/* ---------- Dev banner ----------
+   Deliberately loud and deliberately ugly. It is meant to be impossible
+   to mistake for chrome, and impossible to leave switched on by accident.
+   Setting LT_CLOUD.DEV = false removes it. */
+.lt-devbar {
+  position: sticky; top: 0; z-index: 200;
+  background: repeating-linear-gradient(45deg, #f7cb15 0 14px, #e0b400 14px 28px);
+  color: #231d00;
+  font-size: 12px; font-weight: 800; letter-spacing: .3px;
+  text-align: center; padding: 7px 12px; line-height: 1.35;
+}
+@media (max-width: 640px) { .lt-devbar { font-size: 11px; padding: 6px 10px; } }
+
+/* ---------- Money ----------
+   Rental and fee figures are compared down a column all day; tabular
+   numerals stop the digits shifting between rows. */
+.money { font-variant-numeric: tabular-nums; font-weight: 700; }
+.money-lg { font-size: 22px; }
+
+/* ---------- Paid / unpaid ----------
+   The one thing an operator scans a booking board for. */
+.paid-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.paid-dot.yes { background: var(--emerald-400); }
+.paid-dot.no  { background: var(--ink-faint); }
+
+/* ---------- Dev banner: push the floating nav clear of it ----------
+   .lt-devbar is sticky at z-index 200; .lt-nav is fixed at top:14 with a
+   lower z-index, so without this the striped banner sits ON TOP of the
+   nav on every staff page — which is what every manager and coach screen
+   looked like until this rule existed. The banner wraps to two or three
+   lines on a phone, so the offset is generous. */
+body.has-devbar .lt-nav { top: 52px; }
+body.has-devbar .lt-main { padding-top: 8px; }
+@media (max-width: 640px) {
+  body.has-devbar .lt-nav { top: 64px; }
+}
+
+/* ---------- Toast kinds ----------
+   LT.toast(msg, kind) sets data-kind, and seven call sites pass "error".
+   Without these rules a failed save and a successful one are the same
+   grey pill — and the coach screen is used one-handed, outdoors, in sun,
+   where "that did not save" has to be unmistakable. */
+.lt-toast[data-kind="error"] {
+  border-color: rgba(220, 80, 86, 0.65);
+  box-shadow: 0 12px 32px rgba(120, 20, 24, 0.35);
+}
+.lt-toast[data-kind="error"]::before { content: "⚠ "; }
+.lt-toast[data-kind="ok"] {
+  border-color: rgba(52, 211, 153, 0.6);
+}
+.lt-toast[data-kind="ok"]::before { content: "✓ "; }

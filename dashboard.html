@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#04101f" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#f2f3f7" media="(prefers-color-scheme: light)" />
+<title>Dashboard · Super Kings Academy</title>
+<meta name="description" content="Today at VAKAMAN FE — bookings taken, money collected, nets utilisation, the main ground, and renewals due." />
+<script>
+  /* blocking: applies the persisted theme before first paint, else the
+     page renders dark and flashes. Raw string, not JSON. */
+  try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
+  document.documentElement.className += " lt-js";
+</script>
+<link rel="stylesheet" href="assets/css/glass.css?v=2" />
+<style>
+  /* 2x2 KPIs on phones — the same tweak the demo dashboard carries, so all
+     four numbers are readable without scrolling on a counter phone. */
+  @media (max-width: 699px) {
+    .lt-grid.cols-4.dash-kpis { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .dash-kpis .stat-card { padding: 12px 14px; }
+    .dash-kpis .stat-value { font-size: 22px; }
+    .dash-kpis .stat-copy { font-size: 11px; }
+    .dash-kpis .delta { font-size: 10.5px; }
+  }
+
+  /* One occupancy strip per net, reusing the .tl / .seg component the
+     bookings board draws its court cards with — same visual language, so
+     "booked / pending / past / now" mean the same thing on both screens. */
+  .net-row { display: grid; grid-template-columns: 108px 1fr 62px; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .net-row:last-child { margin-bottom: 0; }
+  .net-row .net-name { font-size: 12px; font-weight: 650; color: var(--ink-mid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .net-row .net-count { font-size: 11.5px; color: var(--ink-low); text-align: right; font-variant-numeric: tabular-nums; }
+  @media (max-width: 560px) { .net-row { grid-template-columns: 88px 1fr 48px; gap: 8px; } }
+
+  /* A white "free" swatch is invisible on light glass — the bookings board
+     carries the same themed pair, so the legend means the same thing in
+     both themes. */
+  .tl-legend .sw-free { background: rgba(255, 255, 255, 0.16); }
+  :root[data-theme="light"] .tl-legend .sw-free { background: rgba(28, 32, 44, 0.18); }
+
+  /* the bottom-right column stacks two cards inside one .dash-bottom cell */
+  .dash-side { display: flex; flex-direction: column; gap: var(--gap-3); }
+  .qa-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  @media (max-width: 560px) { .qa-row { grid-template-columns: 1fr; } }
+
+  .stat-line { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .ground-who { font-family: var(--font-display); font-size: 17px; font-weight: 650; color: var(--ink-hi); margin-top: 6px; line-height: 1.25; }
+</style>
+</head>
+<body>
+  <div class="lt-bg" aria-hidden="true"></div>
+
+  <!-- .lt-page is the design system's page frame (max width + the padding
+       that clears the fixed nav and the mobile dock). .lt-main carries no
+       styles of its own; it is kept so every page in this app reads the
+       same in source. -->
+  <main class="lt-page lt-main">
+
+    <div class="card-head" style="margin-bottom: 0;">
+      <div>
+        <div class="kicker">Dashboard</div>
+        <h2 id="greet">Today 🏏</h2>
+        <div class="sub" id="dateLine">VAKAMAN FE</div>
+      </div>
+      <a class="btn btn-primary btn-sm" href="bookings.html">Today's bookings</a>
+    </div>
+
+    <!-- ---------- the four numbers ---------- -->
+    <div class="lt-grid cols-4 dash-kpis">
+      <div class="glass glass-hover stat-card kpi reveal">
+        <span class="stat-copy">Bookings today</span>
+        <span class="stat-value" id="kpiBookings">—</span>
+        <span class="delta" id="kpiBookingsSub">Loading…</span>
+      </div>
+      <div class="glass glass-hover stat-card kpi reveal d1">
+        <span class="stat-copy">Collected today</span>
+        <span class="stat-value" id="kpiCollected">—</span>
+        <span class="delta" id="kpiCollectedSub">Loading…</span>
+      </div>
+      <div class="glass glass-hover stat-card kpi reveal d2">
+        <span class="stat-copy">Active members</span>
+        <span class="stat-value" id="kpiMembers">—</span>
+        <span class="delta" id="kpiMembersSub">Loading…</span>
+      </div>
+      <div class="glass glass-hover stat-card kpi reveal d3">
+        <span class="stat-copy">Renewals due</span>
+        <span class="stat-value" id="kpiDue">—</span>
+        <span class="delta" id="kpiDueSub">Loading…</span>
+      </div>
+    </div>
+
+    <!-- ---------- nets utilisation + the main ground ---------- -->
+    <div class="dash-main">
+      <div class="glass glass-card reveal">
+        <div class="card-head">
+          <div><div class="kicker">Practice nets</div><h2>Utilisation today</h2></div>
+          <a class="btn btn-glass btn-sm" href="bookings.html">Open board</a>
+        </div>
+        <div id="netsBody">
+          <div class="lt-skel"></div><div class="lt-skel"></div>
+          <div class="lt-skel"></div><div class="lt-skel"></div>
+        </div>
+      </div>
+
+      <!-- The ground is up to Rs 25,000 in one row — the single biggest
+           ticket the academy sells, so it gets its own tile rather than a
+           line in a list. -->
+      <div class="glass glass-card reveal d1">
+        <div class="card-head">
+          <div><div class="kicker">Main ground</div><h2>G1 · full day</h2></div>
+          <span class="pill" id="groundPill">—</span>
+        </div>
+        <div id="groundBody"><div class="lt-skel"></div><div class="lt-skel"></div></div>
+      </div>
+    </div>
+
+    <!-- ---------- renewals + money this month + quick actions ---------- -->
+    <div class="dash-bottom">
+      <div class="glass glass-card reveal">
+        <div class="card-head">
+          <div><div class="kicker">Needs attention</div><h2>Renewals due</h2></div>
+          <a class="btn btn-glass btn-sm" href="fees.html">Open finance</a>
+        </div>
+        <div class="faint" id="dueNote" style="font-size:12px;margin-bottom:8px;">
+          From reminder_queue() — it decides who is chased, and stops chasing at +15 days.
+        </div>
+        <div class="feed" id="dueList"></div>
+      </div>
+
+      <div class="dash-side">
+        <div class="glass glass-card reveal d1">
+          <div class="card-head" style="margin-bottom:10px;">
+            <div><div class="kicker">Money in</div><h2 id="monthTitle">This month</h2></div>
+          </div>
+          <div class="stat-card" style="padding:0;">
+            <span class="stat-value" id="kpiMonth">—</span>
+            <span class="stat-copy" id="kpiMonthSub">Loading…</span>
+          </div>
+          <!-- Deliberately narrow, and labelled as such: this counts money
+               collected against BOOKINGS (nets + ground), because that is
+               what this app can read. Coaching fees are recorded through
+               record_fee_payment() and reported on the Finance tab; there
+               is no payments read in cloud.js and tenant_revenue_streams()
+               is hardcoded to tennis/pickleball, so it returns zero here.
+               A tile that quietly means less than its title is how a
+               manager plans a month on half the truth. -->
+          <div class="faint" style="font-size:12px;margin-top:10px;">
+            Court and ground rentals only. Coaching fee collections are on
+            <a href="fees.html">Finance</a>.
+          </div>
+        </div>
+
+        <div class="glass glass-card reveal d2">
+          <div class="card-head" style="margin-bottom:10px;">
+            <div><div class="kicker">Quick actions</div><h2>Start something</h2></div>
+          </div>
+          <div class="qa-row">
+            <a class="btn btn-primary btn-sm btn-block" href="bookings.html">Add booking</a>
+            <a class="btn btn-glass btn-sm btn-block" href="attendance.html">Take register</a>
+            <a class="btn btn-glass btn-sm btn-block" href="players.html">Add member</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="assets/js/core.js?v=2"></script>
+  <script src="assets/js/cloud.js?v=2"></script>
+  <script src="assets/js/dev-data.js?v=2"></script>
+  <script>
+  /* ============================================================
+     MANAGER DASHBOARD — "what is happening today", nothing else.
+
+     Four decisions worth knowing before editing this file:
+
+     1. NO MONEY IS COMPUTED HERE. Every rupee on this screen is either an
+        amount a server row already carried, a sum of those amounts, or
+        slot_price()'s answer. There is no rate table, no fee, no ladder.
+        The ground's Mon–Thu / Fri / weekend prices are deliberately NOT in
+        this file: if the client changes them, this screen must not be one
+        of the places that has to be found and edited.
+
+     2. THE FOUR READS FIRE IN PARALLEL. A round trip to Tokyo is ~180 ms
+        and is ~97% of each request, so four sequential reads is most of a
+        second of blank tiles for no reason. They are dispatched together
+        and rendered as they land.
+
+     3. EVERY REGION FAILS ON ITS OWN. A dead reminder_queue() must not
+        blank the bookings tiles, and a failed read renders "could not
+        load" — never a stale or invented number. An academy that took no
+        money today and an academy whose database is unreachable must not
+        look the same.
+
+     4. [data-countup] IS ATTACHED WHEN THE NUMBER ARRIVES, not in the
+        markup. core.js observes [data-countup] at DOMContentLoaded and
+        animates it immediately; with the attribute in the HTML every tile
+        would paint a confident "0" a moment before the real figure lands,
+        and a zero is a number the academy did not earn. LT.countUp is
+        cancellable, so painting late costs nothing.
+     ============================================================ */
+  (function () {
+    "use strict";
+
+    if (!LT.auth.require({ staffOnly: true })) return;   // redirecting
+    LT.managerShell("dashboard.html");
+
+    /* Facility shape — not money. Four nets, one pool, bookable by the
+       hour from 6 AM to 11 PM; the ground is one court, full day only.
+       FIRST_HOUR/LAST_HOUR are the same inclusive window the bookings
+       board draws (HOUR_OPEN/HOUR_LAST) and the public booking page
+       offers (HOUR_FROM/HOUR_TO) — if they disagree, two screens quote
+       different utilisation for the same day. */
+    var NETS = ["N1", "N2", "N3", "N4"];
+    var FIRST_HOUR = 6;                       // slot 6–7 AM
+    var LAST_HOUR = 22;                       // slot 10–11 PM
+    var HOURS_PER_COURT = LAST_HOUR - FIRST_HOUR + 1;
+    var NET_CAPACITY = NETS.length * HOURS_PER_COURT;
+
+    var TODAY = LT.today();
+    var NOW = new Date();
+    var NOW_HOUR = NOW.getHours();
+    var MONTH_START = LT.isoDate(new Date(NOW.getFullYear(), NOW.getMonth(), 1));
+    var MONTH_NAME = NOW.toLocaleDateString("en-IN", { month: "long" });
+
+    var $ = LT.$;
+
+    /* Today's rows, once they land. null means "not read yet" and is what
+       stops the two cards painting an empty board over a pending read — an
+       academy with nothing booked and an academy that has not answered yet
+       must not draw the same picture. Held rather than passed straight to
+       the renderers because court labels arrive on their own round trip
+       and repaint both cards when they do. */
+    var state = { today: null, nets: null, askedRate: false };
+
+    /* ---------- header ---------- */
+    $("#greet").textContent =
+      (NOW_HOUR < 12 ? "Good morning" : NOW_HOUR < 17 ? "Good afternoon" : "Good evening") + " 🏏";
+    $("#dateLine").textContent =
+      NOW.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) +
+      " · VAKAMAN FE";
+    $("#monthTitle").textContent = MONTH_NAME;
+
+    /* ---------- small helpers ---------- */
+    function amount(b) { return Number((b && b.amount) || 0); }
+    function isPaid(b) { return !!(b && b.paid_at); }
+    function live(rows) {
+      return (rows || []).filter(function (b) {
+        var s = String((b && b.status) || "").toLowerCase();
+        return s !== "cancelled" && s !== "canceled";
+      });
+    }
+    function sportIs(rows, sport) {
+      return rows.filter(function (b) { return String(b.sport || "").toLowerCase() === sport; });
+    }
+    function sum(rows) {
+      return rows.reduce(function (t, b) { return t + amount(b); }, 0);
+    }
+    /* Reads a value out of a server row without assuming one column name.
+       reminder_queue() is a shared function this app does not own. */
+    function pick(row, keys) {
+      for (var i = 0; i < keys.length; i++) {
+        var v = row[keys[i]];
+        if (v !== undefined && v !== null && v !== "") return v;
+      }
+      return null;
+    }
+
+    /* Only formats something that is actually a calendar date. A value of
+       an unexpected shape prints nothing rather than "NaN undefined". */
+    function niceDate(v) {
+      var s = String(v == null ? "" : v).slice(0, 10);
+      return /^\d{4}-\d{2}-\d{2}$/.test(s) ? LT.shortDate(s) : "";
+    }
+
+    var WA_ICON =
+      '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.1 14.1c-.2.6-1.2 1.2-1.7 1.2-.4 0-1 .1-3.3-.9-2.8-1.2-4.5-4-4.6-4.2-.1-.2-1-1.4-1-2.6s.6-1.8.9-2c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .6l-.4.5c-.1.2-.3.3-.1.6.2.3.7 1.2 1.5 1.9 1 .9 1.8 1.2 2.1 1.3.2.1.4.1.6-.1l.7-.8c.2-.2.3-.2.6-.1l2 .9c.2.1.4.2.4.3.1.2.1.7-.1 1.2z"/></svg>';
+
+    function waButton(phone, who, text) {
+      if (!phone) return "";
+      return '<a class="btn btn-icon btn-glass" title="WhatsApp" aria-label="WhatsApp ' + LT.esc(who) +
+             '" target="_blank" rel="noopener" href="' + LT.esc(LT.waLink(phone, text)) + '">' + WA_ICON + "</a>";
+    }
+
+    /* Paints a KPI. See note 4 above for why data-countup lands here. */
+    function stat(id, value, opts) {
+      var el = $(id);
+      if (!el) return;
+      el.setAttribute("data-countup", value);
+      LT.countUp(el, value, opts || {});
+    }
+    function statMoney(id, rupees) { stat(id, rupees, { prefix: "₹" }); }
+    function sub(id, text, kind) {
+      var el = $(id);
+      if (!el) return;
+      el.className = "delta" + (kind ? " " + kind : "");
+      el.textContent = text;
+    }
+    /* A failed KPI says so. It never keeps a number from an earlier render
+       and never falls back to zero. */
+    function statFail(id, subId, err) {
+      var el = $(id);
+      if (el) { el.removeAttribute("data-countup"); el.textContent = "—"; }
+      sub(subId, "Could not load" + (err && err.message ? " — " + err.message : ""), "down");
+    }
+
+    /* ============================================================
+       TODAY'S BOOKINGS — count, collected, outstanding
+       ============================================================ */
+    function renderToday(rows) {
+      var all = live(rows);
+      var paid = all.filter(isPaid);
+      var unpaid = all.filter(function (b) { return !isPaid(b); });
+      var pending = all.filter(function (b) {
+        return String(b.status || "").toLowerCase() === "pending";
+      }).length;
+
+      stat("#kpiBookings", all.length);
+      sub("#kpiBookingsSub",
+          pending ? pending + " awaiting confirmation" : (all.length ? "All confirmed" : "Nothing booked yet"),
+          pending ? "down" : "up");
+
+      /* Sums of amounts the server put on the rows. Nothing is priced here. */
+      statMoney("#kpiCollected", sum(paid));
+      var owed = sum(unpaid);
+      sub("#kpiCollectedSub",
+          owed ? LT.fmtINR(owed) + " still to collect (" + unpaid.length + ")" : "Everything collected",
+          owed ? "down" : "up");
+
+      state.today = all;
+      state.nets = sportIs(all, "nets");
+      renderGround();
+      renderNets();
+    }
+
+    function todayFailed(err) {
+      statFail("#kpiBookings", "#kpiBookingsSub", err);
+      statFail("#kpiCollected", "#kpiCollectedSub", err);
+      LT.fail($("#groundBody"), err);
+      $("#groundPill").textContent = "—";
+      LT.fail($("#netsBody"), err);
+    }
+
+    /* ============================================================
+       THE MAIN GROUND
+       ============================================================ */
+    function renderGround() {
+      if (state.today === null) return;             // bookings not in yet
+      var host = $("#groundBody");
+      var pill = $("#groundPill");
+      var g = sportIs(state.today, "ground");
+
+      if (!g.length) {
+        pill.className = "pill";
+        pill.textContent = "Free";
+        host.innerHTML =
+          '<div class="lt-empty" style="padding:22px 12px;">' +
+          '<div class="lt-empty-t">No ground booking today</div>' +
+          '<div class="lt-empty-s" id="groundRate">Full day only, one party.</div>' +
+          '<div style="margin-top:14px;"><a class="btn btn-primary btn-sm" href="bookings.html">Add a ground booking</a></div>' +
+          "</div>";
+        askGroundRate();
+        return;
+      }
+
+      pill.className = "pill gold";
+      pill.textContent = g.length > 1 ? g.length + " bookings" : "Booked";
+
+      /* Rendered as a block, not a list row: at up to ₹25,000 this single
+         line is worth more than a full day of nets, and the manager should
+         be able to read who has the ground and whether the money is in
+         from across the room. */
+      host.innerHTML = g.map(function (b) {
+        var paid = isPaid(b);
+        var raw = b.name || "Booked";
+        var day = niceDate(b.date);
+        var wa = waButton(b.phone, raw,
+          "Namaste from Super Kings Academy, VAKAMAN FE — about your ground booking" +
+          (day ? " on " + day : "") + ".");
+
+        var collected = paid
+          ? "Collected" + (b.paid_mode ? " · " + LT.esc(String(b.paid_mode).toUpperCase()) : "") +
+            (b.collected_by ? " · " + LT.esc(b.collected_by) : "")
+          : "Not collected yet";
+
+        return "<div>" +
+          '<div class="stat-line">' +
+            '<span class="money" style="font-size:30px;">' + LT.fmtINR(amount(b)) + "</span>" +
+            '<span class="pill ' + (paid ? "green" : "red") + '">' +
+              (paid ? "Collected" : "To collect") + "</span>" +
+          "</div>" +
+          '<div class="ground-who">' + LT.esc(raw) + "</div>" +
+          '<div class="faint" style="font-size:12.5px;">' +
+            LT.esc(LT.courtLabel(b.court || "G1")) + " · Full day" +
+            (b.source ? " · " + LT.esc(b.source) : "") +
+          "</div>" +
+          '<div class="faint" style="font-size:12.5px;margin-top:2px;">' +
+            '<span class="paid-dot ' + (paid ? "yes" : "no") + '"></span>' + collected +
+          "</div>" +
+          (wa ? '<div style="margin-top:14px;">' + wa + "</div>" : "") +
+        "</div>";
+      }).join('<div style="height:1px;background:var(--line);margin:14px 0;"></div>');
+    }
+
+    /* When the ground is free, the rate still comes from the server —
+       slot_price() owns it. If it cannot be read, nothing is quoted. A
+       price invented on this screen is a price nobody agreed to. */
+    function askGroundRate() {
+      if (state.askedRate) return;                  // survives a label repaint
+      state.askedRate = true;
+      LT_CLOUD.slotPrice("ground", TODAY, 0).then(function (res) {
+        var el = $("#groundRate");
+        if (!el) return;
+        var v = (typeof res === "number") ? res
+              : (res && typeof res === "object") ? Number(pick(res, ["amount", "price", "rate", "slot_price"]) || NaN)
+              : Number(res);
+        if (!isFinite(v) || v <= 0) { return; }
+        el.textContent = "Full day only, one party. Today's rate is " + LT.fmtINR(v) + ".";
+      }).catch(function () {
+        var el = $("#groundRate");
+        if (el) el.textContent = "Full day only, one party. Today's rate could not be read from the server.";
+      });
+    }
+
+    /* ============================================================
+       NETS UTILISATION — booked court-hours against 4 nets × 6 AM–11 PM
+       ============================================================ */
+    function renderNets() {
+      if (state.nets === null) return;              // bookings not in yet
+      var rows = state.nets;
+      var host = $("#netsBody");
+
+      var placed = rows.filter(function (b) { return b.court && NETS.indexOf(b.court) >= 0; });
+      var floating = rows.length - placed.length;   // requests with no court yet
+      var pct = Math.round((Math.min(rows.length, NET_CAPACITY) / NET_CAPACITY) * 100);
+
+      var strips = NETS.map(function (court) {
+        var mine = placed.filter(function (b) { return b.court === court; });
+        var byHour = {};
+        mine.forEach(function (b) { byHour[Number(b.hour)] = b; });
+
+        var segs = "";
+        for (var h = FIRST_HOUR; h <= LAST_HOUR; h++) {
+          var b = byHour[h];
+          var cls = "seg";
+          if (b) cls += (String(b.status || "").toLowerCase() === "pending" ? " pending" : " booked");
+          if (h < NOW_HOUR) cls += " past";
+          if (h === NOW_HOUR) cls += " now";
+          segs += '<span class="' + cls + '" title="' +
+                  LT.esc(LT.hourLabel(h) + " · " + (b ? (b.name || "Booked") : "free")) + '"></span>';
+        }
+        return '<div class="net-row">' +
+          '<div class="net-name">' + LT.esc(LT.courtLabel(court)) + "</div>" +
+          '<div class="tl">' + segs + "</div>" +
+          '<div class="net-count">' + mine.length + "/" + HOURS_PER_COURT + "</div>" +
+        "</div>";
+      }).join("");
+
+      host.innerHTML =
+        '<div class="flex between wrap" style="margin-bottom:12px;">' +
+          '<div class="stat-line">' +
+            '<span class="money money-lg">' + rows.length + " / " + NET_CAPACITY + "</span>" +
+            '<span class="faint">court-hours booked</span>' +
+          "</div>" +
+          '<span class="pill' + (pct >= 60 ? " gold" : "") + '">' + pct + "% used</span>" +
+        "</div>" +
+        strips +
+        '<div class="tl-hours" style="margin-top:6px;"><span>6 AM</span><span>2 PM</span><span>11 PM</span></div>' +
+        '<div class="tl-legend" style="margin-top:12px;">' +
+          '<span><span class="sw" style="background:var(--gold-grad);"></span>Booked</span>' +
+          '<span><span class="sw" style="background:repeating-linear-gradient(45deg, rgba(154,168,255,.55) 0 4px, rgba(154,168,255,.12) 4px 8px);"></span>Pending</span>' +
+          '<span><span class="sw sw-free"></span>Free</span>' +
+        "</div>" +
+        (floating
+          ? '<div class="faint" style="font-size:12px;margin-top:10px;">' + floating +
+            " request" + (floating === 1 ? "" : "s") + " not yet on a net — confirm on the bookings board.</div>"
+          : "");
+    }
+
+    /* ============================================================
+       MEMBERS
+       ============================================================ */
+    function renderMembers(rows) {
+      rows = rows || [];
+      var active = rows.filter(function (m) {
+        return String(m.status || "").toLowerCase() === "active";
+      });
+      var paused = rows.length - active.length;
+      stat("#kpiMembers", active.length);
+      sub("#kpiMembersSub",
+          rows.length
+            ? (paused ? paused + " paused or inactive" : "Everyone on the roll is active")
+            : "Nobody on the roll yet",
+          paused ? "" : "up");
+    }
+
+    /* ============================================================
+       RENEWALS DUE — reminder_queue() owns this, entirely.
+
+       The ladder (−2 heads-up, 0 due, +5 first chase, +7–14 daily, +15
+       stop) is a Postgres function's business and is not modelled here in
+       any form. This screen renders the rows it is handed, in the order it
+       is handed them, and sums only the amounts they already carry.
+       ============================================================ */
+    function renderDue(rows) {
+      rows = rows || [];
+      var host = $("#dueList");
+
+      stat("#kpiDue", rows.length);
+      var amounts = rows.map(function (r) {
+        var v = pick(r, ["amount", "amount_due", "due_amount", "outstanding", "fee"]);
+        return v === null ? 0 : Number(v) || 0;
+      });
+      var worth = amounts.reduce(function (t, v) { return t + v; }, 0);
+      sub("#kpiDueSub",
+          rows.length ? (worth ? "Worth " + LT.fmtINR(worth) : "In the reminder queue") : "Nobody is due",
+          rows.length ? "down" : "up");
+
+      if (!rows.length) {
+        LT.empty(host, "Everyone is paid up", "reminder_queue() has nobody to chase today.");
+        return;
+      }
+
+      host.innerHTML = rows.slice(0, 6).map(function (r, i) {
+        var name = String(pick(r, ["name", "member_name", "student_name", "member"]) || "Member");
+        var phone = pick(r, ["phone", "mobile", "member_phone", "parent_phone"]);
+        var when = pick(r, ["due_on", "renews_on", "renewal_on", "due_date", "renewal_date", "next_due"]);
+        var stage = pick(r, ["stage", "step", "reminder_stage", "ladder", "label"]);
+        var amt = amounts[i];
+
+        var line = [];
+        var day = niceDate(when);
+        if (day) line.push("Due " + LT.esc(day));
+        if (stage) line.push(LT.esc(String(stage)));
+        if (phone) line.push(LT.esc(LT.phone10(phone)));
+
+        /* The amount quoted to the parent is the one the server put on the
+           row — the same number the manager is looking at. That agreement
+           is the whole point of the amount not being computed here. */
+        var wa = waButton(phone, name,
+          "Namaste, this is Super Kings Academy, VAKAMAN FE. A gentle reminder about " + name +
+          "'s coaching fee renewal" + (amt ? " of " + LT.fmtINR(amt) : "") + ". Thank you.");
+
+        return '<div class="feed-item">' +
+          '<span class="fi-ic" style="color:var(--tx-red);font-weight:800;">₹</span>' +
+          '<div class="grow">' +
+            '<div class="fi-body"><strong>' + LT.esc(name) + "</strong></div>" +
+            '<div class="fi-time">' + line.join(" · ") + "</div>" +
+          "</div>" +
+          (amt ? '<span class="money">' + LT.fmtINR(amt) + "</span>" : "") + wa +
+        "</div>";
+      }).join("") +
+      (rows.length > 6
+        ? '<div class="faint" style="font-size:12px;padding-top:10px;">and ' + (rows.length - 6) +
+          ' more — <a href="fees.html">open Finance</a>.</div>'
+        : "");
+    }
+
+    /* ============================================================
+       MONEY THIS MONTH — see the note in the markup for what this counts
+       and what it deliberately does not.
+       ============================================================ */
+    function renderMonth(rows) {
+      var all = live(rows);
+      var collected = sum(all.filter(isPaid));
+      var owed = sum(all.filter(function (b) { return !isPaid(b); }));
+      statMoney("#kpiMonth", collected);
+      $("#kpiMonthSub").textContent =
+        "Collected on " + all.length + " booking" + (all.length === 1 ? "" : "s") +
+        " since 1 " + MONTH_NAME + (owed ? " · " + LT.fmtINR(owed) + " uncollected" : "");
+    }
+
+    /* ============================================================
+       LOAD
+
+       All four reads are dispatched before any of them is awaited — the
+       database answers in single-digit milliseconds and the flight to
+       Tokyo does not, so the only optimisation that matters here is
+       overlapping the round trips.
+       ============================================================ */
+    var todayReq   = LT_CLOUD.bookingsOn(TODAY);
+    var monthReq   = LT_CLOUD.bookingsBetween(MONTH_START, TODAY);
+    var membersReq = LT_CLOUD.members();
+    var dueReq     = LT_CLOUD.reminderQueue();
+    var labelsReq  = LT_CLOUD.tenantConfig();
+
+    /* Court labels (Astro / Matting) come from tenants.config so the app
+       and the SQL cannot disagree about which net is which. Cosmetic, and
+       it lands independently — the strips repaint if it arrives late. */
+    function applyLabels(map) {
+      LT.setCourtLabels(map);
+      renderNets();          // both no-op until the bookings read lands,
+      renderGround();        // and repaint in place when it already has
+    }
+    labelsReq.then(function (t) {
+      var map = t && t.config && t.config.courtLabels;
+      if (map) applyLabels(map);
+      else if (LT_CLOUD.DEV) applyLabels(SKA_DEV.courtLabels);
+    }).catch(function () {
+      if (LT_CLOUD.DEV) applyLabels(SKA_DEV.courtLabels);
+      /* Live: labels stay as court codes (N1…N4). LT.courtLabel falls back
+         to the code, which is correct and readable — never a guess. */
+    });
+
+    todayReq.then(renderToday).catch(function (err) {
+      if (LT_CLOUD.DEV) {
+        renderToday(SKA_DEV.bookings.filter(function (b) { return b.date === TODAY; }));
+        return;
+      }
+      todayFailed(err);
+    });
+
+    monthReq.then(renderMonth).catch(function (err) {
+      if (LT_CLOUD.DEV) {
+        renderMonth(SKA_DEV.bookings.filter(function (b) {
+          return b.date >= MONTH_START && b.date <= TODAY;      // ISO strings sort as dates
+        }));
+        return;
+      }
+      var el = $("#kpiMonth");
+      el.removeAttribute("data-countup");
+      el.textContent = "—";
+      $("#kpiMonthSub").textContent = "Could not load — " + ((err && err.message) || "read failed");
+    });
+
+    membersReq.then(renderMembers).catch(function (err) {
+      if (LT_CLOUD.DEV) { renderMembers(SKA_DEV.members); return; }
+      statFail("#kpiMembers", "#kpiMembersSub", err);
+    });
+
+    LT.skeleton($("#dueList"), 4);
+    dueReq.then(renderDue).catch(function (err) {
+      if (LT_CLOUD.DEV) { devDuePanel(); return; }
+      statFail("#kpiDue", "#kpiDueSub", err);
+      LT.fail($("#dueList"), err);
+    });
+
+    /* ---------- DEV stand-in for the renewals panel ----------
+       There is no sample reminder queue, and this file will not invent
+       one: deciding who is due, and when to stop chasing at +15, is
+       reminder_queue()'s job and a JavaScript imitation of it would
+       disagree with the WhatsApp messages the platform actually sends —
+       which is the exact failure the house rule exists to prevent.
+
+       So DEV shows the sample roster by renewal date and leaves the KPI
+       as a dash. A dash that says why is honest; a plausible number that
+       came from this file would not be. The moment DEV is false this is
+       unreachable, because the real call answers. */
+    function devDuePanel() {
+      var el = $("#kpiDue");
+      el.removeAttribute("data-countup");
+      el.textContent = "—";
+      sub("#kpiDueSub", "No sample reminder queue");
+      $("#dueNote").innerHTML =
+        "<strong>Sample roster, ordered by renewal date.</strong> Live, this panel is " +
+        "reminder_queue() — it alone decides who is chased, for how much, and stops at +15 days.";
+
+      var sample = SKA_DEV.members.slice().sort(function (a, b) {
+        return a.renews_on < b.renews_on ? -1 : a.renews_on > b.renews_on ? 1 : 0;
+      }).slice(0, 6);
+
+      $("#dueList").innerHTML = sample.map(function (m) {
+        return '<div class="feed-item">' +
+          '<span class="fi-ic">₹</span>' +
+          '<div class="grow">' +
+            '<div class="fi-body"><strong>' + LT.esc(m.name) + "</strong> · " + LT.esc(m.batch) + "</div>" +
+            '<div class="fi-time">Renews ' + LT.esc(niceDate(m.renews_on)) + "</div>" +
+          "</div>" +
+          '<span class="money">' + LT.fmtINR(m.fee) + "</span>" +
+        "</div>";
+      }).join("");
+    }
+  })();
+  </script>
+</body>
+</html>

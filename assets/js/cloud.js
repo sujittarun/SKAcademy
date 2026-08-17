@@ -1,0 +1,663 @@
+/* ============================================================
+   SUPER KINGS ACADEMY — cloud adapter (window.LT_CLOUD)
+   Tenant 'ska'. Supabase over fetch — no SDK, no build step.
+
+   Same shape as the Academy Manager demo adapter, deliberately, so page
+   code ports across. FIVE things are different, and each one is a defect
+   the demo has that would be a live bug here:
+
+   1. STORAGE PREFIX IS 'ska-', NOT 'amd-'.
+      GitHub Pages serves every one of these apps from the SAME ORIGIN
+      (sujittarun.github.io). localStorage is per-origin, so two tenants
+      sharing a prefix overwrite each other's session and preferences.
+      Every key below is prefixed once, from PREFIX, so this cannot drift.
+
+      TO BE CLEAR ABOUT WHAT THIS DOES NOT DO: a prefix prevents
+      COLLISION, not access. localStorage has no per-path isolation, so
+      any script running on that origin — including one on another
+      tenant's page — can read every key regardless of its prefix. The
+      real protection is that nothing hostile runs on the origin, which
+      is why LT.esc() on every innerHTML path is not optional.
+
+   2. SIGN-IN CHECKS THE TENANT, not just the role.
+      The demo checks am_role and stops. A staff user of another academy
+      therefore signs in successfully, lands on the dashboard, and sees
+      RLS return nothing — which paints as an empty academy rather than
+      an error. Here a tenant mismatch is a hard failure at sign-in.
+
+   3. READS THROW, THEY DO NOT FAIL SOFT TO A SEED.
+      The demo's soft() swallows every error and returns null, so an auth
+      failure, an RLS denial and a genuinely empty database are the same
+      value — and the seeded dataset stays on screen looking like real
+      bookings. This is exactly PLATFORM.md's "assert on content, not on
+      length" trap. Here req() rejects and attaches err.status, and the UI
+      renders "could not load". A brand-new academy MUST be allowed to
+      look empty, because for its first week it is.
+
+   4. NO CLIENT-SIDE MONEY, AT ALL.
+      No rate table, no renewal amount, no UPI rotation, no reminder
+      ladder. Every figure comes from a Postgres function. The demo does
+      all four in JavaScript and its own CLAUDE.md lists them as debt.
+      The write RPCs RETURN the amount they charged; use that, never a
+      locally computed one. bookings.html in the demo fabricates an amount
+      for its local mirror and that mirror then wins over the database
+      row — so the board can display a price that was never charged.
+
+   5. NO LOCAL LEDGER.
+      localStorage holds the session and UI preferences. It does not hold
+      members, payments, bookings or attendance. The demo keeps all of
+      those in localStorage as the system of record, with a write path
+      that swallows quota errors silently.
+   ============================================================ */
+(function () {
+  "use strict";
+
+  var APP_VER = "1.0.0";
+  var PROJECT = "https://ugsklcipzyiogxynshnh.supabase.co";
+  var BASE = PROJECT + "/rest/v1";
+  var AUTH = PROJECT + "/auth/v1";
+
+  /* The anon key is PUBLIC BY DESIGN and belongs in this repo — it is the
+     key every browser must present. service_role must never appear here. */
+  var KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnc2tsY2lwenlpb2d4eW5zaG5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4OTUyMzksImV4cCI6MjA5ODQ3MTIzOX0.w7xkjdTkYN2qA0oxMKLUNtua0ScKVHKQzfEyIayh9eo";
+
+  var TENANT = "ska";
+  var PREFIX = "ska-";                 // see note 1 above
+  var SESSION_KEY = PREFIX + "cloud-session";
+
+  /* ------------------------------------------------------------
+     DEV MODE — stand-in for authentication, on purpose and temporarily.
+
+     There is no ska staff auth user yet. Creating one means creating an
+     account and setting a password, which is not something this code (or
+     the person who wrote it) should do — and a password written into a
+     client file is a live credential on a public static site that stays
+     in git history after you remove it. That has already happened four
+     times on this platform.
+
+     So DEV mode carries NO CREDENTIAL. It seats a local staff-shaped
+     session with no Supabase token, purely so every screen is reachable
+     and reviewable. Consequences, all deliberate:
+
+       · every cloud READ returns nothing (there is no token, and RLS
+         correctly refuses the anon key), so pages render from DEV_DATA,
+         which is clearly-marked synthetic sample data;
+       · every cloud WRITE IS BLOCKED and says so, loudly. It does not
+         silently no-op. A dev mode where "record payment" appears to
+         succeed and does nothing is the single most dangerous thing this
+         file could contain;
+       · a banner is shown on every page.
+
+     GO-LIVE: create the staff user in the Supabase dashboard and set its
+     App Metadata claims by migration. Nothing else changes — the real
+     paths are what the app already calls.
+
+     DEV IS DERIVED FROM THE HOST, NOT HARDCODED, so it fails SAFE.
+     A committed `var DEV = true` in a public repo is one forgotten edit
+     away from publishing an "Open as manager" button on the live site;
+     deriving it means a deploy to github.io is production by
+     construction and nobody has to remember anything. Set
+     localStorage['ska-force-dev'] to preview the DEV shell on a real
+     host deliberately.
+     ------------------------------------------------------------ */
+  var DEV = (function () {
+    try {
+      if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return true;
+      if (location.protocol === "file:") return true;
+      return localStorage.getItem("ska-force-dev") === "1";
+    } catch (e) { return false; }
+  })();
+
+  /* ---------- session ---------- */
+  function session() {
+    var s;
+    try { s = JSON.parse(localStorage.getItem(SESSION_KEY)); } catch (e) { return null; }
+    /* EVICT A STALE PREVIEW SESSION. devSignIn() is gated on DEV, so no
+       NEW preview session can be minted once DEV is false — but one
+       already sitting in a browser would otherwise keep satisfying
+       LT.auth.require() forever, because nothing re-validates it. That
+       would mean anyone who clicked "Open as manager" during the preview
+       window still walks past the login redirect on go-live day. */
+    if (s && s.dev && !DEV) { clearSession(); return null; }
+    return s;
+  }
+  function saveSession(s) {
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+  function clearSession() {
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+  }
+
+  function tokenRequest(body) {
+    var grant = body.refresh_token ? "refresh_token" : "password";
+    return fetch(AUTH + "/token?grant_type=" + grant, {
+      method: "POST",
+      headers: { apikey: KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok) throw new Error(j.error_description || j.msg || "sign-in failed");
+        var meta = (j.user && j.user.app_metadata) || {};
+        var s = {
+          access_token: j.access_token,
+          refresh_token: j.refresh_token,
+          expires_at: Date.now() + (j.expires_in || 3600) * 1000,
+          email: j.user && j.user.email,
+          role: meta.am_role || "",
+          tenant: meta.tenant_id || ""
+        };
+
+        /* NOTE 2. The claims must be in APP metadata — a user can edit
+           their own User Metadata, which is why RLS does not trust it. An
+           account with no claims signs in perfectly and then sees nothing
+           at all, which looks identical to a broken app. Say which. */
+        if (!s.role) {
+          throw new Error("This account has no role set. Ask for am_role and tenant_id in its App Metadata.");
+        }
+        if (s.role !== "operator" && s.tenant !== TENANT) {
+          throw new Error("This login belongs to another academy (" + (s.tenant || "none") + "), not Super Kings.");
+        }
+        saveSession(s);
+        return s;
+      });
+    });
+  }
+
+  /* Resolves to the bearer to use. Unlike the demo's, this does NOT
+     silently downgrade to the anon key when a session is missing — the
+     caller is told, so a signed-out staff member sees "session expired"
+     rather than an academy that appears to have no members. */
+  function bearer(allowAnon) {
+    var s = session();
+    if (!s || !s.access_token) {
+      if (allowAnon) return Promise.resolve(KEY);
+      return Promise.reject(authError());
+    }
+    if (s.expires_at - Date.now() > 90 * 1000) return Promise.resolve(s.access_token);
+    return tokenRequest({ refresh_token: s.refresh_token })
+      .then(function (n) { return n.access_token; })
+      .catch(function () {
+        clearSession();
+        if (allowAnon) return KEY;
+        throw authError();
+      });
+  }
+
+  function authError() {
+    var e = new Error(DEV
+      ? "DEV MODE: no live session, so nothing was read from the database."
+      : "Your session has expired. Please sign in again.");
+    e.status = 401;
+    e.noSession = true;
+    return e;
+  }
+
+  /* ---------- transport ----------
+     One request function. Rejects on any non-2xx and attaches the status,
+     so callers can tell 401 (sign in again) from 403 (not yours) from 409
+     (already taken) from a network failure. */
+  function req(path, opts, allowAnon) {
+    opts = opts || {};
+    return bearer(allowAnon).then(function (tok) {
+      var headers = {
+        apikey: KEY,
+        Authorization: "Bearer " + tok,
+        "Content-Type": "application/json"
+      };
+      if (opts.headers) for (var k in opts.headers) headers[k] = opts.headers[k];
+      return fetch(BASE + path, {
+        method: opts.method || "GET",
+        headers: headers,
+        body: opts.body ? JSON.stringify(opts.body) : undefined
+      }).then(function (r) {
+        return r.text().then(function (txt) {
+          var body = null;
+          if (txt) { try { body = JSON.parse(txt); } catch (e) { body = txt; } }
+          if (!r.ok) {
+            var msg = (body && (body.message || body.hint || body.error_description)) || ("request failed (" + r.status + ")");
+            var err = new Error(friendly(msg));
+            err.status = r.status;
+            err.raw = body;
+            report(path, err);
+            throw err;
+          }
+          return body;
+        });
+      });
+    });
+  }
+
+  /* Postgres speaks in constraint names; staff do not. */
+  function friendly(msg) {
+    var m = String(msg || "");
+    if (/duplicate key|unique_violation|bookings_slot_unique/i.test(m)) return "That slot has just been taken.";
+    if (/all courts taken/i.test(m))       return "Every court is booked for that slot.";
+    if (/not authorised/i.test(m))         return "You do not have access to that.";
+    if (/unknown sport/i.test(m))          return "That facility has no rate configured.";
+    if (/already collected/i.test(m))      return "This booking was already collected.";
+    if (/future date/i.test(m))            return "Attendance cannot be taken for a future date.";
+    if (/Failed to fetch|NetworkError/i.test(m)) return "No connection.";
+    return m;
+  }
+
+  function get(path)        { return req(path, {}, false); }
+  function getPublic(path)  { return req(path, {}, true); }
+  function post(path, body) { return req(path, { method: "POST", body: body }, false); }
+
+  /* An RPC that must reject on failure — every money path is one of these. */
+  function rpc(fn, args, allowAnon) {
+    return req("/rpc/" + fn, { method: "POST", body: args || {} }, !!allowAnon);
+  }
+
+  /* ---------- dev guard ---------- */
+  function devBlocked(what) {
+    var e = new Error("DEV MODE — " + what + " was not saved. Sign-in is not wired yet.");
+    e.dev = true;
+    return Promise.reject(e);
+  }
+
+  /* ---------- telemetry ----------
+     The operator console derives a tenant's status from the newest row in
+     events. A tenant that sends nothing reads as "Onboarding" forever.
+     No names, no phone numbers, no amounts ever go in an event. */
+  function sid() {
+    try {
+      var k = PREFIX + "sid", v = sessionStorage.getItem(k);
+      if (!v) { v = Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem(k, v); }
+      return v;
+    } catch (e) { return "nosession"; }
+  }
+
+  function track(kind, props) {
+    var body = {
+      tenant_id: TENANT,
+      kind: kind || "page_view",
+      session_id: sid(),
+      props: Object.assign({
+        ver: APP_VER,
+        page: location.pathname.split("/").pop() || "index.html"
+      }, props || {})
+    };
+    /* Fire-and-forget, and anon-allowed: the events insert policy accepts
+       a registered tenant_id from anon. A telemetry failure must never
+       break a page, so this is the one call that swallows. */
+    return req("/events", { method: "POST", body: body }, true).catch(function () { return null; });
+  }
+
+  var reported = {};
+  function report(where, err) {
+    /* Handled failures are reported too, not just crashes — a silent
+       handled failure is how a broken screen looks healthy in the console. */
+    if (err && err.noSession) return;          // expected in DEV, not a defect
+    var key = where + "|" + (err && err.message);
+    if (reported[key]) return;                 // once per page load, per message
+    reported[key] = 1;
+    track("client_error", {
+      where: where,
+      message: String((err && err.message) || err).slice(0, 200),
+      status: (err && err.status) || 0
+    });
+  }
+
+  window.addEventListener("error", function (e) {
+    report("window", e.error || new Error(e.message));
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    report("promise", e.reason || new Error("unhandled rejection"));
+  });
+
+  /* ============================================================
+     PUBLIC API
+     ============================================================ */
+  var API = {
+    TENANT: TENANT,
+    APP_VER: APP_VER,
+    DEV: DEV,
+    KEY: KEY,
+
+    /* ---------- auth ---------- */
+    session: session,
+    /* A dev session only counts while DEV is on. Belt and braces with the
+       eviction in session() above — the guard must not depend on the
+       eviction having run. */
+    signedIn: function () { var s = session(); return !!(s && (s.access_token || (DEV && s.dev))); },
+    role: function () { var s = session(); return (s && s.role) || ""; },
+    isCoach: function () { return API.role() === "coach"; },
+    isStaff: function () { var r = API.role(); return r === "staff" || r === "operator"; },
+
+    signIn: function (email, password) {
+      return tokenRequest({ email: email, password: password });
+    },
+
+    /* DEV only. Seats a local staff-shaped session. No token, no
+       credential, no database access — see the DEV note at the top. */
+    devSignIn: function (role) {
+      if (!DEV) return Promise.reject(new Error("Dev sign-in is disabled."));
+      var s = {
+        dev: true,
+        email: "dev@local",
+        role: role === "coach" ? "coach" : "staff",
+        tenant: TENANT,
+        expires_at: Date.now() + 12 * 3600 * 1000
+      };
+      saveSession(s);
+      return Promise.resolve(s);
+    },
+
+    signOut: function () { clearSession(); },
+
+    /* Who am I and what may I reach. NOTE: my_access() returns the key
+       'tenant', NOT 'tenant_id'. Reading access.tenant_id gets undefined. */
+    myAccess: function () { return rpc("my_access", {}); },
+
+    /* ---------- tenant config ----------
+       Narrow projection, deliberately. Callers want the court inventory
+       and the court labels; the same jsonb also holds billing (UPI
+       collection ids) and the WhatsApp settings, and this is called from
+       booking.html, a page with no session.
+
+       Verified 2026-08-17: as anon this returns [] — RLS refuses the
+       tenants table outright, so nothing is exposed today. The narrowing
+       is defence in depth against a future policy widening, not a fix
+       for a live leak. Public pages must therefore cope with null. */
+    tenantConfig: function () {
+      return getPublic("/tenants?id=eq." + TENANT +
+                       "&select=id,name,courts:config->courts,courtLabels:config->courtLabels")
+        .then(function (rows) {
+          var r = rows && rows[0];
+          if (!r) return null;
+          /* Re-wrap as { config: { … } }. Five pages already read
+             row.config.courts / row.config.courtLabels, and the narrowing
+             above is a transport detail — it should not force an edit in
+             every caller, nor leave two shapes in circulation. */
+          return {
+            id: r.id,
+            name: r.name,
+            config: { courts: r.courts || null, courtLabels: r.courtLabels || null }
+          };
+        });
+    },
+
+    /* ---------- pricing (server-side, always) ---------- */
+    slotPrice: function (sport, date, hour) {
+      return rpc("slot_price", { p_tenant: TENANT, p_sport: sport, p_date: date, p_hour: hour });
+    },
+    isFullDay: function (sport) {
+      return rpc("is_full_day", { p_tenant: TENANT, p_sport: sport });
+    },
+
+    /* ---------- bookings ----------
+       recordBooking is THE operator write path, and it is the one that
+       fixes the two-screen problem: amount and collection are arguments
+       here, so a counter sale is one call.
+
+       amount === null  → the server prices it (weekday ground rate, or
+                          the hourly net rate). Pass a number only when the
+                          operator deliberately overrode it.
+       The response carries the amount actually charged. Use it. Never
+       re-derive a price in this file. */
+    recordBooking: function (o) {
+      if (DEV) return devBlocked("the booking");
+      return rpc("record_booking_v2", {
+        p_tenant: TENANT,
+        p_sport: o.sport,
+        p_date: o.date,
+        p_hour: o.hour,
+        p_name: o.name,
+        p_phone: o.phone || null,
+        p_source: o.source || "Counter",
+        p_court: o.court || null,
+        p_amount: (o.amount === "" || o.amount == null) ? null : Number(o.amount),
+        p_paid: !!o.paid,
+        p_mode: o.mode || null,
+        p_collected_by: o.collectedBy || null
+      });
+    },
+
+    collectBooking: function (id, mode, by, amount) {
+      if (DEV) return devBlocked("the payment");
+      return rpc("collect_booking", {
+        p_id: id,
+        p_mode: mode || null,
+        p_collected_by: by || null,
+        p_amount: (amount === "" || amount == null) ? null : Number(amount)
+      });
+    },
+
+    confirmBooking: function (id) {
+      if (DEV) return devBlocked("the confirmation");
+      return rpc("confirm_booking", { p_id: id });
+    },
+    cancelBooking: function (id, reason) {
+      if (DEV) return devBlocked("the cancellation");
+      return rpc("cancel_booking", { p_id: id, p_reason: reason || null });
+    },
+    blockMaintenance: function (o) {
+      if (DEV) return devBlocked("the block");
+      return rpc("block_maintenance", {
+        p_tenant: TENANT, p_sport: o.sport, p_date: o.date,
+        p_hour: o.hour, p_court: o.court, p_reason: o.reason || "Maintenance"
+      });
+    },
+
+    /* Operator view of a day. Includes hour 0, which is where a full-day
+       ground booking lives — the demo's board renders 6..22 only and would
+       drop it entirely. */
+    bookingsOn: function (date) {
+      return get("/bookings?tenant_id=eq." + TENANT +
+                 "&date=eq." + date +
+                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,paid_at,paid_mode,collected_by" +
+                 "&order=hour.asc,court.asc");
+    },
+    bookingsBetween: function (from, to) {
+      return get("/bookings?tenant_id=eq." + TENANT +
+                 "&date=gte." + from + "&date=lte." + to +
+                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,paid_at,paid_mode,collected_by" +
+                 "&order=date.asc,hour.asc");
+    },
+
+    /* ---------- public booking ----------
+       request_booking is the ONLY booking entry point anon may call —
+       record_booking_v2 and friends are revoked from public and anon, and
+       correctly so. A public request lands as 'pending' with no court and
+       is confirmed by staff. */
+    requestBooking: function (o) {
+      return rpc("request_booking", {
+        p_tenant: TENANT, p_sport: o.sport, p_date: o.date,
+        p_hour: o.hour, p_name: o.name, p_phone: o.phone
+      }, true);
+    },
+
+    /* Anonymous availability. public_slots is opt-in per tenant and 'ska'
+       is opted in (config.features.publicSlots). Anon cannot read the
+       bookings table itself. */
+    publicSlots: function (from, to) {
+      var q = "/public_slots?tenant_id=eq." + TENANT + "&date=gte." + from;
+      if (to) q += "&date=lte." + to;
+      return getPublic(q + "&select=*&order=date.asc");
+    },
+
+    /* ---------- admissions ---------- */
+    submitApplication: function (o) {
+      return rpc("submit_application", o, true);
+    },
+
+    /* ---------- members / roster ---------- */
+    members: function () {
+      return get("/members?tenant_id=eq." + TENANT +
+                 "&select=id,name,phone,sport,status,centre_id,created_at&order=name.asc");
+    },
+    member: function (id) {
+      return get("/members?tenant_id=eq." + TENANT + "&id=eq." + encodeURIComponent(id) + "&select=*")
+        .then(function (r) { return (r && r[0]) || null; });
+    },
+
+    /* ---------- money in ----------
+       record_fee_payment is the ONE write path for fees. It rolls the
+       renewal date forward, writes the timeline and closes the reminder —
+       a raw POST /payments does none of that, which is what the demo does. */
+    /* record_fee_payment(p_tenant, p_enrollment, p_amount, p_months, p_mode,
+         p_kind, p_on_date, p_ref, p_status, p_collected_by, p_note) */
+    recordFeePayment: function (o) {
+      if (DEV) return devBlocked("the fee payment");
+      return rpc("record_fee_payment", {
+        p_tenant: TENANT, p_enrollment: o.enrollment, p_amount: o.amount,
+        p_months: o.months || 1, p_mode: o.mode || null, p_kind: o.kind || "renewal",
+        p_on_date: o.onDate || null, p_ref: o.ref || null,
+        p_status: o.status || "paid", p_collected_by: o.collectedBy || null,
+        p_note: o.note || null
+      });
+    },
+    /* resolve_fee(p_tenant, p_member, p_centre, p_sport, p_batch, p_months, p_custom)
+       The 7-level chain. Never substitute a plan constant for this. */
+    resolveFee: function (o) {
+      o = o || {};
+      return rpc("resolve_fee", {
+        p_tenant: TENANT, p_member: o.member || null, p_centre: o.centre || null,
+        p_sport: o.sport || null, p_batch: o.batch || null,
+        p_months: o.months || 1, p_custom: o.custom || null
+      });
+    },
+    /* reminder_queue(p_tenant, p_on). Owns the ladder including the +15
+       stop. Never re-derive it. */
+    reminderQueue: function (on) {
+      return rpc("reminder_queue", { p_tenant: TENANT, p_on: on || null });
+    },
+    /* resolve_upi(p_tenant, p_centre, p_batch) — batch → centre → tenant. */
+    resolveUpi: function (o) {
+      o = o || {};
+      return rpc("resolve_upi", {
+        p_tenant: TENANT, p_centre: o.centre || null, p_batch: o.batch || null
+      });
+    },
+
+    /* ---------- money in / money out, for Finance ----------
+       fees.html calls these by name. They were missing until the review
+       found it, and the gap was invisible because DEV routed every one of
+       them to a fixture — so go-live would have been the first time
+       anyone saw the Finance page lose its fee rows, its expenses and its
+       net figure.
+
+       READ-ONLY on payments: writing a fee goes through
+       record_fee_payment() and nowhere else, because that is what rolls
+       the renewal date forward, writes the timeline and closes the
+       reminder. A raw insert here would look like it worked. */
+    payments: function (from, to) {
+      var q = "/payments?tenant_id=eq." + TENANT + "&status=eq.paid";
+      if (from) q += "&on_date=gte." + from;
+      if (to)   q += "&on_date=lte." + to;
+      return get(q + "&select=id,name,type,kind,amount,mode,on_date,collected_by,member_id,enrollment_id" +
+                 "&order=on_date.desc,id.desc");
+    },
+
+    expenses: function (from, to) {
+      var q = "/expenses?tenant_id=eq." + TENANT;
+      if (from) q += "&on_date=gte." + from;
+      if (to)   q += "&on_date=lte." + to;
+      return get(q + "&select=*&order=on_date.desc,id.desc");
+    },
+
+    /* An expense is not money the platform computes — it is a figure the
+       academy states — so a direct insert is correct here, unlike a fee.
+       tenant_id is set from the constant, never from the caller.
+
+       COLUMNS VERIFIED against the live catalogue: the table has
+       category (NOT NULL), payee, detail, amount (NOT NULL), mode,
+       on_date, ref. There is no `name` and no `note` column — an insert
+       shaped around those fails on category's not-null. */
+    recordExpense: function (o) {
+      if (DEV) return devBlocked("the expense");
+      if (!o.category) return Promise.reject(new Error("A category is required."));
+      return post("/expenses", {
+        tenant_id: TENANT,
+        category: o.category,
+        payee:    o.payee  || null,
+        detail:   o.detail || null,
+        amount:   Number(o.amount),
+        mode:     o.mode   || null,
+        on_date:  o.onDate || null
+      });
+    },
+
+    /* ---------- attendance ----------
+       The SESSION model (batches → sessions → attendance_records), which
+       is what attendance_roster/_history/_dashboard read. The demo writes
+       the flat footfall table instead, and the shared reporting functions
+       are blind to it. */
+    /* Signatures verified against the live catalogue on 2026-08-17:
+         attendance_roster(p_tenant, p_batch, p_date)
+         mark_attendance(p_tenant, p_batch, p_date, p_enrollment, p_status, p_reason)
+       p_batch is bigint — pass a number, not a name. */
+    attendanceRoster: function (batch, date) {
+      return rpc("attendance_roster", {
+        p_tenant: TENANT, p_batch: batch, p_date: date || null
+      });
+    },
+    markAttendance: function (o) {
+      if (DEV) return devBlocked("the register");
+      return rpc("mark_attendance", {
+        p_tenant: TENANT, p_batch: o.batch, p_date: o.date,
+        p_enrollment: o.enrollment, p_status: o.status, p_reason: o.reason || null
+      });
+    },
+    /* p_batch here is an optional FILTER, not a target — which is why
+       these keep the staff guard and a coach cannot call them. */
+    attendanceHistory: function (o) {
+      o = o || {};
+      return rpc("attendance_history", {
+        p_tenant: TENANT, p_from: o.from || null, p_to: o.to || null,
+        p_centre: o.centre || null, p_batch: o.batch || null,
+        p_member: o.member || null, p_sport: o.sport || null
+      });
+    },
+    attendanceDashboard: function (o) {
+      o = o || {};
+      return rpc("attendance_dashboard", {
+        p_tenant: TENANT, p_from: o.from || null, p_to: o.to || null,
+        p_centre: o.centre || null, p_batch: o.batch || null,
+        p_member: o.member || null, p_sport: o.sport || null
+      });
+    },
+
+    /* Coach-scoped. A coach passes NO RLS policy — every policy tests for
+       'staff' — so these SECURITY DEFINER functions are a coach's entire
+       reach. Querying /members as a coach returns [] with HTTP 200, not an
+       error, which is why a coach screen must use these and nothing else. */
+    myCentres: function () {
+      return rpc("my_centres", { p_tenant: TENANT });
+    },
+    myAttendanceBatches: function (date) {
+      return rpc("my_attendance_batches", { p_tenant: TENANT, p_date: date || null });
+    },
+    /* p_batch is REQUIRED and is a TARGET, not a filter — that is exactly
+       what lets a coach call this at all. Passing null would widen the
+       query to the whole academy, so it is refused here rather than sent. */
+    myAttendanceInsights: function (batch, from, to) {
+      if (batch == null) return Promise.reject(new Error("A batch is required."));
+      return rpc("my_attendance_insights", {
+        p_tenant: TENANT, p_batch: batch, p_from: from || null, p_to: to || null
+      });
+    },
+
+    /* ---------- structure ---------- */
+    centres: function () {
+      return get("/centres?tenant_id=eq." + TENANT + "&select=*&order=sort.asc");
+    },
+    batches: function () {
+      return get("/batches?tenant_id=eq." + TENANT + "&select=*&order=id.asc");
+    },
+    coaches: function () {
+      return get("/coaches?tenant_id=eq." + TENANT + "&select=*&order=name.asc");
+    },
+
+    /* ---------- telemetry ---------- */
+    track: track,
+    report: report
+  };
+
+  window.LT_CLOUD = API;
+
+  /* Every page reports that it opened. Fired at load, unconditionally, so
+     the tenant stays visible in the operator console from day one. */
+  try { track("page_view"); } catch (e) {}
+})();

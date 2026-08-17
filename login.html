@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Staff sign-in · Super Kings Academy</title>
+<meta name="description" content="Staff and coach sign-in for the Super Kings Academy console at VAKAMAN FE, Coimbatore." />
+<script>
+  /* blocking: applies the persisted theme before first paint, else the
+     page renders dark and flashes. Raw string, not JSON. */
+  try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
+  document.documentElement.className += " lt-js";
+</script>
+<link rel="stylesheet" href="assets/css/glass.css?v=2" />
+<style>
+  /* Page-local layout only. Everything that carries the brand — glass,
+     buttons, fields, form-msg, pills — comes from glass.css. */
+  .login-wrap {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: var(--gap-3);
+    padding: var(--gap-4);
+  }
+  .login-card { width: min(420px, 100%); padding: var(--gap-5) var(--gap-4); text-align: center; }
+
+  /* The mark renders as a typographic monogram until the client's licensed
+     CSK-affiliate artwork is dropped in at assets/img/ska-mark.png — see
+     core.js. No CSK or IPL artwork is reproduced in this repo. The img rule
+     below is what sizes the real file the day it lands. */
+  .login-card .mark { display: grid; place-items: center; margin: 0 auto var(--gap-3); }
+  .login-card .mark img {
+    width: 104px; height: auto; max-width: none;
+    filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
+  }
+  .login-card h1 { font-size: 22px; font-weight: 800; }
+  .login-card .sub { color: var(--ink-mid); font-size: 13.5px; margin-top: 5px; }
+  .login-card form { display: flex; flex-direction: column; gap: var(--gap-3); margin-top: var(--gap-4); text-align: left; }
+  .login-foot {
+    margin-top: var(--gap-3);
+    display: flex; justify-content: space-between; gap: var(--gap-2);
+    font-size: 12.5px; color: var(--ink-low);
+  }
+
+  /* Already-signed-in notice */
+  .signed-note {
+    margin-top: var(--gap-3); padding: 12px 14px; text-align: left;
+    border-radius: var(--r-md); border: 1px solid var(--tile-border);
+    background: var(--tile-bg); font-size: 13px; color: var(--ink-mid);
+  }
+  .signed-note .who { color: var(--ink-hi); font-weight: 650; }
+  .signed-note .acts { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+  /* Preview panel (DEV only — removed from the DOM when DEV is false) */
+  .dev-card { width: min(420px, 100%); padding: var(--gap-3) var(--gap-4) var(--gap-4); text-align: left; }
+  .dev-card h2 { font-size: 16px; margin-top: 3px; }
+  .dev-card .dev-line { font-size: 12.5px; color: var(--ink-low); margin-top: 7px; line-height: 1.5; }
+  .dev-btns { display: flex; gap: 8px; margin-top: var(--gap-3); flex-wrap: wrap; }
+  .dev-btns .btn { flex: 1 1 150px; }
+
+  @media (max-width: 699px) {
+    .login-card { padding: var(--gap-4) var(--gap-3); }
+    .login-foot { flex-direction: column; align-items: center; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+  <div class="lt-bg" aria-hidden="true"></div>
+  <button type="button" class="theme-toggle" style="position:fixed;top:16px;right:16px;z-index:70;"></button>
+
+  <main class="lt-main login-wrap">
+    <div class="glass login-card reveal in">
+      <div class="mark" data-logo="64"></div>
+      <h1>Super Kings Academy</h1>
+      <p class="sub">Staff &amp; coach sign-in · VAKAMAN FE, Coimbatore</p>
+
+      <!-- Shown only when this browser already holds a session. -->
+      <div class="signed-note hide" id="signedNote" hidden>
+        Already signed in as <span class="who" id="signedWho"></span>.
+        <div class="acts">
+          <button type="button" class="btn btn-glass btn-sm" id="continueBtn">Continue</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="switchBtn">Use another account</button>
+        </div>
+      </div>
+
+      <!-- NEVER prefill a credential in this file. The repo is public and
+           served as a static site, so any value= here is a live credential on
+           the open web and it stays in git history after it is removed. That
+           has happened four times on this platform. The demo app also
+           restores the last email from localStorage on load; this page does
+           not — the browser's own password manager does that job properly,
+           behind the device lock, and per user rather than per device. -->
+      <form id="loginForm" novalidate>
+        <label class="field">
+          <span>Email</span>
+          <input type="email" id="email" name="email" required
+                 autocomplete="username" inputmode="email"
+                 autocapitalize="none" autocorrect="off" spellcheck="false" />
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input type="password" id="password" name="password" required
+                 autocomplete="current-password" />
+        </label>
+        <div class="form-msg" id="msg" role="status" aria-live="polite" style="min-height:0;"></div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="submitBtn">Sign in</button>
+      </form>
+
+      <div class="login-foot">
+        <a href="#" id="forgot">Forgot password?</a>
+        <a href="index.html">← Back to website</a>
+      </div>
+    </div>
+
+    <!-- DEV ONLY. The script below deletes this node outright when
+         LT_CLOUD.DEV is false, so it cannot survive go-live by accident. -->
+    <div class="glass dev-card reveal in hide" id="devPanel" hidden>
+      <div class="kicker">Preview</div>
+      <h2>Preview without signing in</h2>
+      <p class="dev-line">Sample data only — nothing you see comes from the live academy, and nothing you enter is saved.</p>
+      <div class="dev-btns">
+        <button type="button" class="btn btn-glass" data-dev-role="staff">Open as manager</button>
+        <button type="button" class="btn btn-glass" data-dev-role="coach">Open as coach</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="assets/js/core.js?v=2"></script>
+  <script src="assets/js/cloud.js?v=2"></script>
+  <script src="assets/js/dev-data.js?v=2"></script>
+  <script>
+    /* page script last. core.js MUST NOT be in <head> — its ink-filter
+       IIFE returns early if document.body is missing and never retries. */
+    (function () {
+      "use strict";
+
+      var form = LT.$("#loginForm");
+      var msg = LT.$("#msg");
+      var btn = LT.$("#submitBtn");
+      var emailEl = LT.$("#email");
+      var pwEl = LT.$("#password");
+
+      /* ---------- where a signed-in caller goes ---------- */
+
+      /* ?next= is WHITELISTED, never sanitised. Only this app's own page
+         names pass, which refuses "//evil.example", "javascript:…", "../"
+         and a full URL with one test instead of four. login.html is refused
+         separately or the redirect loops. */
+      function nextParam() {
+        var m = /[?&]next=([^&]*)/.exec(location.search);
+        if (!m) return "";
+        var v;
+        try { v = decodeURIComponent(m[1].replace(/\+/g, " ")); } catch (e) { return ""; }
+        if (!/^[a-z-]+\.html$/.test(v)) return "";
+        if (v === "login.html") return "";
+        return v;
+      }
+
+      /* A COACH IS SENT TO coach.html AND NOWHERE ELSE — ?next= is dropped
+         for that role deliberately. Every RLS policy on this platform tests
+         for 'staff', so a coach who lands on a manager page sees empty
+         members, empty bookings and empty finance: an academy that looks
+         deleted rather than an access message. The coach's whole reach is
+         the SECURITY DEFINER functions coach.html calls. */
+      function destinationFor(role) {
+        if (role === "coach") return LT.auth.homeFor("coach");
+        return nextParam() || LT.auth.homeFor(role);
+      }
+
+      function roleLabel(r) {
+        if (r === "coach") return "coach";
+        if (r === "operator") return "operator";
+        return "manager";
+      }
+
+      /* ---------- messages ----------
+         Surfaced honestly. cloud.js already writes the two that are easy to
+         mistake for a broken app — an account with no am_role claim, and a
+         staff login belonging to a different academy — so those pass
+         through verbatim rather than being flattened into "wrong password".
+         textContent throughout: nothing here is ever interpolated as HTML. */
+      function say(text, isError) {
+        msg.textContent = text;
+        msg.className = isError ? "form-msg error" : "form-msg";
+      }
+
+      function readable(m) {
+        if (/failed to fetch|networkerror|load failed|no connection/i.test(m)) {
+          return "No connection — check the network and try again.";
+        }
+        if (/invalid login credentials/i.test(m)) return "Wrong email or password.";
+        if (/email not confirmed/i.test(m)) return "This account has not been confirmed yet. Ask the academy administrator.";
+        if (/too many requests|rate limit/i.test(m)) return "Too many attempts. Wait a minute and try again.";
+        return m;
+      }
+
+      /* Coarse reason only. An event carries no email, no password and no
+         raw server message — the operator console needs to know that
+         sign-ins are failing here, not who failed one. */
+      function classify(m) {
+        if (/failed to fetch|networkerror|load failed|no connection/i.test(m)) return "network";
+        if (/invalid login credentials/i.test(m)) return "bad_credentials";
+        if (/no role set/i.test(m)) return "no_role";
+        if (/another academy/i.test(m)) return "wrong_tenant";
+        if (/email not confirmed/i.test(m)) return "unconfirmed";
+        return "other";
+      }
+
+      function busy(on) {
+        btn.disabled = on;
+        btn.textContent = on ? "Signing in…" : "Sign in";
+        emailEl.disabled = on;
+        pwEl.disabled = on;
+      }
+
+      /* ---------- sign in ---------- */
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var email = String(emailEl.value || "").trim();
+        var pw = String(pwEl.value || "");
+        if (!email || !pw) { say("Enter your email and password.", true); return; }
+
+        busy(true);
+        say("Signing in…", false);
+
+        LT_CLOUD.signIn(email, pw).then(function (s) {
+          /* cloud.js has already refused a missing role and another
+             academy's tenant. What is left is a role this console has no
+             screen for — say so instead of seating them on a dashboard
+             that RLS will render empty. */
+          if (s.role !== "coach" && !LT_CLOUD.isStaff()) {
+            LT_CLOUD.signOut();
+            busy(false);
+            say("This sign-in worked, but the role on the account (" + s.role + ") has no access to the console.", true);
+            LT_CLOUD.track("sign_in_refused", { reason: "role", role: s.role });
+            return;
+          }
+          LT_CLOUD.track("sign_in", { role: s.role });
+          LT.toast("Signed in.");
+          location.replace(destinationFor(s.role));
+        }).catch(function (err) {
+          busy(false);
+          var m = String((err && err.message) || "Sign-in failed.");
+          say(readable(m), true);
+          pwEl.value = "";
+          LT_CLOUD.track("sign_in_failed", { reason: classify(m) });
+        });
+      });
+
+      /* No self-serve reset is wired, and inventing one that silently does
+         nothing is worse than saying who to ask. */
+      LT.$("#forgot").addEventListener("click", function (e) {
+        e.preventDefault();
+        LT.toast("Ask the academy administrator to reset it — there is no self-serve reset yet.");
+      });
+
+      /* ---------- already signed in ----------
+         A staff member who lands here with a live session should not have to
+         retype anything, and must still be able to hand the counter over to
+         someone else. */
+      var sess = LT_CLOUD.session();
+      if (sess && LT_CLOUD.signedIn()) {
+        var noteEl = LT.$("#signedNote");
+        LT.$("#signedWho").textContent = (sess.email || "this browser") + " · " + roleLabel(sess.role);
+        noteEl.hidden = false;
+        noteEl.classList.remove("hide");
+        LT.$("#continueBtn").addEventListener("click", function () {
+          location.replace(destinationFor(sess.role));
+        });
+        LT.$("#switchBtn").addEventListener("click", function () {
+          LT_CLOUD.signOut();
+          location.replace("login.html");
+        });
+      }
+
+      /* ---------- DEV preview ----------
+         There is no ska staff auth user yet, and creating one means setting a
+         password — which does not belong in this file or in this repo's
+         history. So the preview seats a local staff-shaped session that
+         carries NO credential and NO token: every screen is reachable, every
+         read falls back to clearly-marked sample data, and every write is
+         refused out loud. The whole panel is inside this branch, so setting
+         LT_CLOUD.DEV = false removes it from the page entirely. */
+      var devPanel = LT.$("#devPanel");
+      if (LT_CLOUD.DEV) {
+        devPanel.hidden = false;
+        devPanel.classList.remove("hide");
+        LT.$$("[data-dev-role]", devPanel).forEach(function (b) {
+          b.addEventListener("click", function () {
+            LT_CLOUD.devSignIn(b.getAttribute("data-dev-role")).then(function (s) {
+              LT_CLOUD.track("dev_preview", { role: s.role });
+              location.replace(destinationFor(s.role));
+            }).catch(function (err) {
+              LT.toast(err.message);
+            });
+          });
+        });
+      } else if (devPanel && devPanel.parentNode) {
+        devPanel.parentNode.removeChild(devPanel);
+      }
+
+      /* Focus the first field on a pointer device only — autofocusing on a
+         phone throws the keyboard up over the card before it is read. */
+      try {
+        if (window.matchMedia && window.matchMedia("(min-width: 700px)").matches) emailEl.focus();
+      } catch (e) {}
+    })();
+  </script>
+</body>
+</html>

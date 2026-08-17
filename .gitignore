@@ -1,0 +1,33 @@
+.DS_Store
+node_modules/
+*.log
+
+# ---------------------------------------------------------------
+# THIS REPOSITORY IS PUBLIC.
+#
+# It serves a static site, so every file here is fetchable by anyone, and
+# git history keeps what you delete. Two things have already gone wrong
+# this way on this platform:
+#
+#   · Raj Sports shipped a live password prefilled in login.html. Removing
+#     it was not enough — it had to be rotated, because it stayed in history.
+#   · The demo repo shipped five REAL member names in assets/js/data.js,
+#     inherited from the app it was forked from. Only the git history had
+#     been cleaned in that fork; the file contents were never audited.
+#
+# So: no credential, no service_role key, no real member name, no real
+# parent phone number, ever. The anon key is public by design and belongs
+# here; nothing else does.
+#
+# Data-loading migrations carry real families as SQL literals — names,
+# parent phone numbers, addresses. They are one-off loads and the ledger
+# that records them lives in the database, so nothing needs them in git.
+# ---------------------------------------------------------------
+supabase/migrations/*-data.sql
+supabase/migrations/*-load-*.sql
+supabase/migrations/*-members-*.sql
+supabase/migrations/*-import-*.sql
+
+# Local scratch
+scratch/
+*.local.json

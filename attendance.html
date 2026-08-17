@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Attendance · Super Kings Academy</title>
+<meta name="description" content="Batch register for Super Kings Academy at VAKAMAN FE, Coimbatore — mark a coaching session present or absent, one tap per student." />
+<script>
+  /* blocking: applies the persisted theme before first paint, else the
+     page renders dark and flashes. Raw string, not JSON. */
+  try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
+  document.documentElement.className += " lt-js";
+</script>
+<link rel="stylesheet" href="assets/css/glass.css?v=2" />
+<style>
+  /* Page-local layout only. Glass, pills, tables, empty states and the
+     .att-grid / .att-tile base all come from glass.css.
+
+     WHY THE TILE IS BIGGER HERE THAN IN THE DESIGN SYSTEM
+     The register is taken on a tablet at the side of a net, one-handed,
+     often in sun. Every control a coach touches is at least 44px on its
+     short edge — the tile grid is widened to fit two of them per student
+     without wrapping. */
+  .att-grid { grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 10px; }
+
+  /* The tile itself is NOT the tap target any more — Present and Absent
+     are two distinct states, and a single toggling tile cannot express
+     "absent" separately from "not marked yet". Those three states are the
+     whole point of the register. */
+  .att-tile { cursor: default; align-items: center; padding: 10px 12px; }
+  .att-tile:active { transform: none; }
+  .att-tile .who { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 1px; }
+  .att-tile .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .att-tile .bt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .att-tile .bt .drop { color: var(--tx-red); font-weight: 700; }
+  .att-tile .bt .ok { color: var(--tx-green); font-weight: 700; }
+
+  .att-acts { display: flex; gap: 6px; flex: none; }
+  .att-btn {
+    min-width: 62px; min-height: 44px;
+    padding: 0 10px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--tile-border);
+    background: var(--tile-bg);
+    color: var(--ink-mid);
+    font-family: var(--font-body);
+    font-size: 12.5px; font-weight: 700;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.25s var(--ease-spring);
+  }
+  .att-btn:hover { border-color: var(--input-border-hover); color: var(--ink-hi); }
+  .att-btn:active { transform: scale(0.94); }
+  .att-btn:focus-visible { outline: 2px solid var(--gold-400); outline-offset: 2px; }
+  .att-btn[aria-pressed="true"][data-mark="present"] {
+    color: #06281f; background: linear-gradient(135deg, #6ee7b7, #34d399);
+    border-color: transparent; box-shadow: 0 4px 12px rgba(52, 211, 153, 0.3);
+  }
+  .att-btn[aria-pressed="true"][data-mark="absent"] {
+    color: var(--tx-red); background: rgba(255, 107, 107, 0.16);
+    border-color: rgba(220, 80, 86, 0.55);
+  }
+
+  /* Absent gets its own tile skin. glass.css ships .present only. */
+  .att-tile.absent { border-color: rgba(220, 80, 86, 0.42); background: rgba(255, 107, 107, 0.09); }
+  .att-tile.absent .av { background: linear-gradient(135deg, #ff9d9d, #ff6b6b); color: #3a0a0a; }
+  .att-tile.saving { opacity: 0.55; }
+  .att-tile.saving .att-btn { pointer-events: none; }
+
+  /* Toolbar */
+  .att-bar { display: flex; align-items: center; gap: var(--gap-3); flex-wrap: wrap; justify-content: space-between; }
+  .att-bar .left, .att-bar .right { display: flex; align-items: center; gap: var(--gap-2); flex-wrap: wrap; }
+  .att-bar select { min-width: 190px; }
+  .att-note { font-size: 12.5px; color: var(--ink-low); }
+  .att-note b { color: var(--ink-mid); font-weight: 650; }
+
+  .att-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--ink-low); margin-top: var(--gap-3); }
+  .att-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 4px; margin-right: 6px; vertical-align: -1px; }
+  .att-legend .i-p { background: linear-gradient(135deg, #6ee7b7, #34d399); }
+  .att-legend .i-a { background: rgba(255, 107, 107, 0.5); border: 1px solid rgba(220, 80, 86, 0.6); }
+  .att-legend .i-u { background: var(--tile-bg); border: 1px solid var(--tile-border); }
+
+  /* Who to look at */
+  .watch-row { display: flex; align-items: center; gap: 11px; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+  .watch-row:last-child { border-bottom: none; }
+  .watch-row .av {
+    width: 34px; height: 34px; flex: none; border-radius: 50%;
+    display: grid; place-items: center; font-size: 12px; font-weight: 700;
+    color: #231d00; background: var(--gold-grad);
+  }
+  /* flex column, not two inline spans: the name has to sit ABOVE the
+     figures, and a bare <span> inside a <span> stacks nowhere. */
+  .watch-row .wr-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .watch-row .wr-name { font-size: 13.5px; font-weight: 650; color: var(--ink-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .watch-row .wr-sub { font-size: 11.5px; color: var(--ink-low); }
+  .watch-row .btn { flex: none; }
+
+  @media (max-width: 699px) {
+    .att-grid { grid-template-columns: 1fr; }
+    .att-bar select { min-width: 0; width: 100%; }
+    .att-bar .left, .att-bar .right { width: 100%; }
+    /* One column on a phone still leaves a long Tamil surname fighting two
+       44px buttons for the width. Wrap the name rather than truncate it —
+       the register is read to identify a child, so the name is the one
+       thing that must never be an ellipsis. */
+    .att-tile .nm { white-space: normal; }
+    .att-btn { min-width: 56px; }
+  }
+</style>
+</head>
+<body>
+  <div class="lt-bg" aria-hidden="true"></div>
+
+  <main class="lt-main lt-page">
+
+    <div class="card-head" style="margin-bottom:0;">
+      <div>
+        <div class="kicker">Attendance</div>
+        <h2>Batch register</h2>
+        <div class="sub">One tap per student. Each mark saves to the academy's record on its own — there is nothing to submit.</div>
+      </div>
+      <div class="flex wrap">
+        <input type="date" id="attDate" style="width:auto;" aria-label="Session date" />
+        <span class="pill gold" id="attCount" role="status" aria-live="polite">—</span>
+      </div>
+    </div>
+
+    <!-- Toolbar: which batch, which session, and the one bulk action. -->
+    <div class="glass glass-card tight reveal">
+      <div class="att-bar">
+        <div class="left">
+          <span class="lt-filter"><select id="batchSelect" aria-label="Batch"></select></span>
+          <span class="att-note" id="batchMeta"></span>
+        </div>
+        <div class="right">
+          <span class="pill green hide" id="pillPresent">—</span>
+          <span class="pill red hide" id="pillAbsent">—</span>
+          <button type="button" class="btn btn-glass btn-sm" id="restPresent" disabled>Mark the rest present</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- The register. -->
+    <div class="glass glass-card reveal d1">
+      <div class="card-head">
+        <div>
+          <h2 style="font-size:18px;" id="regTitle">Today's session</h2>
+          <div class="sub" id="regSub">VAKAMAN FE · cricket coaching</div>
+        </div>
+        <span class="att-note" id="savedNote"></span>
+      </div>
+      <div class="att-grid" id="grid"></div>
+      <div class="att-legend">
+        <span><i class="i-p"></i>Present</span>
+        <span><i class="i-a"></i>Absent</span>
+        <span><i class="i-u"></i>Not marked yet</span>
+      </div>
+    </div>
+
+    <!-- Trends. Both panels are read straight from the shared functions;
+         nothing on this page derives a rate itself. -->
+    <div class="dash-bottom">
+      <div class="glass glass-card reveal d2">
+        <div class="card-head">
+          <div>
+            <div class="kicker">Who to look at</div>
+            <h2 style="font-size:18px;">Attendance, weakest first</h2>
+            <div class="sub">Ordered by absences in a row, then by attendance rate. Last 30 days of this batch.</div>
+          </div>
+        </div>
+        <div id="watch"></div>
+      </div>
+
+      <div class="glass glass-card reveal d3">
+        <div class="card-head">
+          <div>
+            <div class="kicker">Recent sessions</div>
+            <h2 style="font-size:18px;">Last 30 days</h2>
+            <div class="sub">Every session this batch has a register for.</div>
+          </div>
+        </div>
+        <div class="table-wrap" id="history"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="assets/js/core.js?v=2"></script>
+  <script src="assets/js/cloud.js?v=2"></script>
+  <script src="assets/js/dev-data.js?v=2"></script>
+  <script>
+    /* page script last. core.js MUST NOT be in <head> — its ink-filter
+       IIFE returns early if document.body is missing and never retries. */
+    (function () {
+      "use strict";
+
+      /* ============================================================
+         THE SESSION MODEL, NOT THE FOOTFALL ONE
+
+         There are two unrelated things called "attendance" on this
+         platform, and they live in different tables:
+
+           attendance (kind='member')            — someone came to the venue
+           sessions + attendance_records         — a student was in a batch
+
+         This page is the second one, and only the second one. It writes
+         through mark_attendance() and reads through attendance_roster(),
+         attendance_history() and attendance_dashboard(), which are the
+         functions the platform's reporting is built on. A tenant that
+         writes the flat footfall table instead is reported BLIND by
+         shared_fn_coverage() and trips an hourly alarm, because none of
+         those functions can see a single one of its rows. The demo app
+         does exactly that; this page deliberately does not.
+
+         UNMARKING IS AN UPSERT TO ABSENT, NEVER A DELETE.
+         mark_attendance(p_status => null) DELETEs the attendance_records
+         row, and deletes the session with it when that was the last mark
+         (0039-attendance-only-staff.sql, the `if p_status is null` branch)
+         — so "the register was taken and this child was not here" and
+         "nobody has opened this register yet" collapse into the same
+         absence of a row. This page therefore never sends a null status.
+         Tapping Absent is a real, recorded fact.
+
+         NO MONEY ON THIS PAGE, at all. Attendance has no amounts, and no
+         figure here is derived in JavaScript: every rate and count is
+         either returned by a shared SQL function or a count of the rows
+         already on screen.
+         ============================================================ */
+
+      if (!LT.auth.require({ staffOnly: true })) return;
+      LT.managerShell("attendance.html");
+
+      var dateEl   = LT.$("#attDate");
+      var batchEl  = LT.$("#batchSelect");
+      var metaEl   = LT.$("#batchMeta");
+      var countEl  = LT.$("#attCount");
+      var presentPill = LT.$("#pillPresent");
+      var absentPill  = LT.$("#pillAbsent");
+      var restBtn  = LT.$("#restPresent");
+      var gridHost = LT.$("#grid");
+      var watchHost = LT.$("#watch");
+      var histHost = LT.$("#history");
+      var regTitle = LT.$("#regTitle");
+      var regSub   = LT.$("#regSub");
+      var savedNote = LT.$("#savedNote");
+
+      var WINDOW_DAYS = 30;
+      var ISO_DAYS = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+      var state = {
+        batches: [],
+        batchId: null,
+        date: LT.today(),
+        rows: [],          /* attendance_roster rows, as returned */
+        stats: {},         /* enrollment_id -> attendance_dashboard student */
+        watch: [],         /* the same students, in the order SQL ranked them */
+        session: null,     /* the session fields carried on the roster rows */
+        seq: 0             /* stale-response guard: date/batch switch fast */
+      };
+
+      /* ---------- small helpers (dates, labels, zones) ---------- */
+
+      function shiftIso(iso, days) {
+        var d = new Date(iso + "T00:00:00");
+        d.setDate(d.getDate() + days);
+        return LT.isoDate(d);
+      }
+
+      /* Timestamps ALWAYS carry their zone. The database renders UTC and
+         the academy reads IST; printing a bare time is how two numbers
+         that are not comparable end up compared. */
+      function istTime(ts) {
+        if (!ts) return "";
+        var d = new Date(ts);
+        if (isNaN(d.getTime())) return "";
+        try {
+          return d.toLocaleTimeString("en-IN", {
+            hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata"
+          }) + " IST";
+        } catch (e) {
+          return d.toISOString().slice(11, 16) + " UTC";
+        }
+      }
+
+      function hhmm(t) { return String(t || "").slice(0, 5); }
+
+      /* batches.days is int[] ISO 1=Mon..7=Sun in Postgres. The DEV sample
+         carries a human string. Accept either rather than assuming. */
+      function daysLabel(days) {
+        if (!days) return "";
+        if (typeof days === "string") return days;
+        if (Object.prototype.toString.call(days) === "[object Array]") {
+          return days.map(function (n) { return ISO_DAYS[n] || ""; })
+                     .filter(Boolean).join(", ");
+        }
+        return "";
+      }
+
+      function batchById(id) {
+        for (var i = 0; i < state.batches.length; i++) {
+          if (String(state.batches[i].id) === String(id)) return state.batches[i];
+        }
+        return null;
+      }
+
+      function pct(v) { return (v === null || v === undefined) ? "—" : (v + "%"); }
+
+      /* ============================================================
+         DEV SAMPLE DATA
+
+         Derived here, from SKA_DEV, because the register's shape is the
+         shape attendance_roster() returns and the sample file holds
+         members and batches rather than roster rows. It is only ever
+         reached when the real call has already failed AND LT_CLOUD.DEV is
+         true, so a live read that fails still renders "could not load" —
+         an empty academy and a broken one must never look alike.
+         ============================================================ */
+
+      function devBatches() {
+        var b = (window.SKA_DEV && SKA_DEV.batches) || [];
+        return b.map(function (x) {
+          return {
+            id: x.id, name: x.name, sport: x.sport, days: x.days,
+            start_time: x.start_time, end_time: x.end_time,
+            coach: x.coach, active: true
+          };
+        });
+      }
+
+      function devRoster(batchId, date) {
+        var b = batchById(batchId);
+        var members = (window.SKA_DEV && SKA_DEV.members) || [];
+        if (!b) return [];
+        var mine = members.filter(function (m) { return m.batch === b.name; });
+        var isToday = date === LT.today();
+        return mine.map(function (m, i) {
+          /* Today reads as a half-taken register (present, absent and
+             not-yet-marked all visible); an older date reads as finished. */
+          var status = isToday
+            ? (i % 4 === 3 ? null : (i % 5 === 2 ? "absent" : "present"))
+            : (i % 6 === 4 ? "absent" : "present");
+          return {
+            session_id: 900000 + b.id,
+            session_status: "held",
+            session_note: null,
+            session_marked_at: isToday ? new Date().toISOString() : (date + "T12:10:00Z"),
+            session_marked_by: "sample@local",
+            enrollment_id: m.id,
+            member_id: m.id,
+            member_name: m.name,
+            parent_name: null,
+            phone: m.phone,
+            sport: m.sport,
+            attendance_id: status ? 800000 + m.id : null,
+            attendance_status: status,
+            reason: null,
+            attendance_note: null
+          };
+        });
+      }
+
+      function devDashboard(batchId) {
+        var b = batchById(batchId);
+        var members = (window.SKA_DEV && SKA_DEV.members) || [];
+        if (!b) return { summary: {}, students: [], trend: [] };
+        var mine = members.filter(function (m) { return m.batch === b.name; });
+        var students = mine.map(function (m, i) {
+          var sessions = 12;
+          var attended = [12, 11, 7, 10, 5, 12, 9][i % 7];
+          var rates = [100, 92, 58, 83, 42, 100, 75];
+          var recents = [100, 80, 40, 86, 20, 100, 80];
+          return {
+            enrollment_id: m.id, member_id: m.id, member_name: m.name,
+            batch_id: b.id, batch_name: b.name,
+            sessions: sessions, attended: attended, absent: sessions - attended,
+            rate: rates[i % 7], recent_rate: recents[i % 7], previous_rate: rates[i % 7],
+            absence_streak: (i % 5 === 2 ? 3 : (i % 7 === 4 ? 2 : 0)),
+            last_session_on: SKA_DEV.date(-1)
+          };
+        });
+        students.sort(function (a, c) {
+          if (c.absence_streak !== a.absence_streak) return c.absence_streak - a.absence_streak;
+          return a.rate - c.rate;
+        });
+        return { summary: { sessions: 12, students: mine.length }, students: students, trend: [] };
+      }
+
+      function devHistory(batchId) {
+        var b = batchById(batchId);
+        if (!b) return [];
+        var out = [];
+        for (var i = 1; i <= 6; i++) {
+          var present = [9, 7, 10, 8, 10, 6][i - 1];
+          var absent = [1, 3, 0, 2, 0, 4][i - 1];
+          out.push({
+            session_id: 900000 + i, on_date: SKA_DEV.date(-i * 2),
+            batch_id: b.id, batch_name: b.name,
+            session_status: "held", cancel_reason: null,
+            marked_at: SKA_DEV.date(-i * 2) + "T12:10:00Z", marked_by: "sample@local",
+            total: present + absent, present: present, absent: absent,
+            attendance_rate: [90, 70, 100, 80, 100, 60][i - 1]
+          });
+        }
+        return out;
+      }
+
+      /* ============================================================
+         BATCHES — the page cannot do anything without one
+         ============================================================ */
+
+      function loadBatches() {
+        LT.skeleton(gridHost, 6);
+        LT_CLOUD.batches()
+          .then(function (rows) { haveBatches(rows || []); })
+          .catch(function (err) {
+            if (LT_CLOUD.DEV) { haveBatches(devBatches()); return; }
+            batchEl.innerHTML = '<option>—</option>';
+            batchEl.disabled = true;
+            LT.fail(gridHost, err);
+            LT.empty(watchHost, "Could not load", "The batch list did not load, so there is nothing to summarise.");
+            LT.empty(histHost, "Could not load", "The batch list did not load, so there is nothing to summarise.");
+          });
+      }
+
+      function haveBatches(rows) {
+        state.batches = rows.filter(function (b) { return b.active !== false; });
+
+        /* A brand-new academy genuinely has none: batches are created on
+           the Members screen, and attendance is taken against a batch, so
+           this is a real state and not a failure. Say which, and say what
+           to do next. */
+        if (!state.batches.length) {
+          batchEl.innerHTML = '<option value="">No batches yet</option>';
+          batchEl.disabled = true;
+          dateEl.disabled = true;
+          restBtn.disabled = true;
+          regTitle.textContent = "No register yet";
+          regSub.textContent = "VAKAMAN FE";
+          countEl.textContent = "—";
+          gridHost.innerHTML =
+            '<div class="lt-empty" style="grid-column:1/-1;">' +
+            '<div class="lt-empty-t">Attendance needs a batch first</div>' +
+            '<div class="lt-empty-s">A register is a batch on a date, so two things have to exist before this screen has anything to show: ' +
+            'a <b>batch</b> (its days, its start and end time, its coach) and at least one <b>member enrolled in it</b>. ' +
+            'Create both on the Members screen, then come back here.</div>' +
+            '<div style="margin-top:16px;"><a class="btn btn-primary btn-sm" href="players.html">Go to Members</a></div>' +
+            "</div>";
+          LT.empty(watchHost, "Nothing to summarise yet", "Attendance trends appear once a batch has been marked at least once.");
+          LT.empty(histHost, "No sessions yet", "Sessions are created by taking the register, so the first one appears the day you mark it.");
+          return;
+        }
+
+        var saved = LT.store.read("att-batch", null);
+        var wanted = (saved !== null && batchById(saved)) ? saved : state.batches[0].id;
+        state.batchId = wanted;
+
+        batchEl.disabled = false;
+        batchEl.innerHTML = state.batches.map(function (b) {
+          var t = hhmm(b.start_time) && hhmm(b.end_time) ? hhmm(b.start_time) + "–" + hhmm(b.end_time) : "";
+          return '<option value="' + LT.esc(b.id) + '"' +
+                 (String(b.id) === String(wanted) ? " selected" : "") + ">" +
+                 LT.esc(b.name) + (t ? " · " + LT.esc(t) : "") + "</option>";
+        }).join("");
+
+        loadAll();
+      }
+
+      /* ============================================================
+         THE THREE READS
+
+         Independent, so they are fired together rather than chained. The
+         database answers each in single-digit milliseconds; the ~180 ms
+         is the round trip to Tokyo, so the only thing that makes this
+         page fast is not waiting for one before starting the next.
+         ============================================================ */
+
+      function loadAll() {
+        var seq = ++state.seq;
+        var b = state.batchId, d = state.date;
+
+        /* Drop the previous batch's rows before the new ones land. A tile
+           left over from another batch is worse than a skeleton. */
+        state.rows = [];
+        state.stats = {};
+        state.watch = [];
+        state.session = null;
+
+        paintBatchMeta();
+        LT.skeleton(gridHost, 6);
+        LT.skeleton(watchHost, 4);
+        LT.skeleton(histHost, 4);
+        countEl.textContent = "…";
+        presentPill.classList.add("hide");
+        absentPill.classList.add("hide");
+        restBtn.disabled = true;
+        savedNote.textContent = "";
+
+        var from = shiftIso(d, -(WINDOW_DAYS - 1));
+
+        LT_CLOUD.attendanceRoster(b, d)
+          .then(function (rows) { if (seq === state.seq) haveRoster(rows || []); })
+          .catch(function (err) {
+            if (seq !== state.seq) return;
+            if (LT_CLOUD.DEV) { haveRoster(devRoster(b, d)); return; }
+            state.rows = [];
+            countEl.textContent = "—";
+            LT.fail(gridHost, err);
+          });
+
+        LT_CLOUD.attendanceDashboard({ from: from, to: d, batch: b })
+          .then(function (res) { if (seq === state.seq) haveDashboard(res || {}); })
+          .catch(function (err) {
+            if (seq !== state.seq) return;
+            if (LT_CLOUD.DEV) { haveDashboard(devDashboard(b)); return; }
+            state.stats = {};
+            LT.fail(watchHost, err);
+          });
+
+        LT_CLOUD.attendanceHistory({ from: from, to: d, batch: b })
+          .then(function (rows) { if (seq === state.seq) haveHistory(rows || []); })
+          .catch(function (err) {
+            if (seq !== state.seq) return;
+            if (LT_CLOUD.DEV) { haveHistory(devHistory(b)); return; }
+            LT.fail(histHost, err);
+          });
+      }
+
+      function paintBatchMeta() {
+        var b = batchById(state.batchId);
+        if (!b) { metaEl.textContent = ""; return; }
+        var bits = [];
+        var dl = daysLabel(b.days);
+        if (dl) bits.push(dl);
+        if (hhmm(b.start_time)) bits.push(hhmm(b.start_time) + "–" + hhmm(b.end_time));
+        metaEl.innerHTML = bits.length ? LT.esc(bits.join(" · ")) : "";
+
+        regTitle.textContent = (state.date === LT.today() ? "Today · " : "") +
+                               LT.dayName(state.date) + ", " + LT.shortDate(state.date);
+        regSub.textContent = b.name + " · VAKAMAN FE";
+      }
+
+      /* ---------- roster ---------- */
+
+      function haveRoster(rows) {
+        state.rows = rows;
+        state.session = rows.length ? {
+          id: rows[0].session_id,
+          status: rows[0].session_status,
+          marked_at: rows[0].session_marked_at,
+          marked_by: rows[0].session_marked_by
+        } : null;
+        renderGrid();
+        paintCounts();
+        paintSaved();
+        /* The watch list wants each student's phone, which only the roster
+           carries — so re-render it if the dashboard answered first. */
+        if (state.watch.length) renderWatch(state.watch);
+      }
+
+      function renderGrid() {
+        if (!state.rows.length) {
+          gridHost.innerHTML =
+            '<div class="lt-empty" style="grid-column:1/-1;">' +
+            '<div class="lt-empty-t">Nobody is enrolled in this batch</div>' +
+            '<div class="lt-empty-s">A register lists enrolments, not members — a student has to be enrolled in ' +
+            LT.esc((batchById(state.batchId) || {}).name || "this batch") +
+            ' before they can be marked. Enrol them on the Members screen and they appear here for every session from their joining date onward.</div>' +
+            "</div>";
+          return;
+        }
+
+        gridHost.innerHTML = state.rows.map(function (r) {
+          var st = r.attendance_status;
+          return '<div class="att-tile' + (st === "present" ? " present" : st === "absent" ? " absent" : "") +
+            '" data-enr="' + LT.esc(r.enrollment_id) + '">' +
+            '<span class="av">' + (st === "present" ? "✓" : st === "absent" ? "✕" : LT.esc(LT.initials(r.member_name))) + "</span>" +
+            '<span class="who">' +
+              '<span class="nm">' + LT.esc(r.member_name) + "</span>" +
+              '<span class="bt" data-bt>' + subline(r) + "</span>" +
+            "</span>" +
+            '<span class="att-acts">' +
+              '<button type="button" class="att-btn" data-mark="present" aria-pressed="' + (st === "present") +
+                '" aria-label="Mark ' + LT.esc(r.member_name) + ' present">Present</button>' +
+              '<button type="button" class="att-btn" data-mark="absent" aria-pressed="' + (st === "absent") +
+                '" aria-label="Mark ' + LT.esc(r.member_name) + ' absent">Absent</button>' +
+            "</span>" +
+            "</div>";
+        }).join("");
+      }
+
+      /* The line under a name. Attendance history when the shared function
+         has answered, otherwise whatever the roster itself carries. */
+      function subline(r) {
+        var s = state.stats[r.enrollment_id];
+        if (s) {
+          var out = '<span class="' + (s.absence_streak >= 3 ? "drop" : s.rate === 100 ? "ok" : "") + '">' +
+                    LT.esc(pct(s.rate)) + "</span> · " +
+                    LT.esc(s.attended + " of " + s.sessions) + " sessions";
+          if (s.absence_streak >= 2) {
+            out += ' · <span class="drop">' + LT.esc(s.absence_streak + " absent in a row") + "</span>";
+          }
+          return out;
+        }
+        if (r.attendance_status === "absent" && r.reason) return LT.esc(r.reason);
+        if (r.parent_name) return LT.esc(r.parent_name);
+        return LT.esc(r.sport || "");
+      }
+
+      function repaintSublines() {
+        LT.$$("[data-enr]", gridHost).forEach(function (tile) {
+          var r = rowFor(tile.getAttribute("data-enr"));
+          var bt = LT.$("[data-bt]", tile);
+          if (r && bt) bt.innerHTML = subline(r);
+        });
+      }
+
+      function rowFor(enr) {
+        for (var i = 0; i < state.rows.length; i++) {
+          if (String(state.rows[i].enrollment_id) === String(enr)) return state.rows[i];
+        }
+        return null;
+      }
+
+      /* "18 of 22 marked". A count of the rows on screen — the only
+         arithmetic on this page, and it is counting, not deriving. */
+      function paintCounts(server) {
+        if (!state.rows.length) {
+          countEl.textContent = "—";
+          presentPill.classList.add("hide");
+          absentPill.classList.add("hide");
+          restBtn.disabled = true;
+          return;
+        }
+        var present = 0, absent = 0, unmarked = 0;
+        state.rows.forEach(function (r) {
+          if (r.attendance_status === "present") present++;
+          else if (r.attendance_status === "absent") absent++;
+          else unmarked++;
+        });
+
+        /* mark_attendance() returns the session's own counts. When it has
+           just spoken, prefer its numbers over the ones counted here —
+           another phone may have marked the same register. */
+        var marked = (server && server.marked != null) ? server.marked : (present + absent);
+        var total  = (server && server.total  != null) ? server.total  : state.rows.length;
+
+        countEl.textContent = marked + " of " + total + " marked";
+        presentPill.textContent = ((server && server.present != null) ? server.present : present) + " present";
+        absentPill.textContent = ((server && server.absent != null) ? server.absent : absent) + " absent";
+        presentPill.classList.remove("hide");
+        absentPill.classList.remove("hide");
+
+        restBtn.disabled = unmarked === 0;
+        restBtn.textContent = unmarked ? "Mark the rest present (" + unmarked + ")" : "Everyone is marked";
+      }
+
+      function paintSaved() {
+        if (!state.session || !state.session.id) {
+          savedNote.textContent = state.rows.length ? "Register not opened yet" : "";
+          return;
+        }
+        if (state.session.status === "cancelled") {
+          savedNote.innerHTML = '<span class="pill red">Session cancelled</span>';
+          return;
+        }
+        var t = istTime(state.session.marked_at);
+        savedNote.innerHTML = t
+          ? "Last saved " + LT.esc(t) + (state.session.marked_by ? " · " + LT.esc(state.session.marked_by) : "")
+          : "";
+      }
+
+      /* ---------- dashboard (per-student standing) ---------- */
+
+      function haveDashboard(res) {
+        var students = (res && res.students) || [];
+        state.stats = {};
+        students.forEach(function (s) { state.stats[s.enrollment_id] = s; });
+        state.watch = students;
+        repaintSublines();
+        renderWatch(students);
+      }
+
+      function renderWatch(students) {
+        if (!students.length) {
+          LT.empty(watchHost, "No marked sessions in the last 30 days",
+            "Per-student standing appears once this batch's register has been taken at least once.");
+          return;
+        }
+        /* attendance_dashboard() already orders these — absences in a row
+           first, then rate ascending. Do not re-sort in the client; the
+           order IS the answer. */
+        watchHost.innerHTML = students.slice(0, 6).map(function (s) {
+          var r = rowFor(s.enrollment_id);
+          var phone = r && r.phone;
+          var bits = [pct(s.rate) + " overall", pct(s.recent_rate) + " in the last fortnight"];
+          if (s.absence_streak >= 2) bits.push(s.absence_streak + " absent in a row");
+          /* The nudge appears only where there is something to ask about.
+             A "we have missed them" message next to a child who has not
+             missed a session is the kind of small wrongness a parent
+             remembers, and the button is one tap from being sent. */
+          var wa = "";
+          if (phone && s.absence_streak >= 2) {
+            wa = '<a class="btn btn-glass btn-sm" target="_blank" rel="noopener" href="' +
+                 LT.esc(LT.waLink(phone,
+                   "Hello from Super Kings Academy, VAKAMAN FE. We have missed " +
+                   s.member_name + " at recent " + (r.sport || "cricket") +
+                   " sessions — is everything alright?")) +
+                 '">WhatsApp</a>';
+          }
+          return '<div class="watch-row">' +
+            '<span class="av">' + LT.esc(LT.initials(s.member_name)) + "</span>" +
+            '<span class="wr-body">' +
+              '<span class="wr-name">' + LT.esc(s.member_name) + "</span>" +
+              '<span class="wr-sub">' + LT.esc(bits.join(" · ")) + "</span>" +
+            "</span>" + wa +
+            "</div>";
+        }).join("");
+      }
+
+      /* ---------- history ---------- */
+
+      function haveHistory(rows) {
+        if (!rows.length) {
+          LT.empty(histHost, "No sessions in the last 30 days",
+            "A session row is created the first time a register is marked, so this fills in as the batch runs.");
+          return;
+        }
+        histHost.innerHTML =
+          '<table class="lt-table tight"><thead><tr>' +
+          "<th>Date</th><th>Present</th><th>Absent</th><th>Rate</th><th>Marked</th>" +
+          "</tr></thead><tbody>" +
+          rows.slice(0, 12).map(function (h) {
+            var cancelled = h.session_status === "cancelled";
+            return "<tr>" +
+              '<td class="t-name">' + LT.esc(LT.shortDate(h.on_date)) +
+                ' <span class="faint">' + LT.esc(LT.dayName(h.on_date).slice(0, 3)) + "</span></td>" +
+              '<td class="num">' + LT.esc(h.present) + "</td>" +
+              '<td class="num">' + LT.esc(h.absent) + "</td>" +
+              '<td class="num">' + LT.esc(pct(h.attendance_rate)) + "</td>" +
+              "<td>" + (cancelled
+                ? '<span class="cell-status red">Cancelled</span>'
+                : '<span class="cell-tag">' + LT.esc(istTime(h.marked_at) || "Held") + "</span>") + "</td>" +
+              "</tr>";
+          }).join("") +
+          "</tbody></table>";
+      }
+
+      /* ============================================================
+         WRITES
+
+         One call per student, and the UI is only updated by what the
+         database says came back. In DEV every write rejects with
+         err.dev — the toast says so and nothing is painted as saved,
+         because a dev mode where "marked present" appears to work and
+         writes nothing is worse than no dev mode.
+         ============================================================ */
+
+      /* Resolves to null when the database accepted the mark, or to the
+         Error when it did not — so the bulk runner can report the real
+         reason rather than "something went wrong". It never rejects; a
+         register that throws halfway through is not a register. */
+      function mark(enr, status) {
+        var tile = LT.$('[data-enr="' + String(enr).replace(/"/g, "") + '"]', gridHost);
+        var row = rowFor(enr);
+        if (!row) return Promise.resolve(new Error("That student is not on this register."));
+
+        if (state.date > LT.today()) {
+          var future = new Error("Attendance cannot be taken for a future date.");
+          LT.toast(future.message, "error");
+          return Promise.resolve(future);
+        }
+
+        /* The write is for THIS batch on THIS date. If the operator has
+           moved on by the time it lands, the save still stands — it is not
+           undone — but it must not repaint a register it no longer
+           describes. */
+        var seq = state.seq;
+
+        if (tile) tile.classList.add("saving");
+
+        return LT_CLOUD.markAttendance({
+          batch: state.batchId,
+          date: state.date,
+          enrollment: enr,
+          status: status
+        }).then(function (res) {
+          if (seq !== state.seq) return null;
+          row.attendance_status = status;
+          if (res && res.session_id) {
+            state.session = state.session || {};
+            state.session.id = res.session_id;
+            state.session.status = "held";
+            state.session.marked_at = res.saved_at || new Date().toISOString();
+          }
+          paintTile(enr);
+          paintCounts(res);
+          paintSaved();
+          LT_CLOUD.track("attendance_mark", { status: status });
+          return null;
+        }).catch(function (err) {
+          if (tile) tile.classList.remove("saving");
+          LT.toast((err && err.message) || "That did not save.", "error");
+          return err || new Error("That did not save.");
+        });
+      }
+
+      function paintTile(enr) {
+        var tile = LT.$('[data-enr="' + String(enr).replace(/"/g, "") + '"]', gridHost);
+        var row = rowFor(enr);
+        if (!tile || !row) return;
+        var st = row.attendance_status;
+        tile.classList.remove("saving", "present", "absent");
+        if (st === "present") tile.classList.add("present");
+        if (st === "absent") tile.classList.add("absent");
+        var av = LT.$(".av", tile);
+        if (av) av.textContent = st === "present" ? "✓" : st === "absent" ? "✕" : LT.initials(row.member_name);
+        LT.$$(".att-btn", tile).forEach(function (b) {
+          b.setAttribute("aria-pressed", String(b.getAttribute("data-mark") === st));
+        });
+        var bt = LT.$("[data-bt]", tile);
+        if (bt) bt.innerHTML = subline(row);
+      }
+
+      gridHost.addEventListener("click", function (e) {
+        var btn = e.target.closest && e.target.closest(".att-btn");
+        if (!btn) return;
+        var tile = btn.closest(".att-tile");
+        if (!tile) return;
+        var enr = tile.getAttribute("data-enr");
+        var want = btn.getAttribute("data-mark");
+        var row = rowFor(enr);
+        if (!row) return;
+
+        /* Tapping the state a student is already in is a no-op, NOT an
+           unmark. Clearing a mark would mean sending a null status, which
+           deletes the row — see the header. Present ↔ Absent is the only
+           transition this page offers, and both are writes. */
+        if (row.attendance_status === want) return;
+        mark(enr, want);
+      });
+
+      /* One bulk action, and it only touches students with no mark at all
+         — it never overwrites an absent that somebody entered on purpose.
+         Each row is its own mark_attendance() call, sequentially, and the
+         roster is re-read at the end so the screen shows what actually
+         saved rather than what was attempted. */
+      restBtn.addEventListener("click", function () {
+        var pending = state.rows.filter(function (r) { return !r.attendance_status; });
+        if (!pending.length) return;
+        var b = batchById(state.batchId);
+        if (!window.confirm("Mark " + pending.length + " unmarked student" + (pending.length === 1 ? "" : "s") +
+            " present in " + ((b && b.name) || "this batch") + " for " + LT.shortDate(state.date) + "?")) return;
+
+        restBtn.disabled = true;
+        restBtn.textContent = "Saving…";
+        var saved = 0, stopped = null;
+
+        pending.reduce(function (chain, r) {
+          return chain.then(function () {
+            if (stopped) return null;
+            return mark(r.enrollment_id, "present").then(function (err) {
+              if (err) stopped = err; else saved++;
+            });
+          });
+        }, Promise.resolve()).then(function () {
+          /* One message carrying both halves: how many landed, and why the
+             rest did not. The roster is then re-read, so whatever is on
+             screen afterwards is the database's answer, not this loop's. */
+          if (stopped) {
+            LT.toast((saved ? saved + " saved, then it stopped — " : "") +
+                     (stopped.message || "that did not save."), "error");
+          } else if (saved) {
+            LT.toast(saved + " marked present.");
+          }
+          loadAll();
+        });
+      });
+
+      /* ============================================================
+         CONTROLS
+         ============================================================ */
+
+      /* THE DATE IS CAPPED AT TODAY. mark_attendance() raises
+         'Attendance cannot be taken for a future date', and an operator
+         should meet a control that will not go there rather than a
+         Postgres error after the tap. */
+      dateEl.value = state.date;
+      dateEl.max = LT.today();
+
+      dateEl.addEventListener("change", function () {
+        var v = this.value;
+        if (!v) { this.value = state.date; return; }
+        if (v > LT.today()) {
+          this.value = LT.today();
+          v = LT.today();
+          LT.toast("Attendance cannot be taken for a future date.", "error");
+        }
+        state.date = v;
+        loadAll();
+      });
+
+      batchEl.addEventListener("change", function () {
+        var v = this.value;
+        if (!v) return;
+        var b = batchById(v);
+        state.batchId = b ? b.id : v;
+        LT.store.write("att-batch", state.batchId);
+        loadAll();
+      });
+
+      loadBatches();
+    })();
+  </script>
+</body>
+</html>

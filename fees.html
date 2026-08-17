@@ -1,0 +1,1169 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#04101f" />
+<title>Finance · Super Kings Academy</title>
+<meta name="description" content="Money in and money out at VAKAMAN FE — coaching fees, net and ground rentals, what is still owed, expenses and the month's net." />
+<script>
+  /* blocking: applies the persisted theme before first paint, else the
+     page renders dark and flashes. Raw string, not JSON. */
+  try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
+  document.documentElement.className += " lt-js";
+</script>
+<link rel="stylesheet" href="assets/css/glass.css?v=2" />
+<style>
+  /* ---------- the five headline figures ----------
+     Five, not four, so .lt-grid.cols-4 does not fit. No cols-* class is
+     used here on purpose: glass.css collapses cols-2/3/4 to a single
+     column under 700px, and five money tiles stacked one per screen is
+     four scrolls to see whether the month made anything. */
+  .fin-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .fin-kpis .stat-card { justify-content: center; }
+  .fin-kpis .stat-value { font-size: 25px; }
+  .fin-kpis .delta { color: var(--ink-low); font-weight: 600; }
+  .fin-kpis .stat-card.net { border-color: var(--glass-border-hover); }
+  @media (max-width: 1099px) { .lt-grid.fin-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 699px) {
+    .lt-grid.fin-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .fin-kpis .stat-card { padding: 12px 14px; }
+    .fin-kpis .stat-value { font-size: 20px; }
+    .fin-kpis .stat-copy { font-size: 10.5px; }
+    .fin-kpis .delta { font-size: 10px; }
+    /* the net tile spans the full width on the last row — it is the one
+       number the owner actually opens this page for */
+    .fin-kpis .stat-card.net { grid-column: 1 / -1; }
+  }
+
+  /* ---------- money in, by stream ---------- */
+  .st-row { display: flex; align-items: center; gap: 12px; font-size: 13px; margin-bottom: 11px; }
+  .st-row:last-child { margin-bottom: 0; }
+  .st-row .st-l { flex: none; width: 132px; color: var(--ink-mid); font-weight: 650; }
+  .st-row .st-l small { display: block; font-weight: 500; font-size: 10.5px; color: var(--ink-faint); }
+  .st-row .st-bar { flex: 1; min-width: 40px; height: 10px; border-radius: 6px; background: var(--line); overflow: hidden; }
+  :root[data-theme="light"] .st-row .st-bar { background: rgba(28, 32, 44, 0.14); }
+  .st-row .st-bar i { display: block; height: 100%; border-radius: 6px; transform-origin: left; animation: lt-fill-bar 0.7s var(--ease-spring) both; }
+  .st-row .st-v { flex: none; width: 104px; text-align: right; font-weight: 700; color: var(--ink-hi); font-variant-numeric: tabular-nums; }
+  .st-row .st-v small { display: block; font-weight: 600; font-size: 10.5px; color: var(--ink-faint); }
+  .st-fees i   { background: var(--gold-grad); }
+  .st-nets i   { background: linear-gradient(90deg, #6ee7b7, #34d399); }
+  .st-ground i { background: linear-gradient(90deg, #a9ccff, #7fb3ff); }
+  .st-out i    { background: linear-gradient(90deg, rgba(255,107,107,.9), rgba(220,80,86,.9)); }
+  .st-total { display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+    margin-top: var(--gap-3); padding-top: var(--gap-3); border-top: 1px solid var(--line); }
+  .st-total .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-low); font-weight: 700; }
+  @media (max-width: 480px) {
+    .st-row .st-l { width: 96px; font-size: 12px; }
+    .st-row .st-v { width: 88px; font-size: 12.5px; }
+  }
+
+  /* ---------- outstanding rentals ---------- */
+  .feed-item .fi-right { display: flex; align-items: center; gap: 8px; flex: none; }
+  .feed-item .fi-ic.owed { color: var(--tx-red); }
+  .owed-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+
+  /* ---------- ledger head: title + tabs + action on one row ---------- */
+  .ledger-head { display: flex; align-items: center; justify-content: space-between;
+    gap: 10px 14px; flex-wrap: wrap; padding: var(--gap-3) var(--gap-3) 12px; }
+  .ledger-head .lh-title { min-width: 0; }
+  .ledger-head .lh-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  @media (max-width: 560px) { .ledger-head .lh-controls { width: 100%; } }
+  .ledger-foot { padding: 0 var(--gap-3) var(--gap-3); font-size: 12.5px; color: var(--ink-mid); }
+  .ledger-foot b { color: var(--tx-gold); }
+  .ledger-foot b.out { color: var(--tx-red); }
+
+  /* a table cell that carries a skeleton or an empty state must not also
+     carry the row hover/padding of a data cell */
+  .lt-table td.slab { padding: 0 var(--gap-3); }
+  .lt-table td.slab .lt-skel { margin: 10px 0; }
+
+  .note { font-size: 12px; color: var(--ink-low); line-height: 1.5; }
+  .note b { color: var(--ink-mid); font-weight: 650; }
+</style>
+</head>
+<body>
+  <div class="lt-bg" aria-hidden="true"></div>
+
+  <!-- .lt-page is the design system's page frame (max width + the padding
+       that clears the fixed nav and the mobile dock). .lt-main carries no
+       styles of its own; it is kept so every page in this app reads the
+       same in source. -->
+  <main class="lt-page lt-main">
+
+    <div class="card-head" style="margin-bottom: 0;">
+      <div>
+        <div class="kicker">Finance</div>
+        <h2>Money in, money out</h2>
+        <div class="sub" id="monthLine">VAKAMAN FE</div>
+      </div>
+      <div class="flex wrap">
+        <span class="lt-filter">
+          <select id="monthSel" aria-label="Choose a month"></select>
+        </span>
+        <button class="btn btn-primary btn-sm" id="expAdd" type="button">+ Add expense</button>
+      </div>
+    </div>
+
+    <!-- ---------- the five figures ---------- -->
+    <div class="lt-grid fin-kpis">
+      <div class="glass glass-hover stat-card kpi reveal">
+        <span class="stat-copy">Coaching fees</span>
+        <span class="stat-value" id="kpiFees">—</span>
+        <span class="delta" id="kpiFeesSub">Loading…</span>
+      </div>
+      <div class="glass glass-hover stat-card kpi reveal d1">
+        <span class="stat-copy">Rental collected</span>
+        <span class="stat-value" id="kpiRent">—</span>
+        <span class="delta" id="kpiRentSub">Loading…</span>
+      </div>
+      <div class="glass glass-hover stat-card kpi reveal d2">
+        <span class="stat-copy">Rental outstanding</span>
+        <span class="stat-value" id="kpiOwed">—</span>
+        <span class="delta" id="kpiOwedSub">Loading…</span>
+      </div>
+      <div class="glass glass-hover stat-card kpi reveal d3">
+        <span class="stat-copy">Expenses</span>
+        <span class="stat-value" id="kpiExp">—</span>
+        <span class="delta" id="kpiExpSub">Loading…</span>
+      </div>
+      <div class="glass glass-hover stat-card kpi net reveal d4">
+        <span class="stat-copy">Net for the month</span>
+        <span class="stat-value" id="kpiNet">—</span>
+        <span class="delta" id="kpiNetSub">Loading…</span>
+      </div>
+    </div>
+
+    <!-- ---------- where it came from + what is still owed ---------- -->
+    <div class="lt-grid cols-2">
+      <div class="glass glass-card reveal">
+        <div class="card-head">
+          <div>
+            <div class="kicker">Money in</div>
+            <h2>By stream</h2>
+            <div class="sub">Collected only — cash actually in hand</div>
+          </div>
+        </div>
+        <div id="streamBody"><div class="lt-skel"></div><div class="lt-skel"></div><div class="lt-skel"></div></div>
+        <div class="note mt-3" id="streamNote">
+          Fees are counted on the date the payment was recorded; rentals on
+          the date of play, which is the date the month filter selects on.
+        </div>
+      </div>
+
+      <div class="glass glass-card reveal d1">
+        <div class="card-head">
+          <div>
+            <div class="kicker">Owed to the academy</div>
+            <h2>Rentals not collected</h2>
+            <div class="sub">Confirmed bookings with nothing taken yet</div>
+          </div>
+          <span class="pill" id="owedPill">—</span>
+        </div>
+        <div class="feed" id="owedBody"><div class="lt-skel"></div><div class="lt-skel"></div><div class="lt-skel"></div></div>
+      </div>
+    </div>
+
+    <!-- ---------- the ledger ---------- -->
+    <div class="glass reveal">
+      <div class="ledger-head">
+        <div class="lh-title">
+          <div class="kicker">Ledger</div>
+          <h2 style="font-size: 18px;">Money received</h2>
+        </div>
+        <div class="lh-controls">
+          <div class="chip-row filters" id="txTabs">
+            <button class="chip active" type="button" data-f="all">All</button>
+            <button class="chip" type="button" data-f="fees">Coaching fees</button>
+            <button class="chip" type="button" data-f="nets">Nets</button>
+            <button class="chip" type="button" data-f="ground">Ground</button>
+          </div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="lt-table tight">
+          <thead>
+            <tr>
+              <th>Date</th><th>From</th><th>Stream</th>
+              <th style="text-align:right;">Amount</th><th>Mode</th><th>Collected by</th>
+            </tr>
+          </thead>
+          <tbody id="txBody"></tbody>
+        </table>
+      </div>
+      <div class="ledger-foot" id="txFoot"></div>
+    </div>
+
+    <!-- ---------- money out ---------- -->
+    <div class="glass reveal">
+      <div class="ledger-head">
+        <div class="lh-title">
+          <div class="kicker">Money out</div>
+          <h2 style="font-size: 18px;">Expenses</h2>
+        </div>
+        <div class="lh-controls">
+          <button class="btn btn-glass btn-sm" id="expAdd2" type="button">+ Add expense</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="lt-table tight">
+          <thead>
+            <tr>
+              <th>Date</th><th>Paid to</th><th>Category</th>
+              <th style="text-align:right;">Amount</th><th>Mode</th><th>Note</th>
+            </tr>
+          </thead>
+          <tbody id="expBody"></tbody>
+        </table>
+      </div>
+      <div class="ledger-foot" id="expFoot"></div>
+    </div>
+
+  </main>
+
+  <!-- ---------- add expense ---------- -->
+  <div class="lt-modal-backdrop" id="expBackdrop">
+    <div class="glass lt-modal">
+      <div class="modal-head">
+        <div><div class="kicker">Money out</div><h2 style="font-size: 20px;">Add an expense</h2></div>
+        <button class="btn btn-icon btn-ghost" id="expClose" type="button" aria-label="Close">✕</button>
+      </div>
+      <form id="expForm" class="lt-grid" style="gap: var(--gap-3);" autocomplete="off">
+        <label class="field">
+          <span>Category</span>
+          <select name="category" id="expCat"></select>
+        </label>
+        <label class="field">
+          <span>Paid to</span>
+          <input type="text" name="payee" id="expPayee" maxlength="60" placeholder="Who was paid" />
+        </label>
+        <div class="lt-grid cols-2" style="gap: var(--gap-2);">
+          <label class="field">
+            <span>Amount</span>
+            <input type="number" name="amount" id="expAmt" min="1" step="1" inputmode="numeric" placeholder="0" />
+          </label>
+          <label class="field">
+            <span>Date</span>
+            <input type="date" name="on" id="expDate" />
+          </label>
+        </div>
+        <label class="field">
+          <span>Mode</span>
+          <select name="mode" id="expMode">
+            <option value="cash">Cash</option>
+            <option value="upi">UPI</option>
+            <option value="bank">Bank transfer</option>
+            <option value="card">Card</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Note <span class="opt">(optional)</span></span>
+          <input type="text" name="note" id="expNote" maxlength="120" placeholder="What it was for" />
+        </label>
+        <div class="form-msg" id="expMsg"></div>
+        <button class="btn btn-primary btn-block" type="submit" id="expSave">Save expense</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ---------- collect a rental ---------- -->
+  <div class="lt-modal-backdrop" id="clBackdrop">
+    <div class="glass lt-modal">
+      <div class="modal-head">
+        <div><div class="kicker">Collect</div><h2 style="font-size: 20px;">Take payment</h2></div>
+        <button class="btn btn-icon btn-ghost" id="clClose" type="button" aria-label="Close">✕</button>
+      </div>
+      <p class="note" id="clSub" style="margin-bottom: var(--gap-3);"></p>
+      <div class="lt-grid" style="gap: var(--gap-3);">
+        <label class="field">
+          <span>Mode</span>
+          <select id="clMode">
+            <option value="cash">Cash</option>
+            <option value="upi">UPI</option>
+            <option value="card">Card</option>
+            <option value="bank">Bank transfer</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Collected by</span>
+          <input type="text" id="clBy" maxlength="60" placeholder="Who took the money" />
+        </label>
+        <div class="form-msg" id="clMsg"></div>
+        <button class="btn btn-primary btn-block" type="button" id="clSave">Mark collected</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/core.js?v=2"></script>
+  <script src="assets/js/cloud.js?v=2"></script>
+  <script src="assets/js/dev-data.js?v=2"></script>
+  <script>
+  /* ============================================================
+     FINANCE — what came in, what went out, what is still owed.
+
+     SIX things to know before editing this file.
+
+     1. NOTHING ON THIS PAGE IS PRICED HERE. Every rupee is an amount a
+        server row already carried, or a sum of those amounts. Summing is
+        reporting; deriving a price is not, and there is no rate table, no
+        fee chain, no reminder ladder and no UPI rotation in this file.
+        The nets are ₹500/hour and the ground is ₹10,000 / ₹20,000 /
+        ₹25,000 — and none of those five numbers appears below, because
+        the day the client changes one, this screen must not be a place
+        anybody has to remember to edit.
+
+     2. RENTAL MONEY LIVES ON THE BOOKING, NOT IN payments. There is
+        deliberately no payments row per booking: bookings.amount with
+        paid_at / paid_mode / collected_by is the record, and a mirroring
+        payments row would double-count the same rupee in every sum on
+        this page. So rentals are read with LT_CLOUD.bookingsBetween()
+        and coaching fees are read from payments. They are two sources on
+        purpose.
+
+     3. DO NOT CALL tenant_revenue_streams(). It looks exactly like the
+        function this page wants and it is not: it is hardcoded to
+        sport = 'tennis' and 'pickleball', so for a cricket academy
+        selling 'nets' and 'ground' it returns zero — silently, with HTTP
+        200. A screen showing ₹0 for a month that took ₹40,000 is worse
+        than a screen showing "could not load". If somebody "fixes" this
+        page by wiring that function up, they have broken it.
+
+     4. THE THREE READS FAIL INDEPENDENTLY, AND THE NET REFUSES TO GUESS.
+        Fees, rentals and expenses are three round trips; a dead one
+        blanks its own tile and its own table and nothing else. The net
+        tile is the exception — it needs all three, so if any leg failed
+        it prints "—" and says which one. A net computed from two of
+        three legs is a number the academy did not earn.
+
+     5. WHICH DATE A ROW BELONGS TO. Fees are bucketed on the payment's
+        own date column. Rentals are bucketed on the booking's date — the
+        day of play — and paid_at is read ONLY as a paid/not-paid flag,
+        never sliced into a calendar day. paid_at is a timestamp rendered
+        in the session's zone; the month filter is IST calendar days, and
+        comparing those two directly is how this platform has already
+        talked itself into a wrong conclusion more than once.
+
+     6. TWO READS AND ONE WRITE ARE NOT IN THE ADAPTER YET.
+        LT_CLOUD.payments(from, to), LT_CLOUD.expenses(from, to) and
+        LT_CLOUD.recordExpense(row) do not exist in assets/js/cloud.js at
+        the time of writing. This page still CALLS them — a page never
+        fetches, so the fix is in the adapter, not here — and when they
+        are absent it says so in plain words instead of inventing a
+        figure. In DEV that path lands on the sample fixtures, exactly
+        like every other read on this screen; live, it renders "could not
+        load" with the missing method named. Nothing is stored locally to
+        paper over it: LT.store is for which tab you had open, and a
+        finance page that keeps its own ledger is the demo's bug.
+     ============================================================ */
+  (function () {
+    "use strict";
+
+    if (!LT.auth.require({ staffOnly: true })) return;   // redirecting
+    LT.managerShell("fees.html");
+
+    var $ = LT.$;
+    var TODAY = LT.today();
+
+    /* Facility vocabulary — labels, not money. */
+    var STREAMS = [
+      { key: "fees",   label: "Coaching fees", sub: "Members",        cls: "st-fees" },
+      { key: "nets",   label: "Practice nets", sub: "N1 – N4",        cls: "st-nets" },
+      { key: "ground", label: "Main ground",   sub: "G1 · full day",  cls: "st-ground" }
+    ];
+
+    var EXPENSE_CATS = [
+      "Ground maintenance", "Coach fees", "Staff salary", "Equipment",
+      "Power & water", "Rent", "Marketing", "Travel", "Other"
+    ];
+
+    var MODES = { cash: "Cash", upi: "UPI", card: "Card", bank: "Bank transfer" };
+
+    /* ---------- state ----------
+       null means "not read yet", which is not the same as [] ("read, and
+       the academy had nothing"), which is not the same as an error. All
+       three paint differently and that is the point. */
+    var S = {
+      month: "", from: "", to: "", label: "",
+      rent: null, rentErr: null,
+      fees: null, feesErr: null,
+      exp: null, expErr: null,
+      filter: "all"
+    };
+
+    /* ============================================================
+       SMALL HELPERS
+       ============================================================ */
+
+    /* Reads a value out of a server row without assuming one column name.
+       payments and expenses are shapes this page does not own. */
+    function pick(row, keys) {
+      if (!row) return null;
+      for (var i = 0; i < keys.length; i++) {
+        var v = row[keys[i]];
+        if (v !== undefined && v !== null && v !== "") return v;
+      }
+      return null;
+    }
+    function num(v) { var n = Number(v); return isFinite(n) ? n : 0; }
+
+    /* Only formats something that is actually a calendar date, so a value
+       of an unexpected shape prints nothing rather than "NaN undefined". */
+    function isoOf(v) {
+      var s = String(v == null ? "" : v).slice(0, 10);
+      return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
+    }
+    function niceDate(v) {
+      var s = isoOf(v);
+      return s ? LT.shortDate(s) : "—";
+    }
+    function modeLabel(m) {
+      var k = String(m || "").toLowerCase();
+      return MODES[k] || (m ? String(m) : "—");
+    }
+    function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+
+    function sum(rows, get) {
+      return rows.reduce(function (t, r) { return t + num(get(r)); }, 0);
+    }
+
+    /* ---------- table slabs ----------
+       Same markup LT.fail / LT.empty produce, inside a colspan cell, so a
+       failed table and a failed list read identically on the page. */
+    function slab(tbody, cols, html) {
+      tbody.innerHTML = '<tr><td class="slab" colspan="' + cols + '">' + html + "</td></tr>";
+    }
+    function slabLoading(tbody, cols, rows) {
+      var h = "";
+      for (var i = 0; i < (rows || 3); i++) h += '<div class="lt-skel"></div>';
+      slab(tbody, cols, h);
+    }
+    function slabEmpty(tbody, cols, title, sub) {
+      slab(tbody, cols, '<div class="lt-empty"><div class="lt-empty-t">' + LT.esc(title) + "</div>" +
+        (sub ? '<div class="lt-empty-s">' + LT.esc(sub) + "</div>" : "") + "</div>");
+    }
+    function slabFail(tbody, cols, err) {
+      slab(tbody, cols, '<div class="lt-empty"><div class="lt-empty-t">Could not load</div>' +
+        '<div class="lt-empty-s">' + LT.esc((err && err.message) || "read failed") + "</div></div>");
+    }
+
+    /* ---------- stat tiles ---------- */
+    function statMoney(sel, v) {
+      var el = $(sel);
+      if (!el) return;
+      var n = Math.round(num(v));
+      /* A negative is printed with the sign in front of the symbol —
+         "−₹4,200", not "₹-4,200". */
+      LT.countUp(el, Math.abs(n), { prefix: (n < 0 ? "−₹" : "₹") });
+    }
+    function statDash(sel) {
+      var el = $(sel);
+      if (!el) return;
+      if (el._cuRaf) { cancelAnimationFrame(el._cuRaf); el._cuRaf = null; }
+      el.textContent = "—";
+    }
+    function sub(sel, text, kind) {
+      var el = $(sel);
+      if (!el) return;
+      el.textContent = text;
+      el.className = "delta" + (kind ? " " + kind : "");
+    }
+
+    /* ============================================================
+       THE MONTH
+
+       Twelve months back from this one, no future months: a month that
+       has not started cannot have taken money, and an empty screen that
+       looks like a failure is a support call.
+       ============================================================ */
+    function monthKey(d) {
+      var m = String(d.getMonth() + 1);
+      return d.getFullYear() + "-" + (m.length < 2 ? "0" + m : m);
+    }
+    function monthBounds(key) {
+      var y = Number(key.slice(0, 4)), m = Number(key.slice(5, 7)) - 1;
+      return {
+        from: LT.isoDate(new Date(y, m, 1)),
+        to: LT.isoDate(new Date(y, m + 1, 0)),          // day 0 of next month = last of this
+        label: new Date(y, m, 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" })
+      };
+    }
+
+    (function buildMonths() {
+      var now = new Date(), out = [];
+      for (var i = 0; i < 12; i++) {
+        var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        var k = monthKey(d);
+        out.push('<option value="' + k + '">' +
+          LT.esc(d.toLocaleDateString("en-IN", { month: "long", year: "numeric" })) + "</option>");
+      }
+      $("#monthSel").innerHTML = out.join("");
+      $("#monthSel").value = monthKey(now);
+    })();
+
+    $("#monthSel").addEventListener("change", function () { load(this.value); });
+
+    /* ============================================================
+       ADAPTER CALLS
+
+       Two of these are not in cloud.js yet (see note 6 at the top). They
+       are called by name so that the day the adapter gains them this page
+       is already correct, and refused loudly when it has not — never
+       simulated, never fetched from here.
+       ============================================================ */
+    function readVia(name, args, what) {
+      var fn = window.LT_CLOUD && LT_CLOUD[name];
+      if (typeof fn === "function") return fn.apply(LT_CLOUD, args || []);
+      var e = new Error(what + " has no read in the cloud adapter yet — add LT_CLOUD." +
+                        name + "() to assets/js/cloud.js. A page never fetches.");
+      e.missing = true;
+      return Promise.reject(e);
+    }
+
+    /* ============================================================
+       LOAD — four round trips, dispatched together.
+
+       The database answers in single-digit milliseconds; the flight to
+       Tokyo is ~180 ms and is ~97% of each request. Sequential reads here
+       would be most of a second of empty tiles for nothing.
+       ============================================================ */
+    function load(key) {
+      var b = monthBounds(key);
+      S.month = key; S.from = b.from; S.to = b.to; S.label = b.label;
+      S.rent = S.fees = S.exp = null;
+      S.rentErr = S.feesErr = S.expErr = null;
+
+      $("#monthLine").textContent = "VAKAMAN FE · " + b.label;
+      $("#expDate").value = (TODAY >= b.from && TODAY <= b.to) ? TODAY : b.to;
+
+      ["#kpiFees", "#kpiRent", "#kpiOwed", "#kpiExp", "#kpiNet"].forEach(statDash);
+      ["#kpiFeesSub", "#kpiRentSub", "#kpiOwedSub", "#kpiExpSub", "#kpiNetSub"].forEach(function (s) {
+        sub(s, "Loading…");
+      });
+      LT.skeleton($("#streamBody"), 3);
+      LT.skeleton($("#owedBody"), 3);
+      $("#owedPill").textContent = "—";
+      slabLoading($("#txBody"), 6, 4);
+      slabLoading($("#expBody"), 6, 3);
+      $("#txFoot").textContent = "";
+      $("#expFoot").textContent = "";
+
+      var rentReq = LT_CLOUD.bookingsBetween(b.from, b.to);
+      var feesReq = readVia("payments", [b.from, b.to], "Coaching fee payments");
+      var expReq  = readVia("expenses", [b.from, b.to], "Expenses");
+
+      rentReq.then(function (rows) {
+        S.rent = rows || [];
+        paintRent();
+      }).catch(function (err) {
+        if (LT_CLOUD.DEV) { S.rent = devRent(b); paintRent(); return; }
+        S.rentErr = err;
+        paintRent();
+      });
+
+      feesReq.then(function (rows) {
+        S.fees = rows || [];
+        paintFees();
+      }).catch(function (err) {
+        if (LT_CLOUD.DEV) { S.fees = devFees(b); paintFees(); return; }
+        S.feesErr = err;
+        paintFees();
+      });
+
+      expReq.then(function (rows) {
+        S.exp = rows || [];
+        paintExpenses();
+      }).catch(function (err) {
+        if (LT_CLOUD.DEV) { S.exp = devExpenses(b); paintExpenses(); return; }
+        S.expErr = err;
+        paintExpenses();
+      });
+    }
+
+    /* Court labels (Astro / Matting) come from tenants.config, so the app
+       and the SQL cannot disagree about which net is which. Cosmetic, on
+       its own round trip; the tables repaint if it lands late, and if it
+       never lands the court codes N1…N4 show, which is correct and
+       readable rather than a guess. */
+    LT_CLOUD.tenantConfig().then(function (t) {
+      var map = t && t.config && t.config.courtLabels;
+      if (map) { LT.setCourtLabels(map); repaintLists(); }
+      else if (LT_CLOUD.DEV) { LT.setCourtLabels(SKA_DEV.courtLabels); repaintLists(); }
+    }).catch(function () {
+      if (LT_CLOUD.DEV) { LT.setCourtLabels(SKA_DEV.courtLabels); repaintLists(); }
+    });
+
+    function repaintLists() {
+      if (S.rent) { paintOwed(); paintLedger(); }
+    }
+
+    /* ---------- DEV fixtures ----------
+       Sample data, behind the striped banner, never blended with a live
+       read: a region either shows real rows or shows these. */
+    function inMonth(v, b) { var s = isoOf(v); return !!s && s >= b.from && s <= b.to; }
+    function devRent(b) {
+      return SKA_DEV.bookings.filter(function (r) { return inMonth(r.date, b); });
+    }
+    function devFees(b) {
+      return SKA_DEV.payments.filter(function (r) { return inMonth(r.on_date, b); });
+    }
+    function devExpenses(b) {
+      return SKA_DEV.expenses.filter(function (r) { return inMonth(r.on_date, b); });
+    }
+
+    /* ============================================================
+       RENTALS
+
+       bookings.amount is the record. A cancelled row is not revenue and
+       is not a debt; a pending row is a website request nobody has
+       confirmed, so it is neither. Only 'confirmed' unpaid rows are money
+       owed — which is what the outstanding figure claims to be.
+       ============================================================ */
+    function status(r) { return String((r && r.status) || "").toLowerCase(); }
+    function live(rows) {
+      return (rows || []).filter(function (r) {
+        var s = status(r);
+        return s !== "cancelled" && s !== "canceled";
+      });
+    }
+    function isPaid(r) { return !!(r && r.paid_at); }
+    function sportOf(r) { return String((r && r.sport) || "").toLowerCase(); }
+    function paidRentals() { return live(S.rent).filter(isPaid); }
+    function owedRentals() {
+      return live(S.rent).filter(function (r) { return status(r) === "confirmed" && !isPaid(r); });
+    }
+    function bySport(rows, sport) {
+      return rows.filter(function (r) { return sportOf(r) === sport; });
+    }
+    function slotLabel(r) {
+      /* The ground is sold full-day only and sits at hour 0. Running it
+         through hourLabel() would print "12 AM – 1 AM" for a booking that
+         occupies the whole day. */
+      return sportOf(r) === "ground" ? "Full day" : LT.hourLabel(Number(r.hour) || 0);
+    }
+
+    function paintRent() {
+      if (S.rentErr) {
+        statDash("#kpiRent"); statDash("#kpiOwed");
+        sub("#kpiRentSub", "Could not load", "down");
+        sub("#kpiOwedSub", "Could not load", "down");
+        $("#owedPill").textContent = "—";
+        $("#owedPill").className = "pill";
+        LT.fail($("#owedBody"), S.rentErr);
+      } else {
+        var paid = paidRentals(), owed = owedRentals();
+        var paidTotal = sum(paid, function (r) { return r.amount; });
+        statMoney("#kpiRent", paidTotal);
+        sub("#kpiRentSub", paid.length
+          ? "Nets and ground · " + plural(paid.length, "booking", "bookings")
+          : "Nothing collected yet");
+        statMoney("#kpiOwed", sum(owed, function (r) { return r.amount; }));
+        sub("#kpiOwedSub", owed.length
+          ? plural(owed.length, "confirmed booking", "confirmed bookings") + " unpaid"
+          : "Everything confirmed is paid", owed.length ? "down" : "up");
+        paintOwed();
+      }
+      paintStreams();
+      paintLedger();
+      paintNet();
+    }
+
+    function paintOwed() {
+      if (S.rentErr || !S.rent) return;
+      var owed = owedRentals().slice().sort(function (a, b) {
+        return String(a.date) < String(b.date) ? -1 : String(a.date) > String(b.date) ? 1 : 0;
+      });
+      var host = $("#owedBody"), pill = $("#owedPill");
+
+      if (!owed.length) {
+        pill.textContent = "All clear";
+        pill.className = "pill green";
+        LT.empty(host, "Nothing outstanding",
+          "Every confirmed booking in " + S.label + " has been collected.");
+        return;
+      }
+
+      var overdue = owed.filter(function (r) { return isoOf(r.date) && isoOf(r.date) < TODAY; });
+      pill.textContent = LT.fmtINR(sum(owed, function (r) { return r.amount; }));
+      pill.className = "pill " + (overdue.length ? "red" : "gold");
+
+      host.innerHTML = owed.map(function (r) {
+        var d = isoOf(r.date);
+        var late = !!d && d < TODAY;
+        /* Three states, not two. A slot booked for today is neither a debt
+           nor a future sale, and calling it "upcoming" at 6 PM reads as a
+           mistake to whoever is standing at the counter. */
+        var when = late
+          ? ' · <span style="color:var(--tx-red);font-weight:700;">played, not paid</span>'
+          : (d === TODAY ? ' · <span style="color:var(--tx-gold);font-weight:700;">today</span>' : " · upcoming");
+        var court = r.court ? LT.courtLabel(r.court) : "";
+        var where = (sportOf(r) === "ground" ? "Ground" : "Nets") + (court ? " · " + court : "");
+        return '<div class="feed-item">' +
+          '<span class="fi-ic' + (late ? " owed" : "") + '">₹</span>' +
+          '<div class="grow">' +
+            '<div class="fi-body"><strong>' + LT.esc(r.name || "Walk-in") + "</strong> · " + LT.esc(where) + "</div>" +
+            '<div class="fi-time">' + LT.esc(niceDate(r.date)) + " · " + LT.esc(slotLabel(r)) +
+              (r.source ? " · " + LT.esc(r.source) : "") + when +
+            "</div>" +
+          "</div>" +
+          '<div class="fi-right">' +
+            '<span class="money">' + LT.fmtINR(num(r.amount)) + "</span>" +
+            '<button class="btn btn-glass btn-sm" type="button" data-collect="' + LT.esc(r.id) + '">Collect</button>' +
+          "</div>" +
+        "</div>";
+      }).join("");
+    }
+
+    /* ============================================================
+       FEES
+
+       payments rows come from record_fee_payment() — the one write path,
+       which also rolls the renewal forward and closes the reminder. This
+       page only ever reads them.
+       ============================================================ */
+    function feeAmount(r) { return num(pick(r, ["amount", "paid_amount", "total"])); }
+    function feeDate(r)   { return pick(r, ["on_date", "paid_on", "date", "created_at"]); }
+    function feeWho(r)    { return pick(r, ["name", "member_name", "member", "student"]) || "Member"; }
+    function feeMode(r)   { return pick(r, ["mode", "paid_mode", "method"]); }
+    function feeBy(r)     { return pick(r, ["collected_by", "by", "staff"]); }
+    function feeKind(r)   { return pick(r, ["kind", "type", "purpose"]); }
+
+    function feeRows() {
+      /* A voided or pending fee is not money in the drawer. Rows with no
+         status at all are treated as paid, because record_fee_payment
+         defaults p_status to 'paid'. */
+      return (S.fees || []).filter(function (r) {
+        var st = String(pick(r, ["status"]) || "paid").toLowerCase();
+        return st === "paid" || st === "confirmed";
+      });
+    }
+
+    function paintFees() {
+      if (S.feesErr) {
+        statDash("#kpiFees");
+        sub("#kpiFeesSub", "Could not load", "down");
+      } else {
+        var rows = feeRows();
+        statMoney("#kpiFees", sum(rows, feeAmount));
+        sub("#kpiFeesSub", rows.length
+          ? plural(rows.length, "payment", "payments") + " recorded"
+          : "No fees recorded yet");
+      }
+      paintStreams();
+      paintLedger();
+      paintNet();
+    }
+
+    /* ============================================================
+       EXPENSES
+       ============================================================ */
+    function expAmount(r) { return num(pick(r, ["amount", "total"])); }
+    function expDate(r)   { return pick(r, ["on_date", "date", "spent_on", "created_at"]); }
+    function expPayee(r)  { return pick(r, ["payee", "paid_to", "vendor", "name"]); }
+    function expCat(r)    { return pick(r, ["category", "kind", "head"]); }
+    function expNote(r)   { return pick(r, ["note", "detail", "description"]); }
+    function expMode(r)   { return pick(r, ["mode", "paid_mode", "method"]); }
+
+    function paintExpenses() {
+      var body = $("#expBody"), foot = $("#expFoot");
+
+      if (S.expErr) {
+        statDash("#kpiExp");
+        sub("#kpiExpSub", "Could not load", "down");
+        slabFail(body, 6, S.expErr);
+        foot.textContent = "";
+        paintNet();
+        return;
+      }
+
+      var rows = (S.exp || []).slice().sort(function (a, b) {
+        var x = isoOf(expDate(a)), y = isoOf(expDate(b));
+        return x < y ? 1 : x > y ? -1 : 0;                 // newest first
+      });
+      var total = sum(rows, expAmount);
+
+      statMoney("#kpiExp", total);
+      sub("#kpiExpSub", rows.length ? plural(rows.length, "entry", "entries") : "Nothing recorded");
+
+      if (!rows.length) {
+        slabEmpty(body, 6, "No expenses in " + S.label,
+          "Ground maintenance, coach fees and equipment go here — they are what turns collections into a real net.");
+        foot.textContent = "";
+      } else {
+        body.innerHTML = rows.map(function (r) {
+          return "<tr>" +
+            "<td>" + LT.esc(niceDate(expDate(r))) + "</td>" +
+            '<td class="t-name">' + LT.esc(expPayee(r) || expCat(r) || "—") + "</td>" +
+            '<td><span class="cell-tag">' + LT.esc(expCat(r) || "Other") + "</span></td>" +
+            '<td class="num money" style="text-align:right;color:var(--tx-red);">−' + LT.fmtINR(expAmount(r)) + "</td>" +
+            '<td class="faint">' + LT.esc(modeLabel(expMode(r))) + "</td>" +
+            '<td class="faint">' + LT.esc(expNote(r) || "—") + "</td>" +
+          "</tr>";
+        }).join("");
+        foot.innerHTML = "<b class='out'>" + LT.esc(LT.fmtINR(total)) + "</b> spent across " +
+          LT.esc(plural(rows.length, "entry", "entries")) + " in " + LT.esc(S.label) + ".";
+      }
+      /* Expenses are money OUT — they are not one of the three intake
+         streams, so the stream card is not repainted here. Only the net
+         needs them. */
+      paintNet();
+    }
+
+    /* ============================================================
+       BY STREAM
+
+       Three bars, one per thing the academy sells. The percentages are a
+       share of sums that already exist — reporting, not pricing.
+       ============================================================ */
+    function paintStreams() {
+      var host = $("#streamBody");
+      /* Both legs must have resolved — loaded OR failed. Painting the card
+         the moment the first one lands shows one bar under a heading that
+         claims to be the whole intake, which is a wrong picture for as
+         long as the other round trip is in the air. */
+      if (!(S.fees !== null || S.feesErr)) return;
+      if (!(S.rent !== null || S.rentErr)) return;
+
+      var known = {}, broken = [];
+      if (S.feesErr) broken.push("coaching fees"); else if (S.fees) known.fees = sum(feeRows(), feeAmount);
+      if (S.rentErr) broken.push("rentals");
+      else if (S.rent) {
+        var paid = paidRentals();
+        known.nets = sum(bySport(paid, "nets"), function (r) { return r.amount; });
+        known.ground = sum(bySport(paid, "ground"), function (r) { return r.amount; });
+      }
+
+      var rows = STREAMS.filter(function (s) { return known[s.key] !== undefined; });
+      if (!rows.length) {
+        LT.fail(host, S.rentErr || S.feesErr);
+        return;
+      }
+
+      var total = rows.reduce(function (t, s) { return t + known[s.key]; }, 0);
+      var top = rows.reduce(function (m, s) { return Math.max(m, known[s.key]); }, 0) || 1;
+
+      host.innerHTML = rows.map(function (s, i) {
+        var v = known[s.key];
+        var share = total ? Math.round((v / total) * 100) : 0;
+        return '<div class="st-row ' + s.cls + '">' +
+          '<span class="st-l">' + LT.esc(s.label) + "<small>" + LT.esc(s.sub) + "</small></span>" +
+          '<span class="st-bar"><i style="width:' + Math.round((v / top) * 100) + "%;animation-delay:" + (i * 80) + 'ms;"></i></span>' +
+          '<span class="st-v">' + LT.esc(LT.fmtINR(v)) + "<small>" + share + "% of intake</small></span>" +
+        "</div>";
+      }).join("") +
+      '<div class="st-total"><span class="lbl">Collected' +
+        (broken.length ? ", less " + LT.esc(broken.join(" and ")) : "") +
+      '</span><span class="money money-lg gold">' + LT.esc(LT.fmtINR(total)) + "</span></div>";
+
+      $("#streamNote").innerHTML = broken.length
+        ? "<b>Incomplete.</b> " + LT.esc(broken.join(" and ")) +
+          " could not be read, so this card is missing that stream. It is not a zero."
+        : "Fees are counted on the date the payment was recorded; rentals on " +
+          "the date of play, which is the date the month filter selects on.";
+    }
+
+    /* ============================================================
+       NET
+
+       fees + rentals − expenses. It needs all three legs, and it says so
+       rather than quietly answering with two.
+       ============================================================ */
+    function paintNet() {
+      var missing = [];
+      if (S.feesErr || S.fees === null) missing.push("fees");
+      if (S.rentErr || S.rent === null) missing.push("rentals");
+      if (S.expErr || S.exp === null) missing.push("expenses");
+
+      if (missing.length) {
+        statDash("#kpiNet");
+        var stillLoading = !S.feesErr && !S.rentErr && !S.expErr;
+        sub("#kpiNetSub", stillLoading
+          ? "Waiting on " + missing.join(", ")
+          : "Needs " + missing.join(", ") + " — not shown", stillLoading ? "" : "down");
+        return;
+      }
+
+      var inTotal = sum(feeRows(), feeAmount) + sum(paidRentals(), function (r) { return r.amount; });
+      var outTotal = sum(S.exp, expAmount);
+      var net = inTotal - outTotal;
+      statMoney("#kpiNet", net);
+      sub("#kpiNetSub", LT.fmtINR(inTotal) + " in · " + LT.fmtINR(outTotal) + " out",
+        net >= 0 ? "up" : "down");
+    }
+
+    /* ============================================================
+       LEDGER — money received, newest first.
+
+       Fees and collected rentals, merged. Unpaid rentals are NOT here:
+       this table is what reached the drawer, and what is owed has its own
+       card so the two can never be added together by eye.
+       ============================================================ */
+    function ledgerRows() {
+      var out = [];
+
+      if (S.fees && !S.feesErr) {
+        feeRows().forEach(function (r) {
+          var kind = feeKind(r);
+          out.push({
+            stream: "fees",
+            when: isoOf(feeDate(r)),
+            who: feeWho(r),
+            tag: '<span class="cell-tag gold">Coaching fee</span>',
+            detail: kind ? String(kind) : "",
+            amount: feeAmount(r),
+            mode: feeMode(r),
+            by: feeBy(r)
+          });
+        });
+      }
+
+      if (S.rent && !S.rentErr) {
+        paidRentals().forEach(function (r) {
+          var ground = sportOf(r) === "ground";
+          out.push({
+            stream: ground ? "ground" : "nets",
+            when: isoOf(r.date),
+            who: r.name || "Walk-in",
+            tag: ground
+              ? '<span class="cell-tag" style="color:var(--tx-optic);">Ground</span>'
+              : '<span class="cell-tag green">Nets</span>',
+            detail: (r.court ? LT.courtLabel(r.court) + " · " : "") + slotLabel(r),
+            amount: num(r.amount),
+            mode: r.paid_mode,
+            by: r.collected_by
+          });
+        });
+      }
+
+      return out.sort(function (a, b) {
+        return a.when < b.when ? 1 : a.when > b.when ? -1 : 0;
+      });
+    }
+
+    function paintLedger() {
+      var body = $("#txBody"), foot = $("#txFoot");
+
+      /* Both legs dead: one message, not two half-tables. */
+      if (S.feesErr && S.rentErr) {
+        slabFail(body, 6, S.feesErr);
+        foot.textContent = "";
+        return;
+      }
+      if ((S.fees === null && !S.feesErr) || (S.rent === null && !S.rentErr)) return;   // still loading
+
+      var all = ledgerRows();
+      var rows = S.filter === "all" ? all : all.filter(function (r) { return r.stream === S.filter; });
+      var total = sum(rows, function (r) { return r.amount; });
+
+      var warn = "";
+      if (S.feesErr) warn = "Coaching fees could not be read, so they are missing from this list.";
+      else if (S.rentErr) warn = "Rentals could not be read, so they are missing from this list.";
+
+      if (!rows.length) {
+        slabEmpty(body, 6,
+          all.length ? "Nothing in this stream" : "No money received in " + S.label,
+          all.length
+            ? "Clear the filter to see the other streams."
+            : "Fee payments and collected bookings appear here the moment they are recorded.");
+        foot.innerHTML = warn ? '<span style="color:var(--tx-red);">' + LT.esc(warn) + "</span>" : "";
+        return;
+      }
+
+      body.innerHTML = rows.map(function (r) {
+        return "<tr>" +
+          "<td>" + LT.esc(r.when ? LT.shortDate(r.when) : "—") + "</td>" +
+          '<td class="t-name">' + LT.esc(r.who) +
+            (r.detail ? '<div class="faint" style="font-size:11.5px;font-weight:500;">' + LT.esc(r.detail) + "</div>" : "") +
+          "</td>" +
+          "<td>" + r.tag + "</td>" +
+          '<td class="num money gold" style="text-align:right;">' + LT.fmtINR(r.amount) + "</td>" +
+          '<td class="faint">' + LT.esc(modeLabel(r.mode)) + "</td>" +
+          '<td class="faint">' + LT.esc(r.by || "—") + "</td>" +
+        "</tr>";
+      }).join("");
+
+      foot.innerHTML = "<b>" + LT.esc(LT.fmtINR(total)) + "</b> across " +
+        LT.esc(plural(rows.length, "entry", "entries")) +
+        (S.filter === "all" ? "" : " in this stream") + " · " + LT.esc(S.label) +
+        (warn ? ' <span style="color:var(--tx-red);">· ' + LT.esc(warn) + "</span>" : "");
+    }
+
+    $("#txTabs").addEventListener("click", function (e) {
+      var btn = e.target.closest(".chip");
+      if (!btn) return;
+      S.filter = btn.dataset.f;
+      LT.$$(".chip", this).forEach(function (c) { c.classList.toggle("active", c === btn); });
+      paintLedger();
+    });
+
+    /* ============================================================
+       COLLECT A RENTAL
+
+       collect_booking() is the write path, and the amount is deliberately
+       NOT sent: passing null tells the server to collect what the booking
+       already says it is worth. A figure computed here could disagree
+       with the row, and the row is the record.
+       ============================================================ */
+    var clBackdrop = $("#clBackdrop"), clId = null;
+
+    function closeCollect() {
+      clBackdrop.classList.remove("open");
+      clId = null;
+    }
+    $("#clClose").addEventListener("click", closeCollect);
+    clBackdrop.addEventListener("click", function (e) { if (e.target === clBackdrop) closeCollect(); });
+
+    $("#owedBody").addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-collect]");
+      if (!btn) return;
+      var id = btn.dataset.collect, row = null;
+      (S.rent || []).forEach(function (r) { if (String(r.id) === String(id)) row = r; });
+      if (!row) return;
+      clId = row.id;
+      $("#clSub").textContent =
+        (row.name || "Walk-in") + " · " + niceDate(row.date) + " · " + slotLabel(row) +
+        (row.court ? " · " + LT.courtLabel(row.court) : "") +
+        " · " + LT.fmtINR(num(row.amount)) + " due.";
+      $("#clMsg").textContent = "";
+      $("#clMsg").className = "form-msg";
+      /* Same key the bookings board writes, so whoever is on the counter
+         is remembered across both screens. */
+      $("#clBy").value = LT.store.read("collected-by", "") || "";
+      clBackdrop.classList.add("open");
+    });
+
+    $("#clSave").addEventListener("click", function () {
+      if (!clId) return;
+      var btn = this, msg = $("#clMsg");
+      var by = ($("#clBy").value || "").trim();
+      btn.disabled = true;
+      msg.textContent = "";
+      msg.className = "form-msg";
+      LT_CLOUD.collectBooking(clId, $("#clMode").value, by || null, null)
+        .then(function () {
+          if (by) LT.store.write("collected-by", by);
+          btn.disabled = false;
+          closeCollect();
+          LT.toast("Collected");
+          load(S.month);                       // re-read; nothing is patched in place
+        })
+        .catch(function (err) {
+          btn.disabled = false;
+          var m = (err && err.message) || "Could not collect.";
+          msg.textContent = m;
+          msg.className = "form-msg error";
+          /* DEV writes are blocked, loudly. Nothing on screen moves — a
+             page that paints a collection it did not make is the single
+             most dangerous thing this file could do. */
+          if (err && err.dev) LT.toast(m);
+        });
+    });
+
+    /* ============================================================
+       ADD AN EXPENSE
+
+       The amount here is typed by a human, which is data entry, not a
+       computed price. It goes to the server and this page re-reads; it is
+       never added to a local total and never written to localStorage.
+       ============================================================ */
+    var expBackdrop = $("#expBackdrop");
+
+    $("#expCat").innerHTML = EXPENSE_CATS.map(function (c) {
+      return '<option value="' + LT.esc(c) + '">' + LT.esc(c) + "</option>";
+    }).join("");
+
+    function openExpense() {
+      $("#expMsg").textContent = "";
+      $("#expMsg").className = "form-msg";
+      expBackdrop.classList.add("open");
+      $("#expPayee").focus();
+    }
+    function closeExpense() { expBackdrop.classList.remove("open"); }
+
+    $("#expAdd").addEventListener("click", openExpense);
+    $("#expAdd2").addEventListener("click", openExpense);
+    $("#expClose").addEventListener("click", closeExpense);
+    expBackdrop.addEventListener("click", function (e) { if (e.target === expBackdrop) closeExpense(); });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      closeExpense();
+      closeCollect();
+    });
+
+    function saveExpense(rec) {
+      /* cloud.js blocks its own writes in DEV; this one has no adapter
+         method yet, so the block is stated here in the same words rather
+         than being skipped. */
+      if (LT_CLOUD.DEV) {
+        var d = new Error("DEV MODE — the expense was not saved. Sign-in is not wired yet.");
+        d.dev = true;
+        return Promise.reject(d);
+      }
+      var fn = LT_CLOUD.recordExpense;
+      if (typeof fn !== "function") {
+        return Promise.reject(new Error(
+          "Expenses have no write path yet — add LT_CLOUD.recordExpense() to " +
+          "assets/js/cloud.js, over a tenant-scoped expenses table. Nothing was saved."));
+      }
+      return fn.call(LT_CLOUD, rec);
+    }
+
+    $("#expForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var msg = $("#expMsg"), btn = $("#expSave");
+      var amount = Number($("#expAmt").value);
+      var payee = ($("#expPayee").value || "").trim();
+      var on = $("#expDate").value;
+
+      function bad(text) {
+        msg.textContent = text;
+        msg.className = "form-msg error";
+      }
+      if (!payee) { bad("Who was paid?"); $("#expPayee").focus(); return; }
+      if (!(amount >= 1)) { bad("Enter the amount spent (₹1 or more)."); $("#expAmt").focus(); return; }
+      if (!isoOf(on)) { bad("Pick the date it was spent."); return; }
+
+      msg.textContent = "";
+      msg.className = "form-msg";
+      btn.disabled = true;
+
+      /* Read before the form is reset — the success handler clears it, and
+         reading the select afterwards reports the first category rather
+         than the one that was saved. */
+      var category = $("#expCat").value;
+
+      saveExpense({
+        tenant: LT_CLOUD.TENANT,
+        category: category,
+        payee: payee,
+        amount: amount,
+        mode: $("#expMode").value,
+        onDate: on,
+        note: ($("#expNote").value || "").trim() || null
+      }).then(function () {
+        btn.disabled = false;
+        closeExpense();
+        $("#expForm").reset();
+        $("#expCat").selectedIndex = 0;
+        $("#expDate").value = (TODAY >= S.from && TODAY <= S.to) ? TODAY : S.to;
+        LT.toast("Expense saved");
+        /* No amount in telemetry, ever — events are counts, and this one
+           is readable by anyone holding the public key. */
+        LT_CLOUD.track("expense_recorded", { category: category });
+        load(S.month);
+      }).catch(function (err) {
+        btn.disabled = false;
+        var m = (err && err.message) || "Could not save.";
+        bad(m);
+        if (err && err.dev) LT.toast(m);
+        /* Deliberately nothing else: no optimistic row, no local ledger.
+           The table still shows what the database returned. */
+      });
+    });
+
+    /* ---------- go ---------- */
+    load($("#monthSel").value);
+  })();
+  </script>
+</body>
+</html>

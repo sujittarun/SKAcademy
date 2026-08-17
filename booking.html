@@ -1,0 +1,1050 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Book a net · Super Kings Academy</title>
+<meta name="description" content="Book a practice net by the hour or enquire about the main ground at Super Kings Academy, VAKAMAN FE, Coimbatore. Live availability, no advance payment online." />
+<script>
+  /* blocking: applies the persisted theme before first paint, else the
+     page renders dark and flashes. Raw string, not JSON. */
+  try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
+  document.documentElement.className += " lt-js";
+</script>
+<link rel="stylesheet" href="assets/css/glass.css?v=2" />
+<style>
+  /* Page-local LAYOUT only. Everything that carries the brand — glass,
+     buttons, fields, pills, .slot, .form-msg, .lt-empty — comes from
+     glass.css. Nothing here re-declares a colour that is already a token. */
+  .bk-wrap { max-width: 1080px; margin: 0 auto; width: 100%; }
+
+  .bk-hero { text-align: center; margin-bottom: var(--gap-4); }
+  .bk-hero h1 { font-size: clamp(26px, 4vw, 38px); font-weight: 800; }
+  .bk-hero p { color: var(--ink-mid); margin: 8px auto 0; max-width: 60ch; }
+
+  /* two-column: pickers left, sticky request panel right */
+  .bk-layout { display: grid; grid-template-columns: 1.55fr .95fr; gap: var(--gap-3); align-items: start; }
+  .bk-main { display: flex; flex-direction: column; gap: var(--gap-3); min-width: 0; }
+  .bk-side { position: sticky; top: calc(var(--nav-h) + 20px); }
+
+  /* facility chooser — two selectable cards, same shape as the demo's
+     venue picker so the two apps read as one product family */
+  .fac-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  @media (max-width: 520px) { .fac-pick { grid-template-columns: 1fr; } }
+  .fac-card {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+    padding: 13px 15px; border: 1px solid var(--tile-border); border-radius: var(--r-md);
+    background: var(--tile-bg); cursor: pointer; text-align: left; font: inherit; color: var(--ink-hi);
+    transition: border-color .2s ease, background .2s ease;
+  }
+  .fac-card:hover { border-color: var(--input-border-hover); }
+  .fac-card .fc-name { font-weight: 800; font-size: 14.5px; }
+  .fac-card .fc-meta { font-size: 12px; color: var(--ink-mid); }
+  .fac-card .fc-sub { font-size: 12px; color: var(--ink-low); }
+  .fac-card.active { border-color: var(--gold-400); background: rgba(247, 203, 21, .1); }
+  .fac-card.active .fc-name { color: var(--tx-gold); }
+
+  .bk-controls { display: flex; gap: var(--gap-2) var(--gap-3); align-items: flex-end; flex-wrap: wrap; }
+  .bk-legend {
+    display: flex; gap: var(--gap-3); font-size: 12px; color: var(--ink-low);
+    align-items: center; flex-wrap: wrap; padding-bottom: 12px;
+  }
+  .bk-legend .sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+  /* slot sub-labels. .slot itself is a design-system component. */
+  .sl-full { color: var(--tx-red); font-weight: 700; }
+  .sl-left { color: var(--tx-optic); font-weight: 700; }
+
+  /* anything that replaces or follows the hour tiles — a failed read, a
+     sold-out day — spans the whole grid instead of sitting in one cell */
+  .slot-grid .lt-empty, .grid-dead { grid-column: 1 / -1; }
+  .grid-dead {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    flex-wrap: wrap; text-align: center; padding: 4px 0 2px;
+    font-size: 13px; color: var(--ink-low);
+  }
+
+  /* the PUBLISHED rate card. Static lines of copy, all of them rendered
+     identically — this page never computes, sums or chooses an amount, and
+     it never marks one line as the one that applies to your date. There is
+     deliberately no "selected row" state here to be driven by script. */
+  .rate-card { display: flex; flex-direction: column; gap: 6px; margin-top: var(--gap-2); }
+  .rc-row {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding: 11px 14px; border-radius: var(--r-md);
+    border: 1px solid var(--tile-border); background: var(--tile-bg);
+  }
+  .rc-row .rc-d { font-size: 13.5px; font-weight: 650; color: var(--ink-mid); }
+  .rc-row .rc-a { font-family: var(--font-display); font-size: 17px; font-weight: 800; color: var(--ink-hi); font-variant-numeric: tabular-nums; }
+
+  .ground-state { margin-top: var(--gap-2); }
+
+  /* request panel */
+  .qp-date { font-size: 13px; color: var(--ink-mid); margin-top: 2px; }
+  .qp-empty { padding: var(--gap-4) var(--gap-2); text-align: center; color: var(--ink-low); font-size: 13.5px; line-height: 1.5; }
+  .qp-empty svg { width: 34px; height: 34px; display: block; margin: 0 auto 10px; opacity: .5; }
+  .qp-rows { display: flex; flex-direction: column; gap: 8px; margin-top: var(--gap-3); }
+  .qp-row {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px;
+    border: 1px solid var(--tile-border); border-radius: var(--r-md); background: var(--tile-bg);
+  }
+  .qp-row .t { font-weight: 700; font-size: 13.5px; color: var(--ink-hi); flex: 1; }
+  .qp-row .x {
+    width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 50%;
+    border: 1px solid var(--chip-border); background: transparent; color: var(--ink-low);
+    cursor: pointer; font-size: 13px; transition: color .2s ease, border-color .2s ease;
+  }
+  .qp-row .x:hover { color: var(--tx-red); border-color: rgba(255, 107, 107, .5); }
+  .qp-summary {
+    margin-top: var(--gap-3); padding-top: var(--gap-3); border-top: 1px solid var(--line);
+    font-size: 13px; color: var(--ink-mid);
+  }
+  .qp-summary b { color: var(--ink-hi); font-weight: 700; }
+  .qp-form { display: flex; flex-direction: column; gap: var(--gap-3); margin-top: var(--gap-3); }
+  .qp-note { font-size: 12px; color: var(--ink-faint); text-align: center; margin-top: 10px; line-height: 1.5; }
+
+  /* floating summary bar (mobile) */
+  .bk-mobilebar {
+    position: fixed; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); left: 50%;
+    transform: translateX(-50%); z-index: 70; width: min(440px, calc(100% - 20px));
+    display: none; align-items: center; gap: var(--gap-2); padding: 10px 10px 10px 20px;
+    border-radius: var(--r-pill);
+  }
+  .bk-mobilebar .mb-t { flex: 1; min-width: 0; }
+  .bk-mobilebar .mb-what { font-family: var(--font-display); font-weight: 800; font-size: 17px; color: var(--tx-gold); line-height: 1.15; }
+  .bk-mobilebar .mb-when { font-size: 11.5px; color: var(--ink-mid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  @media (max-width: 719px) {
+    .bk-layout { grid-template-columns: 1fr; }
+    .bk-side { position: static; }
+    .bk-hero .pill { white-space: normal; line-height: 1.45; }
+    body.has-selection .bk-mobilebar { display: flex; }
+    body.has-selection .lt-page { padding-bottom: 96px; }
+  }
+
+  .done-card { text-align: center; padding: clamp(36px, 6vh, 60px) var(--gap-4); display: none; }
+  .done-card.show { display: block; animation: lt-step-in .5s var(--ease-spring) both; }
+  .done-card .big-check {
+    width: 74px; height: 74px; margin: 0 auto var(--gap-3); border-radius: 50%;
+    display: grid; place-items: center; background: rgba(52, 211, 153, .15);
+    border: 1.5px solid rgba(52, 211, 153, .5); color: var(--tx-green);
+  }
+  .done-card .big-check svg { width: 34px; height: 34px; }
+  .done-lines { display: flex; flex-direction: column; gap: 6px; max-width: 340px; margin: var(--gap-3) auto 0; }
+  .done-lines .dl {
+    display: flex; justify-content: space-between; gap: 12px; padding: 9px 14px;
+    border-radius: var(--r-sm); border: 1px solid var(--tile-border); background: var(--tile-bg);
+    font-size: 13px; color: var(--ink-mid);
+  }
+  .done-lines .dl b { color: var(--ink-hi); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .done-card .done-honest {
+    max-width: 46ch; margin: var(--gap-3) auto 0; font-size: 13px; color: var(--ink-low); line-height: 1.55;
+  }
+</style>
+</head>
+<body>
+  <div class="lt-bg" aria-hidden="true"></div>
+
+  <!-- PUBLIC page: no LT.managerShell(). managerShell() renders the staff
+       tabs, the sign-out button and the sample-data banner, none of which
+       belong in front of a customer. The reads and writes this page makes
+       (public_slots, request_booking, submit_application) are genuinely
+       anon-executable, so they work in DEV exactly as they will at go-live —
+       there is nothing here to fall back to sample data FOR. -->
+  <nav class="lt-nav glass">
+    <a class="nav-brand" href="index.html">
+      <span class="mark" data-logo="40"></span>
+      <span class="t"><strong>Super Kings Academy</strong><span>VAKAMAN FE</span></span>
+    </a>
+    <div class="nav-actions">
+      <button type="button" class="theme-toggle"></button>
+      <a class="btn btn-ghost btn-sm hide-mobile" href="admission.html">Join coaching</a>
+      <a class="btn btn-glass btn-sm" href="index.html">← Back to site</a>
+    </div>
+  </nav>
+
+  <main class="lt-main lt-page">
+    <div class="bk-wrap">
+      <div class="bk-hero reveal">
+        <span class="pill gold">VAKAMAN FE · Coimbatore · Open 6 AM – 11 PM</span>
+        <h1 class="mt-2">Book the nets. Enquire about the ground.</h1>
+        <p>
+          Four practice nets, bookable by the hour, and one full-size ground let by the day.
+          Pick your slots and send a request — the academy confirms your net and shares
+          payment details. Nothing is charged on this page.
+        </p>
+      </div>
+
+      <div class="bk-layout" id="bookingFlow">
+        <!-- ============ left: what, when, which hours ============ -->
+        <div class="bk-main">
+          <div class="glass glass-card tight reveal">
+            <div class="kicker">What are you booking</div>
+            <div class="fac-pick" id="facPick" role="group" aria-label="Choose a facility">
+              <!-- No figures here. Every published amount on this page lives
+                   in the rate card below and nowhere else, so a price change
+                   is one edit and these cards cannot drift out of step. -->
+              <button type="button" class="fac-card active" data-f="nets" aria-pressed="true">
+                <span class="fc-name">Practice nets</span>
+                <span class="fc-meta">4 nets · astro &amp; matting</span>
+                <span class="fc-sub">By the hour · book online</span>
+              </button>
+              <button type="button" class="fac-card" data-f="ground" aria-pressed="false">
+                <span class="fc-name">Main ground</span>
+                <span class="fc-meta">Full day only · no hourly</span>
+                <span class="fc-sub">By the day · enquiry</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="glass glass-card tight reveal d1">
+            <div class="bk-controls">
+              <label class="field">
+                <span>Date</span>
+                <input type="date" id="bkDate" style="width:auto;" />
+              </label>
+              <span class="grow"></span>
+              <span class="pill" id="selCount">No hours selected</span>
+              <button type="button" class="btn btn-ghost btn-sm" id="refreshBtn" title="Check availability again">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- ---------- NETS ---------- -->
+          <div class="glass glass-card reveal d2" id="netsPanel">
+            <div class="card-head">
+              <div>
+                <div class="kicker">Availability</div>
+                <h2>Pick your hours</h2>
+                <div class="sub">Tap one hour or several. Availability is live for all four nets.</div>
+              </div>
+            </div>
+            <div class="bk-legend" id="bkLegend">
+              <span><span class="sw" style="background:var(--tile-border);"></span>Free</span>
+              <span><span class="sw" style="background:var(--gold-400);"></span>Selected</span>
+              <span><span class="sw" style="background:rgba(255,107,107,.5);"></span>Full · all nets taken</span>
+              <span class="grow"></span>
+              <span id="slotsAge"></span>
+            </div>
+            <div class="slot-grid" id="slotGrid"></div>
+          </div>
+
+          <!-- ---------- GROUND ---------- -->
+          <div class="glass glass-card reveal d2 hide" id="groundPanel">
+            <div class="card-head">
+              <div>
+                <div class="kicker">Main ground</div>
+                <h2>Let by the full day</h2>
+                <div class="sub">The whole ground, one booking, for the whole day — there is no hourly rate.</div>
+              </div>
+            </div>
+
+            <div class="ground-state" id="groundState"></div>
+          </div>
+
+          <!-- ---------- THE PUBLISHED RATES, WRITTEN ONCE ----------
+               The only place on this page where an amount is written. Not the
+               facility cards, not a JS string, not a rate table in script —
+               one block of static markup, so changing a price is one edit.
+
+               Every line is shown the same way and NONE is marked as the one
+               that applies to the visitor's date. Choosing between these
+               amounts by weekday is deriving a price, which belongs in
+               Postgres; and anon cannot call slot_price() (revoked from
+               public and anon), so this page has no server figure to show
+               either. It prints what is published, says it is indicative,
+               and leaves the amount to the academy. -->
+          <div class="glass glass-card tight reveal d3" id="publishedRates">
+            <div class="kicker">Published rates · indicative</div>
+            <div class="rate-card">
+              <div class="rc-row">
+                <span class="rc-d">Practice nets · per hour</span>
+                <span class="rc-a">₹500</span>
+              </div>
+              <div class="rc-row">
+                <span class="rc-d">Main ground · Monday – Thursday</span>
+                <span class="rc-a">₹10,000</span>
+              </div>
+              <div class="rc-row">
+                <span class="rc-d">Main ground · Friday</span>
+                <span class="rc-a">₹20,000</span>
+              </div>
+              <div class="rc-row">
+                <span class="rc-d">Main ground · Saturday – Sunday</span>
+                <span class="rc-a">₹25,000</span>
+              </div>
+            </div>
+            <p class="faint mt-2" style="font-size:12.5px;line-height:1.55;">
+              Indicative, printed here as the academy publishes them. This page does
+              not calculate a price and does not work out which line applies to your
+              date — the academy confirms the amount when it accepts your booking.
+            </p>
+          </div>
+        </div>
+
+        <!-- ============ right: the request ============ -->
+        <aside class="glass glass-card bk-side" id="requestPanel">
+          <div class="kicker">Your request</div>
+          <h2 style="font-size:20px;" id="qpTitle">Practice nets</h2>
+          <div class="qp-date" id="qpDate"></div>
+
+          <div class="qp-empty" id="qpEmpty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+            Tap the hours you want to bat —<br />they appear here before you send.
+          </div>
+
+          <div class="qp-rows" id="qpRows"></div>
+
+          <div class="qp-summary hide" id="qpSummary"></div>
+
+          <form class="qp-form" id="bkForm" novalidate>
+            <!-- NEVER prefill anything here. This repo is public and served
+                 as a static site; a value= attribute is published the moment
+                 it is committed and stays in git history after it is removed.
+                 These are also a customer's name and mobile number, so this
+                 page does not remember them between visits either. -->
+            <label class="field">
+              <span>Your name</span>
+              <input type="text" id="bkName" name="name" autocomplete="name" autocapitalize="words" required />
+            </label>
+            <label class="field">
+              <span>Mobile number</span>
+              <input type="tel" id="bkPhone" name="phone" autocomplete="tel" inputmode="numeric"
+                     placeholder="10-digit mobile" required />
+            </label>
+            <label class="field hide" id="noteField">
+              <span>Anything we should know <span class="opt">(optional)</span></span>
+              <textarea id="bkNote" name="note" rows="2" maxlength="300"
+                        placeholder="Match, tournament, number of overs…"></textarea>
+            </label>
+
+            <div class="form-msg" id="bkMsg" role="status" aria-live="polite" style="min-height:0;"></div>
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="bkSubmit" disabled>Send request</button>
+          </form>
+
+          <div class="qp-note" id="qpFoot">
+            No payment is taken online. A request is not a confirmed booking —
+            the academy confirms your net and shares payment details.
+          </div>
+        </aside>
+      </div>
+
+      <!-- ============ success ============ -->
+      <div class="glass done-card" id="doneCard">
+        <div class="big-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <h2 id="doneTitle">Request received</h2>
+        <p class="muted mt-2" id="doneDetail"></p>
+        <div class="done-lines" id="doneLines"></div>
+        <p class="done-honest" id="doneHonest"></p>
+        <div class="mt-4 flex" style="justify-content:center; flex-wrap:wrap;">
+          <button type="button" class="btn btn-primary" id="againBtn">Make another request</button>
+          <a class="btn btn-glass" href="index.html">Back to home</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- floating summary bar (mobile) -->
+  <div class="bk-mobilebar glass" id="mobileBar">
+    <div class="mb-t">
+      <div class="mb-what" id="mbWhat"></div>
+      <div class="mb-when" id="mbWhen"></div>
+    </div>
+    <button type="button" class="btn btn-primary btn-sm" id="mbGo">Continue</button>
+  </div>
+
+  <script src="assets/js/core.js?v=2"></script>
+  <script src="assets/js/cloud.js?v=2"></script>
+  <!-- dev-data.js is loaded for shell consistency with every other page and
+       is DELIBERATELY NOT USED here. On a staff screen, sample rows behind
+       the striped banner are a preview; on a public page they would be a
+       customer being shown invented availability, with no banner and no way
+       to tell. A failed availability read renders "could not load" instead —
+       an empty academy and a broken one must never look alike. -->
+  <script src="assets/js/dev-data.js?v=2"></script>
+  <script>
+    /* page script last. core.js MUST NOT be in <head> — its ink-filter
+       IIFE returns early if document.body is missing and never retries. */
+    (function () {
+      "use strict";
+
+      /* ==========================================================
+         WHAT AN ANONYMOUS VISITOR MAY ACTUALLY DO
+
+         record_booking_v2, collect_booking, slot_price and is_full_day are
+         all revoked from public AND anon (migration 2026-08-17c, §6). The
+         public key in this repo cannot call any of them. So:
+
+           · availability  → public_slots, a view 'ska' opts into via
+                             config.features.publicSlots. It carries id,
+                             tenant_id, sport, date, hour, court, status and
+                             deliberately NO name, phone or amount.
+           · a net request → request_booking(), which writes a PENDING row
+                             with no court for staff to confirm.
+           · a price       → NOT AVAILABLE to this page at all. slot_price()
+                             is revoked, so nothing here may quote a total.
+                             Published rates are printed as copy; the only
+                             computed figure this page ever shows is the
+                             amount request_booking RETURNS.
+
+         THE GROUND CANNOT GO THROUGH request_booking, and this is checked,
+         not assumed. Reading the function body (schema.sql:432):
+
+           · it raises 'invalid hour' unless 6 <= p_hour <= 22, and a
+             full-day booking is hour 0 — record_booking_v2 forces hour 0
+             for a fullDay facility precisely so the existing unique index
+             stops the ground being sold twice for one date;
+           · it prices through slot_rate(), NOT slot_price(). slot_rate
+             reads rates.<sport>.peak / .offPeak, and 'ska' configures the
+             ground as a 'daily' block with neither key — so any hour in
+             6..22 raises 'unknown sport'.
+
+         Both paths are a hard failure. Shipping a Book button that always
+         errors is worse than shipping no button, so the ground is an
+         ENQUIRY here: submit_application() is anon-executable, captures a
+         name, a mobile and the wanted date, and is rate-limited server-side
+         at 3 per phone per day. It is labelled as an enquiry everywhere on
+         screen — never as a booking.
+
+         Written down out loud because it is a decision, not an accident:
+         when the platform grows a full-day-aware anon entry point (either
+         request_booking honouring is_full_day + slot_price, or a
+         request_ground_day RPC), the ground moves onto it and this file
+         changes in one place — submitGround().
+         ========================================================== */
+
+      var SPORT_NETS = "nets";
+      var SPORT_GROUND = "ground";
+
+      /* Hours request_booking accepts: 6..22, i.e. the 6–7 AM slot through
+         the 10–11 PM slot. Mirrored here only to draw the grid; the server
+         re-checks it and its answer wins. */
+      var HOUR_FROM = 6, HOUR_TO = 22;
+
+      /* Facility counts come from the tenant row (config.courts) so the app
+         and the database cannot disagree about how many nets exist. These
+         are the fallbacks used ONLY when that read is refused — the venue's
+         four nets and one ground, as registered in the 'ska' tenant row and
+         as printed in this page's own copy. They are a count of physical
+         facilities, never a price, and they decide no amount. */
+      var COURTS_FALLBACK = { nets: 4, ground: 1 };
+
+      var el = {
+        flow:      LT.$("#bookingFlow"),
+        hero:      LT.$(".bk-hero"),
+        facPick:   LT.$("#facPick"),
+        date:      LT.$("#bkDate"),
+        selCount:  LT.$("#selCount"),
+        refresh:   LT.$("#refreshBtn"),
+        netsPanel: LT.$("#netsPanel"),
+        grid:      LT.$("#slotGrid"),
+        slotsAge:  LT.$("#slotsAge"),
+        groundPanel: LT.$("#groundPanel"),
+        groundState: LT.$("#groundState"),
+        qpTitle:   LT.$("#qpTitle"),
+        qpDate:    LT.$("#qpDate"),
+        qpEmpty:   LT.$("#qpEmpty"),
+        qpRows:    LT.$("#qpRows"),
+        qpSummary: LT.$("#qpSummary"),
+        qpFoot:    LT.$("#qpFoot"),
+        form:      LT.$("#bkForm"),
+        name:      LT.$("#bkName"),
+        phone:     LT.$("#bkPhone"),
+        note:      LT.$("#bkNote"),
+        noteField: LT.$("#noteField"),
+        msg:       LT.$("#bkMsg"),
+        submit:    LT.$("#bkSubmit"),
+        mobileBar: LT.$("#mobileBar"),
+        mbWhat:    LT.$("#mbWhat"),
+        mbWhen:    LT.$("#mbWhen"),
+        mbGo:      LT.$("#mbGo"),
+        done:      LT.$("#doneCard"),
+        doneTitle: LT.$("#doneTitle"),
+        doneDetail:LT.$("#doneDetail"),
+        doneLines: LT.$("#doneLines"),
+        doneHonest:LT.$("#doneHonest"),
+        again:     LT.$("#againBtn")
+      };
+
+      /* ---------- state ----------
+         `slots` is null until a read succeeds and stays null when one fails,
+         which is what keeps "we do not know" distinct from "nothing is
+         booked". Nothing renders availability off a null. */
+      var facility = SPORT_NETS;
+      var selected = [];
+      var slots = null;
+      var slotsAt = 0;
+      var loadErr = null;
+      var courts = { nets: COURTS_FALLBACK.nets, ground: COURTS_FALLBACK.ground };
+      var reqSeq = 0;          // guards against a slow read overwriting a newer one
+      var sending = false;
+
+      /* ---------- helpers ---------- */
+      function longDate(iso) {
+        if (!iso) return "";
+        return LT.dayName(iso) + ", " + LT.shortDate(iso);
+      }
+      function plural(n, one, many) { return n === 1 ? one : many; }
+
+      function say(text, isError) {
+        el.msg.textContent = text || "";
+        el.msg.className = isError ? "form-msg error" : "form-msg";
+      }
+
+      /* Postgres speaks in constraint names and cloud.js rewrites a few of
+         them; both forms are matched here so the customer never meets
+         either. Every string below is a message a real code path raises —
+         request_booking (schema.sql:432) and submit_application. */
+      function readable(m) {
+        m = String(m || "");
+        if (/no connection|failed to fetch|networkerror|load failed/i.test(m))
+          return "No connection — check your network and send the request again.";
+        if (/slot full|all courts taken|every court is booked|just been taken|duplicate key|unique_violation/i.test(m))
+          return "Those nets have just been taken. The grid has been refreshed — please pick another hour.";
+        if (/too many pending requests/i.test(m))
+          return "This number already has requests waiting for confirmation. The academy will call you — please don't send more.";
+        if (/desk is catching up/i.test(m))
+          return "The desk is catching up on today's requests. Please try again a little later.";
+        if (/too many requests/i.test(m))
+          return "We already have an enquiry from this number today — the academy will call you back.";
+        if (/valid phone required/i.test(m))
+          return "Please enter a 10-digit mobile number.";
+        if (/name required/i.test(m))
+          return "Please enter your name.";
+        if (/date too far ahead/i.test(m))
+          return "Requests open up to 90 days ahead. Please pick an earlier date.";
+        if (/date in the past/i.test(m))
+          return "That date has already passed. Please pick today or later.";
+        if (/invalid hour/i.test(m))
+          return "The nets are bookable between 6 AM and 11 PM.";
+        if (/unknown sport|no rate configured|unknown academy/i.test(m))
+          return "That facility is not open for online requests yet. Please contact the academy.";
+        if (/not authorised|permission denied|jwt/i.test(m))
+          return "Online requests are closed at the moment. Please contact the academy.";
+        return m;
+      }
+
+      /* Coarse reason only — an event never carries a name, a number or an
+         amount (see cloud.js). */
+      function classify(m) {
+        m = String(m || "");
+        if (/no connection|failed to fetch|networkerror|load failed/i.test(m)) return "network";
+        if (/slot full|all courts taken|every court is booked|just been taken/i.test(m)) return "slot_full";
+        if (/too many pending|too many requests|desk is catching up/i.test(m)) return "rate_limited";
+        if (/valid phone required|name required/i.test(m)) return "bad_input";
+        if (/date too far ahead|date in the past|invalid hour/i.test(m)) return "bad_slot";
+        return "other";
+      }
+
+      /* ---------- availability ----------
+         Two independent reads, fired together rather than one after the
+         other: a round trip to the API is ~180 ms from Coimbatore to Tokyo
+         and the network is ~97% of it, so the only optimisation that counts
+         is fewer sequential trips.
+
+         The slots read is REQUIRED — it is the availability truth. The
+         tenant read is OPTIONAL: it supplies the facility counts, and if it
+         is refused the fallbacks above are used rather than the page dying. */
+      function loadAvailability() {
+        var date = el.date.value;
+        if (!date) return;
+        var seq = ++reqSeq;
+
+        loadErr = null;
+        slots = null;
+        renderAvailability();
+
+        var slotsRead = LT_CLOUD.publicSlots(date, date);
+        var configRead = LT_CLOUD.tenantConfig().catch(function () { return null; });
+
+        Promise.all([slotsRead, configRead]).then(function (out) {
+          if (seq !== reqSeq) return;               // a newer date won
+          var cfg = out[1] && out[1].config;
+          if (cfg && cfg.courts) {
+            courts.nets   = Number(cfg.courts.nets)   > 0 ? Number(cfg.courts.nets)   : COURTS_FALLBACK.nets;
+            courts.ground = Number(cfg.courts.ground) > 0 ? Number(cfg.courts.ground) : COURTS_FALLBACK.ground;
+          }
+          slots = out[0] || [];
+          slotsAt = Date.now();
+          renderAvailability();
+        }).catch(function (err) {
+          if (seq !== reqSeq) return;
+          slots = null;
+          loadErr = err;
+          renderAvailability();
+        });
+      }
+
+      /* How many non-cancelled rows exist for this facility at this hour.
+         public_slots already excludes cancelled rows; a pending website
+         request still holds the slot, which is why status is not filtered
+         further here. Counting courts is not money. */
+      function takenAt(sport, hour) {
+        if (!slots) return 0;
+        var n = 0;
+        for (var i = 0; i < slots.length; i++) {
+          var r = slots[i];
+          if (r.sport === sport && Number(r.hour) === hour) n++;
+        }
+        return n;
+      }
+      function groundTaken() {
+        if (!slots) return 0;
+        var n = 0;
+        for (var i = 0; i < slots.length; i++) if (slots[i].sport === SPORT_GROUND) n++;
+        return n;
+      }
+
+      function renderAvailability() {
+        if (facility === SPORT_NETS) renderSlots(); else renderGround();
+        renderPanel();
+      }
+
+      /* ---------- nets grid ---------- */
+      function renderSlots() {
+        if (loadErr) {
+          /* A failed read says so and shows nothing else. Rendering every
+             hour as "available" here would be inventing availability for a
+             customer who cannot tell — the exact failure the demo app has,
+             where a soft-failing read leaves seeded rows on screen. */
+          LT.fail(el.grid, loadErr);
+          var retry = document.createElement("div");
+          retry.className = "grid-dead";
+          retry.innerHTML = '<button type="button" class="btn btn-glass btn-sm" id="retryBtn">Try again</button>';
+          el.grid.appendChild(retry);
+          var rb = LT.$("#retryBtn");
+          if (rb) rb.addEventListener("click", loadAvailability);
+          el.slotsAge.textContent = "";
+          return;
+        }
+        if (!slots) { LT.skeleton(el.grid, 6); el.slotsAge.textContent = "Checking availability…"; return; }
+
+        var total = courts.nets;
+        var isToday = el.date.value === LT.today();
+        var nowHour = new Date().getHours();
+        var html = "";
+        var open = 0;
+
+        for (var h = HOUR_FROM; h <= HOUR_TO; h++) {
+          var past = isToday && h <= nowHour;
+          var left = total - takenAt(SPORT_NETS, h);
+          var full = left <= 0;
+          if (!past && !full) open++;
+          var isSel = selected.indexOf(h) !== -1;
+          var cls = "slot" + (isSel ? " sel" : "") + (past || full ? " taken" : "");
+          var sub;
+          if (past)      sub = '<span class="faint">Passed</span>';
+          else if (full) sub = '<span class="sl-full">Full</span>';
+          else if (left === 1) sub = '<span class="sl-left">Last net free</span>';
+          else           sub = LT.esc(left + " nets free");
+
+          html += '<button type="button" class="' + cls + '" data-h="' + h + '"' +
+                  (past || full ? " disabled" : "") + ' aria-pressed="' + (isSel ? "true" : "false") + '">' +
+                  '<span class="sl-time">' + LT.esc(LT.hourLabel(h)) + "</span>" +
+                  '<span class="sl-rate">' + sub + "</span></button>";
+        }
+        el.grid.innerHTML = html;
+        el.slotsAge.textContent = "Checked " + new Date(slotsAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+
+        /* A grid of seventeen greyed tiles is a dead end. After the last
+           slot of the day starts — or on a day that is genuinely sold out —
+           offer the next date rather than leaving the visitor to work out
+           that the date picker is the way forward. */
+        if (open === 0) {
+          var note = document.createElement("div");
+          note.className = "grid-dead";
+          note.innerHTML =
+            "<span>" + (isToday && nowHour >= HOUR_TO
+              ? "Today's last slot has already started."
+              : "Every net is taken on this date.") + "</span>" +
+            '<button type="button" class="btn btn-glass btn-sm" id="nextDayBtn">Try the next day</button>';
+          el.grid.appendChild(note);
+          var nd = LT.$("#nextDayBtn");
+          if (nd) nd.addEventListener("click", function () {
+            var d = new Date(el.date.value + "T00:00:00");
+            d.setDate(d.getDate() + 1);
+            el.date.value = LT.isoDate(d);
+            selected = [];
+            say("");
+            loadAvailability();
+          });
+        }
+      }
+
+      /* ---------- ground state ---------- */
+      function renderGround() {
+        /* This function renders AVAILABILITY only — free or taken. It does
+           not touch the rate card, deliberately: matching the visitor's
+           weekday against the published lines and badging one of them is
+           the client choosing which price applies, and the config it was
+           copied from can change underneath it. The rates are static copy;
+           the amount comes from the academy. */
+        if (loadErr) {
+          el.groundState.innerHTML =
+            '<div class="cell-status gold">Could not check this date</div>' +
+            '<div class="faint mt-1" style="font-size:12.5px;">' +
+            LT.esc(readable(loadErr.message)) +
+            " You can still send an enquiry — the academy checks the date before confirming.</div>";
+          return;
+        }
+        if (!slots) { LT.skeleton(el.groundState, 1); return; }
+
+        var taken = groundTaken() >= courts.ground;
+        el.groundState.innerHTML = taken
+          ? '<div class="cell-status red">Already taken on ' + LT.esc(longDate(el.date.value)) + "</div>" +
+            '<div class="faint mt-1" style="font-size:12.5px;">The ground is let as one full day, so it is gone for this date. Pick another date to enquire.</div>'
+          : '<div class="cell-status green">Free on ' + LT.esc(longDate(el.date.value)) + "</div>" +
+            '<div class="faint mt-1" style="font-size:12.5px;">Nothing is held for this date yet. Send an enquiry and the academy will confirm the date and the amount.</div>';
+      }
+
+      /* ---------- the request panel ---------- */
+      /* The floating mobile bar is a call to action for a request that has
+         not been sent. Once the success card is up there is nothing left to
+         complete, and busy(false) re-runs this function AFTER showDone() —
+         so without this guard the bar reappears over the confirmation. */
+      function barVisible(want) {
+        document.body.classList.toggle("has-selection", want && !el.done.classList.contains("show"));
+      }
+
+      function renderPanel() {
+        var date = el.date.value;
+        el.qpDate.textContent = date ? "VAKAMAN FE · " + longDate(date) : "";
+
+        if (facility === SPORT_NETS) {
+          var hours = selected.slice().sort(function (a, b) { return a - b; });
+
+          el.qpTitle.textContent = "Practice nets";
+          el.selCount.textContent = hours.length
+            ? hours.length + plural(hours.length, " hour selected", " hours selected")
+            : "No hours selected";
+
+          el.qpEmpty.classList.toggle("hide", hours.length > 0);
+          el.qpRows.innerHTML = hours.map(function (h) {
+            return '<div class="qp-row"><span class="t">' + LT.esc(LT.hourLabel(h)) + "</span>" +
+                   '<button type="button" class="x" data-remove="' + h + '" aria-label="Remove ' +
+                   LT.esc(LT.hourLabel(h)) + '">✕</button></div>';
+          }).join("");
+
+          /* NO TOTAL, AND NO FIGURE. slot_price() is revoked from anon, so
+             this page has no server price to show, and multiplying a printed
+             rate by a count would be the client deciding money — the one
+             thing the house rule forbids. The rate is not quoted here
+             either: a number in a JS string is a second copy that silently
+             stops matching the published one. This prints the hour count and
+             points at the rate card, which is the only place a figure is
+             written. The academy states the amount when it confirms. */
+          el.qpSummary.classList.toggle("hide", hours.length === 0);
+          el.qpSummary.innerHTML = hours.length
+            ? "<b>" + hours.length + plural(hours.length, " hour", " hours") + "</b> at the academy's published net rate. " +
+              "The academy confirms your net and the amount to pay."
+            : "";
+
+          el.noteField.classList.add("hide");
+          el.qpFoot.textContent = "No payment is taken online. A request is not a confirmed booking — " +
+                                  "the academy confirms your net and shares payment details.";
+          el.submit.textContent = "Send request";
+          el.submit.disabled = sending || hours.length === 0;
+
+          barVisible(hours.length > 0);
+          el.mbWhat.textContent = hours.length + plural(hours.length, " hour", " hours");
+          el.mbWhen.textContent = hours.map(function (h) { return LT.hourLabel(h); }).join(", ");
+          return;
+        }
+
+        /* ---- ground ---- */
+        var blocked = !!slots && groundTaken() >= courts.ground;
+
+        el.qpTitle.textContent = "Main ground";
+        el.selCount.textContent = "Full day";
+        el.qpEmpty.classList.add("hide");
+        el.qpRows.innerHTML = "";
+        el.qpSummary.classList.remove("hide");
+        el.qpSummary.innerHTML = blocked
+          ? "This date is already taken. Pick another date to send an enquiry."
+          : "<b>Full day</b> · the whole ground, " + LT.esc(longDate(date)) + ". " +
+            "See the published rates on the left — the academy confirms the exact amount.";
+
+        el.noteField.classList.remove("hide");
+        el.qpFoot.textContent = "This is an enquiry, not a booking. The academy will call you to " +
+                                "confirm the date and the amount before anything is held.";
+        el.submit.textContent = "Send enquiry";
+        el.submit.disabled = sending || blocked || !date;
+
+        barVisible(!blocked && !!date);
+        el.mbWhat.textContent = "Full day";
+        el.mbWhen.textContent = longDate(date);
+      }
+
+      /* ---------- facility switch ---------- */
+      function setFacility(next) {
+        facility = next === SPORT_GROUND ? SPORT_GROUND : SPORT_NETS;
+        selected = [];
+        say("");
+        LT.$$(".fac-card", el.facPick).forEach(function (c) {
+          var on = c.getAttribute("data-f") === facility;
+          c.classList.toggle("active", on);
+          c.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+        el.netsPanel.classList.toggle("hide", facility !== SPORT_NETS);
+        el.groundPanel.classList.toggle("hide", facility !== SPORT_GROUND);
+        renderAvailability();
+      }
+
+      /* ---------- submit: nets ----------
+         One request_booking call per hour. Each one is priced, capacity-
+         checked and rate-limited by Postgres; nothing about this loop
+         decides anything. Partial success is real — hour 7 can land while
+         hour 8 fills in between — so each result is settled individually
+         and reported honestly rather than collapsed into one verdict. */
+      function settle(p) {
+        return p.then(
+          function (v) { return { ok: true, value: v }; },
+          function (e) { return { ok: false, error: e }; }
+        );
+      }
+
+      function submitNets(name, phone) {
+        var date = el.date.value;
+        var hours = selected.slice().sort(function (a, b) { return a - b; });
+
+        return Promise.all(hours.map(function (h) {
+          return settle(LT_CLOUD.requestBooking({
+            sport: SPORT_NETS, date: date, hour: h, name: name, phone: phone
+          })).then(function (r) { r.hour = h; return r; });
+        })).then(function (results) {
+          var ok = results.filter(function (r) { return r.ok; });
+          var bad = results.filter(function (r) { return !r.ok; });
+
+          if (!ok.length) {
+            var first = bad.length ? String(bad[0].error && bad[0].error.message) : "";
+            say(readable(first) || "Something went wrong. Please try again.", true);
+            LT_CLOUD.track("booking_request_failed", { sport: SPORT_NETS, reason: classify(first) });
+            selected = [];
+            loadAvailability();
+            return;
+          }
+
+          LT_CLOUD.track("booking_requested", { sport: SPORT_NETS, hours: ok.length });
+
+          el.doneTitle.textContent = "Request received";
+          el.doneDetail.innerHTML =
+            "Thanks, <strong>" + LT.esc(name) + "</strong> — <strong>" + ok.length +
+            plural(ok.length, " hour", " hours") + "</strong> at the nets on <strong>" +
+            LT.esc(longDate(date)) + "</strong>.";
+
+          /* Each amount below is the figure request_booking RETURNED for
+             that hour. They are printed one per line and never added up:
+             the server has priced each slot, and a total this page invented
+             is a number no database ever agreed to. */
+          el.doneLines.innerHTML = ok.map(function (r) {
+            var amt = r.value && r.value.amount;
+            return '<div class="dl"><span>' + LT.esc(LT.hourLabel(r.hour)) + "</span><b>" +
+                   (amt == null ? "—" : LT.esc(LT.fmtINR(amt))) + "</b></div>";
+          }).join("");
+
+          el.doneHonest.innerHTML =
+            "Amounts shown are the academy's rate for each hour. <strong>This is a request, not a confirmed booking</strong> — " +
+            "the academy confirms your net and shares payment details." +
+            (bad.length
+              ? "<br /><br />" + bad.length + plural(bad.length, " hour was", " hours were") +
+                " not requested: " + LT.esc(readable(String(bad[0].error && bad[0].error.message)))
+              : "");
+
+          showDone();
+        });
+      }
+
+      /* ---------- submit: ground ----------
+         An ENQUIRY, on purpose — see the long note at the top of this
+         script. submit_application() is the anon-executable path that
+         captures a name, a mobile and a wanted date for a callback; the
+         wanted date rides in p_trial and the facility is named in
+         p_program, so it is unmistakable in the academy's enquiry list.
+         Every argument is passed explicitly: none of the nine has a
+         default, and PostgREST omitting one is a hard failure. */
+      function submitGround(name, phone, note) {
+        var date = el.date.value;
+        return LT_CLOUD.submitApplication({
+          p_tenant: LT_CLOUD.TENANT,
+          p_name: name,
+          p_phone: phone,
+          p_email: null,
+          p_level: null,
+          p_goal: note || null,
+          p_program: "Main ground — full day rental",
+          p_slot: "Full day",
+          p_trial: date
+        }).then(function () {
+          LT_CLOUD.track("ground_enquiry", { sport: SPORT_GROUND });
+
+          el.doneTitle.textContent = "Enquiry received";
+          el.doneDetail.innerHTML =
+            "Thanks, <strong>" + LT.esc(name) + "</strong> — we have your enquiry for the " +
+            "<strong>main ground</strong> on <strong>" + LT.esc(longDate(date)) + "</strong>.";
+          el.doneLines.innerHTML = "";
+          el.doneHonest.innerHTML =
+            "<strong>This is an enquiry, not a booking.</strong> The ground is let for a full day and " +
+            "the amount depends on the day of the week, so the academy will call you on this number " +
+            "to confirm the date and the exact amount before anything is held.";
+          showDone();
+        }).catch(function (err) {
+          var m = String((err && err.message) || "");
+          say(readable(m) || "Something went wrong. Please try again.", true);
+          LT_CLOUD.track("ground_enquiry_failed", { reason: classify(m) });
+        });
+      }
+
+      function showDone() {
+        selected = [];
+        el.flow.style.display = "none";
+        el.hero.style.display = "none";
+        document.body.classList.remove("has-selection");
+        el.done.classList.add("show");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        LT.toast(facility === SPORT_GROUND ? "Enquiry sent." : "Request sent.");
+      }
+
+      function busy(on) {
+        sending = on;
+        el.name.disabled = on;
+        el.phone.disabled = on;
+        el.note.disabled = on;
+        el.submit.disabled = on;
+        if (on) el.submit.textContent = "Sending…"; else renderPanel();
+      }
+
+      /* ---------- wiring ---------- */
+      el.date.value = LT.today();
+      el.date.min = LT.today();
+      /* 90 days is request_booking's own ceiling. It is computed against the
+         database's current_date, not the browser's, so the input is a hint
+         and the server's 'date too far ahead' is the authority. */
+      var maxDate = new Date();
+      maxDate.setDate(maxDate.getDate() + 90);
+      el.date.max = LT.isoDate(maxDate);
+
+      /* Deep link: booking.html?facility=ground (?sport= also honoured, so
+         a link written against the SQL's vocabulary works too). */
+      var pre = "";
+      var m = /[?&](?:facility|sport)=([^&]*)/.exec(location.search);
+      if (m) { try { pre = decodeURIComponent(m[1]).toLowerCase(); } catch (e) { pre = ""; } }
+      if (pre === SPORT_GROUND || pre === SPORT_NETS) facility = pre;
+
+      el.facPick.addEventListener("click", function (e) {
+        var btn = e.target.closest ? e.target.closest(".fac-card") : null;
+        if (!btn) return;
+        setFacility(btn.getAttribute("data-f"));
+      });
+
+      /* Selecting an hour paints THAT tile and nothing else. Re-rendering
+         the whole grid would be simpler, but it replaces the element the
+         visitor just activated — so a keyboard user loses focus to <body>
+         after every Enter, and a touch user sees the grid flicker. The
+         availability numbers on the other tiles have not changed, so there
+         is nothing to redraw. */
+      function paintSlot(h) {
+        var btn = el.grid.querySelector('.slot[data-h="' + h + '"]');
+        if (!btn) return;
+        var on = selected.indexOf(h) !== -1;
+        btn.classList.toggle("sel", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+      }
+
+      function toggleHour(h) {
+        var i = selected.indexOf(h);
+        if (i === -1) selected.push(h); else selected.splice(i, 1);
+        paintSlot(h);
+        renderPanel();
+      }
+
+      el.grid.addEventListener("click", function (e) {
+        var btn = e.target.closest ? e.target.closest(".slot") : null;
+        if (!btn || btn.disabled) return;
+        say("");
+        toggleHour(Number(btn.getAttribute("data-h")));
+      });
+
+      el.qpRows.addEventListener("click", function (e) {
+        var btn = e.target.closest ? e.target.closest("[data-remove]") : null;
+        if (!btn) return;
+        var h = Number(btn.getAttribute("data-remove"));
+        if (selected.indexOf(h) !== -1) toggleHour(h);
+      });
+
+      /* EVERY date change re-reads availability. The demo reads once at page
+         load and then answers every later question from that one snapshot,
+         so a slot taken five minutes ago still shows free right up to the
+         moment the request is refused. */
+      el.date.addEventListener("change", function () {
+        selected = [];
+        say("");
+        loadAvailability();
+      });
+
+      el.refresh.addEventListener("click", loadAvailability);
+
+      /* A page left open on a phone goes stale in the pocket. Coming back to
+         it re-reads rather than showing a snapshot from an hour ago. */
+      document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState !== "visible") return;
+        if (el.done.classList.contains("show")) return;
+        if (Date.now() - slotsAt > 60000) loadAvailability();
+      });
+
+      el.mbGo.addEventListener("click", function () {
+        LT.$("#requestPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+        setTimeout(function () { el.name.focus(); }, 450);
+      });
+
+      el.form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        if (sending) return;
+
+        var name = String(el.name.value || "").trim();
+        var digits = String(el.phone.value || "").replace(/\D/g, "");
+        var phone = LT.phone10(digits);
+        var note = String(el.note.value || "").trim();
+
+        if (name.length < 2) { say("Please enter your name.", true); el.name.focus(); return; }
+        if (digits.length < 10 || phone.length !== 10) {
+          say("Please enter a 10-digit mobile number.", true); el.phone.focus(); return;
+        }
+        if (facility === SPORT_NETS && !selected.length) {
+          say("Pick at least one hour first.", true); return;
+        }
+        say("");
+
+        busy(true);
+        var work = facility === SPORT_GROUND
+          ? submitGround(name, phone, note)
+          : submitNets(name, phone);
+
+        work.catch(function (err) {
+          /* Nothing above rejects in normal operation — this catches a
+             genuine defect in this page rather than letting it disappear
+             into an unhandled rejection. */
+          say(readable(String((err && err.message) || "")) || "Something went wrong. Please try again.", true);
+          LT_CLOUD.report("booking.submit", err);
+        }).then(function () { busy(false); });
+      });
+
+      el.again.addEventListener("click", function () {
+        selected = [];
+        el.done.classList.remove("show");
+        el.flow.style.display = "";
+        el.hero.style.display = "";
+        el.form.reset();
+        say("");
+        loadAvailability();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+
+      /* ---------- go ---------- */
+      setFacility(facility);
+      loadAvailability();
+    })();
+  </script>
+</body>
+</html>

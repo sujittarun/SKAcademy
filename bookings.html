@@ -1,0 +1,1340 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Bookings · Super Kings Academy</title>
+<meta name="description" content="Operator booking board for VAKAMAN FE — the day's practice nets, the main ground, what has been collected and what is still owed." />
+<script>
+  /* blocking: applies the persisted theme before first paint, else the
+     page renders dark and flashes. Raw string, not JSON. */
+  try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
+  document.documentElement.className += " lt-js";
+</script>
+<link rel="stylesheet" href="assets/css/glass.css?v=2" />
+<style>
+  /* ------------------------------------------------------------
+     Page-local components only. Anything reusable belongs in
+     glass.css; these are the booking board's own shapes.
+     ------------------------------------------------------------ */
+
+  /* day navigator */
+  .day-nav { display: flex; align-items: center; gap: 6px; }
+  .day-nav input[type="date"] { width: auto; padding: 8px 12px; font-size: 13px; border-radius: var(--r-pill); }
+
+  /* summary tiles */
+  .sum .stat-value { font-size: 26px; }
+  .sum .stat-copy { font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; }
+  .sum .stat-note { font-size: 12px; color: var(--ink-mid); margin-top: 2px; }
+
+  /* waiting-for-a-court tray + the catch-all tray */
+  .req-tray { display: flex; flex-direction: column; gap: 8px; }
+  .req-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 14px; border-radius: var(--r-md);
+    border: 1px solid rgba(154, 168, 255, .35); background: rgba(154, 168, 255, .07);
+  }
+  .req-row.plain { border-color: var(--tile-border); background: var(--tile-bg); }
+  .req-row .rq-who { font-weight: 700; color: var(--ink-hi); font-size: 13.5px; }
+  .req-row .rq-what { font-size: 12.5px; color: var(--ink-mid); }
+  .req-row .rq-amt { font-weight: 700; color: var(--tx-gold); font-size: 13px; }
+
+  /* ---- the ground strip ----
+     The ground is sold by the DAY and its booking lives at hour 0, so it
+     can never be a cell in the hourly grid — it gets its own strip, above
+     the nets, where a full-day sale is impossible to miss. */
+  .gd-row {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 13px 16px; border-radius: var(--r-md);
+    border: 1px solid var(--tile-border); background: var(--tile-bg);
+  }
+  .gd-row.paid { border-color: rgba(52, 211, 153, .45); background: rgba(52, 211, 153, .10); }
+  .gd-row.due { border-color: rgba(247, 203, 21, .5); background: rgba(247, 203, 21, .10); }
+  .gd-row.pending { border-color: rgba(154, 168, 255, .5); background: rgba(154, 168, 255, .08); }
+  .gd-row.blocked { border-style: dashed; }
+  .gd-row .gd-who { font-size: 15px; font-weight: 700; color: var(--ink-hi); }
+  .gd-row .gd-sub { font-size: 12px; color: var(--ink-low); }
+  .gd-row .gd-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+  .gd-free { color: var(--ink-mid); font-size: 13.5px; }
+  .gd-rate { font-size: 12.5px; color: var(--ink-mid); }
+  .gd-rate b { color: var(--tx-gold); }
+
+  /* ---- the nets grid: 4 courts x operating hours ---- */
+  .nt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .nt-grid {
+    display: grid;
+    grid-template-columns: 84px repeat(var(--nt-cols, 4), minmax(128px, 1fr));
+    gap: 6px; min-width: 620px;
+  }
+  .nt-h {
+    padding: 8px 10px; font-size: 11px; font-weight: 700; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--ink-low); border-bottom: 1px solid var(--line);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .nt-h small { display: block; letter-spacing: .04em; text-transform: none; font-weight: 600; color: var(--ink-faint); }
+  .nt-hour {
+    display: flex; flex-direction: column; justify-content: center;
+    font-size: 12px; font-weight: 700; color: var(--ink-mid);
+    font-variant-numeric: tabular-nums; padding-right: 6px;
+  }
+  .nt-hour small { font-weight: 500; color: var(--ink-faint); font-size: 10.5px; }
+  .nt-cell { position: relative; border-radius: var(--r-sm); min-height: 56px; }
+  .nt-cell.free { border: 1px dashed var(--tile-border); }
+  .nt-cell.on { border: 1px solid var(--tile-border); background: var(--tile-bg); }
+  .nt-cell.paid { border-color: rgba(52, 211, 153, .45); background: rgba(52, 211, 153, .10); }
+  .nt-cell.due { border-color: rgba(247, 203, 21, .5); background: rgba(247, 203, 21, .10); }
+  .nt-cell.pending {
+    border-color: rgba(154, 168, 255, .55);
+    background: repeating-linear-gradient(45deg, rgba(154, 168, 255, .18) 0 5px, rgba(154, 168, 255, .05) 5px 10px);
+  }
+  .nt-cell.blocked {
+    border: 1px dashed var(--ink-faint);
+    background: repeating-linear-gradient(45deg, rgba(255, 255, 255, .10) 0 6px, transparent 6px 12px);
+  }
+  :root[data-theme="light"] .nt-cell.blocked {
+    background: repeating-linear-gradient(45deg, rgba(28, 32, 44, .10) 0 6px, transparent 6px 12px);
+  }
+  .nt-cell.past { opacity: .48; }
+  .nt-cell.now { box-shadow: 0 0 0 2px rgba(255, 216, 61, .55); }
+  .nt-hit {
+    width: 100%; height: 100%; min-height: 56px; display: flex; flex-direction: column;
+    justify-content: center; gap: 2px; text-align: left; cursor: pointer;
+    padding: 8px 10px; border: none; background: transparent; border-radius: var(--r-sm);
+    font-family: var(--font-body); color: var(--ink-mid); font-size: 12px;
+    transition: background .2s ease;
+  }
+  .nt-hit:hover { background: var(--row-hover); }
+  .nt-who { font-size: 12.5px; font-weight: 650; color: var(--ink-hi); line-height: 1.25;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nt-amt { font-size: 11.5px; color: var(--ink-mid); font-variant-numeric: tabular-nums; }
+  .nt-tag { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: var(--ink-low); }
+  .nt-free { font-size: 12px; color: var(--ink-faint); }
+  .nt-block {
+    position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; padding: 0;
+    border-radius: 50%; border: 1px solid transparent; background: transparent;
+    color: var(--ink-faint); font-size: 12px; line-height: 1; cursor: pointer; opacity: .5;
+    transition: opacity .2s ease, color .2s ease;
+  }
+  .nt-cell:hover .nt-block { opacity: 1; color: var(--ink-mid); }
+
+  /* detail sheet rows */
+  .bd-list { display: flex; flex-direction: column; gap: 2px; margin: var(--gap-2) 0 var(--gap-3); }
+  .bd-row { display: flex; justify-content: space-between; gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .bd-row:last-child { border-bottom: none; }
+  .bd-row .k { color: var(--ink-low); }
+  .bd-row .v { color: var(--ink-hi); font-weight: 650; text-align: right; }
+  .bd-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* reason sheet — an in-app prompt. window.prompt is suppressed on iOS
+     and reads to the operator as "nothing happened". */
+  .rs-sub { font-size: 12.5px; color: var(--ink-mid); line-height: 1.55; margin: 0 0 14px; }
+  .rs-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .rs-chip {
+    cursor: pointer; font-size: 12.5px; font-weight: 600; padding: 7px 13px; border-radius: 99px;
+    border: 1px solid var(--line); background: var(--tile-bg); color: var(--ink-mid); transition: all .15s ease;
+  }
+  .rs-chip.sel { border-color: var(--gold-500); background: rgba(247, 203, 21, .14); color: var(--ink-hi); }
+  .rs-acts { display: flex; gap: 10px; }
+  .rs-acts .btn { flex: 1; }
+  #rsConfirm { background: var(--gold-grad); color: #231d00; font-weight: 700; }
+  #rsConfirm.danger { background: linear-gradient(115deg, #ff8a8a, #e24b4a); color: #fff; }
+
+  .legend { display: flex; gap: var(--gap-3); flex-wrap: wrap; font-size: 12px; color: var(--ink-low); align-items: center; margin-top: var(--gap-3); }
+  .legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 6px; vertical-align: -2px; border: 1px solid var(--tile-border); }
+
+  @media (max-width: 699px) {
+    .day-nav { width: 100%; justify-content: space-between; }
+    .gd-row .gd-acts { margin-left: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="lt-bg" aria-hidden="true"></div>
+
+  <main class="lt-main lt-page">
+
+    <!-- ---------- day header ---------- -->
+    <div class="card-head" style="margin-bottom:0;">
+      <div>
+        <div class="kicker">Booking board</div>
+        <h2>VAKAMAN FE · the day</h2>
+        <div class="sub" id="dayLine">—</div>
+      </div>
+      <div class="flex wrap">
+        <span class="day-nav">
+          <button class="btn btn-icon btn-glass" id="prevDay" type="button" aria-label="Previous day" title="Previous day">‹</button>
+          <input type="date" id="bkDate" aria-label="Board date" />
+          <button class="btn btn-icon btn-glass" id="nextDay" type="button" aria-label="Next day" title="Next day">›</button>
+          <button class="btn btn-ghost btn-sm" id="todayBtn" type="button">Today</button>
+        </span>
+        <button class="btn btn-glass btn-sm" id="refreshBtn" type="button">Refresh</button>
+        <button class="btn btn-primary btn-sm" id="addBtn" type="button">+ Add booking</button>
+      </div>
+    </div>
+
+    <!-- ---------- day summary ----------
+         Every figure here is a SUM OF AMOUNTS THE SERVER RETURNED on the
+         day's rows. Reporting, not pricing: nothing on this page decides
+         what anything costs. -->
+    <div class="lt-grid cols-4 sum reveal">
+      <div class="glass glass-card stat-card">
+        <div class="stat-value" id="sumCount">—</div>
+        <div class="stat-copy">Bookings</div>
+        <div class="stat-note" id="sumCountNote">&nbsp;</div>
+      </div>
+      <div class="glass glass-card stat-card">
+        <div class="stat-value" id="sumPaid">—</div>
+        <div class="stat-copy">Collected</div>
+        <div class="stat-note" id="sumPaidNote">&nbsp;</div>
+      </div>
+      <div class="glass glass-card stat-card">
+        <div class="stat-value" id="sumDue">—</div>
+        <div class="stat-copy">Outstanding</div>
+        <div class="stat-note" id="sumDueNote">&nbsp;</div>
+      </div>
+      <div class="glass glass-card stat-card">
+        <div class="stat-value" id="sumGround" style="font-size:20px;">—</div>
+        <div class="stat-copy">Main ground</div>
+        <div class="stat-note" id="sumGroundNote">&nbsp;</div>
+      </div>
+    </div>
+
+    <!-- ---------- website requests with no court yet ---------- -->
+    <div class="glass glass-card tight hide reveal" id="reqCard">
+      <div class="card-head" style="margin-bottom:10px;">
+        <div><div class="kicker">New requests</div><h2 style="font-size:16px;">Waiting for a court</h2></div>
+      </div>
+      <div class="req-tray" id="reqTray"></div>
+    </div>
+
+    <!-- ---------- the ground: full day only ---------- -->
+    <div class="glass glass-card reveal" id="groundCard">
+      <div class="card-head" style="margin-bottom:10px;">
+        <div>
+          <div class="kicker">Main Ground</div>
+          <h2 style="font-size:17px;">Main Ground — full day</h2>
+          <div class="sub">Sold by the day, never by the hour. The booking sits outside the hourly grid.</div>
+        </div>
+        <div class="gd-rate" id="gdRate">—</div>
+      </div>
+      <div id="gdBody"></div>
+      <div class="faint" id="gdWarn" style="font-size:12px;margin-top:8px;display:none;"></div>
+    </div>
+
+    <!-- ---------- the nets ---------- -->
+    <div class="glass glass-card reveal" id="netsCard">
+      <div class="card-head" style="margin-bottom:10px;">
+        <div>
+          <div class="kicker">Practice nets</div>
+          <h2 style="font-size:17px;">Nets by the hour</h2>
+          <div class="sub" id="netsSub">One pool of four. Tap a free slot to book it, a booked slot to collect or cancel.</div>
+        </div>
+      </div>
+      <div class="nt-scroll"><div class="nt-grid" id="netGrid"></div></div>
+      <div class="legend">
+        <span><span class="sw" style="background:rgba(52,211,153,.35);"></span>Paid</span>
+        <span><span class="sw" style="background:rgba(247,203,21,.35);"></span>Unpaid</span>
+        <span><span class="sw" style="background:repeating-linear-gradient(45deg, rgba(154,168,255,.55) 0 4px, rgba(154,168,255,.12) 4px 8px);"></span>Pending</span>
+        <span><span class="sw" style="background:repeating-linear-gradient(45deg, rgba(255,255,255,.22) 0 4px, transparent 4px 8px);"></span>Blocked</span>
+        <span><span class="sw" style="border-style:dashed;background:transparent;"></span>Free</span>
+      </div>
+    </div>
+
+    <!-- ---------- anything the board could not place ----------
+         A row the board cannot draw is a row nobody sees. Everything the
+         server returned appears somewhere on this page. -->
+    <div class="glass glass-card tight hide reveal" id="otherCard">
+      <div class="card-head" style="margin-bottom:10px;">
+        <div><div class="kicker">Also on this day</div><h2 style="font-size:16px;">Not on the grid</h2>
+        <div class="sub">Cancelled rows, and anything outside the nets' operating hours.</div></div>
+      </div>
+      <div class="req-tray" id="otherTray"></div>
+    </div>
+  </main>
+
+  <!-- ============================================================
+       ADD BOOKING — one form, one call.
+       The operator enters the money HERE. There is no second screen.
+       ============================================================ -->
+  <div class="lt-modal-backdrop" id="abBackdrop">
+    <div class="glass lt-modal">
+      <div class="modal-head">
+        <div><div class="kicker">Add booking</div><h2 style="font-size:20px;">Record a booking</h2></div>
+        <button class="btn btn-icon btn-ghost" id="abClose" type="button" aria-label="Close">✕</button>
+      </div>
+      <form id="abForm" class="lt-grid" style="gap:var(--gap-3);" autocomplete="off">
+        <div class="lt-grid cols-2" style="gap:var(--gap-2);">
+          <label class="field"><span>Facility</span>
+            <select name="sport" id="abSport">
+              <option value="nets">Practice nets</option>
+              <option value="ground">Main ground · full day</option>
+            </select>
+          </label>
+          <label class="field"><span>Date</span><input type="date" name="date" id="abDate" required /></label>
+        </div>
+
+        <div class="lt-grid cols-2" style="gap:var(--gap-2);" id="abSlotRow">
+          <label class="field"><span>Hour slot</span><select name="hour" id="abHour"></select></label>
+          <label class="field"><span>Net <span class="opt">(optional)</span></span>
+            <select name="court" id="abCourt"><option value="">Auto-assign</option></select>
+          </label>
+        </div>
+
+        <label class="field"><span>Booked by</span>
+          <input type="text" name="name" id="abName" placeholder="Name / club / company" required maxlength="80" />
+        </label>
+
+        <div class="lt-grid cols-2" style="gap:var(--gap-2);">
+          <label class="field"><span>Phone <span class="opt">(optional)</span></span>
+            <input type="tel" name="phone" id="abPhone" placeholder="10-digit mobile" maxlength="15" />
+          </label>
+          <label class="field"><span>Source</span>
+            <select name="source" id="abSource">
+              <option value="Counter">Counter</option>
+              <option value="Walk-in">Walk-in</option>
+              <option value="Phone">Phone</option>
+              <option value="Website">Website</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- THE FIX. Amount, and whether it was collected, are part of the
+             booking — not a trip to the Finance screen afterwards. -->
+        <label class="field"><span>Amount <span class="opt">(₹ — edit to negotiate)</span></span>
+          <input type="number" name="amount" id="abAmount" min="0" step="1" inputmode="numeric" placeholder="Priced by the server" />
+        </label>
+        <div class="faint" id="abRate" style="font-size:12.5px;margin-top:-6px;">—</div>
+
+        <label class="choice">
+          <input type="checkbox" id="abPaid" checked /><span class="dot"></span>
+          <span>Collected now</span>
+        </label>
+
+        <div class="lt-grid cols-2" style="gap:var(--gap-2);" id="abPayRow">
+          <label class="field"><span>Mode</span>
+            <select name="mode" id="abMode">
+              <option value="cash">Cash</option>
+              <option value="upi">UPI</option>
+              <option value="card">Card</option>
+              <option value="bank">Bank transfer</option>
+            </select>
+          </label>
+          <label class="field"><span>Collected by</span>
+            <input type="text" name="collectedBy" id="abBy" placeholder="Who took the money" maxlength="60" />
+          </label>
+        </div>
+
+        <div class="form-msg" id="abMsg" style="min-height:0;"></div>
+        <button class="btn btn-primary btn-block" type="submit" id="abSave">Save booking</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ---------- booking detail + actions ---------- -->
+  <div class="lt-modal-backdrop" id="bdBackdrop">
+    <div class="glass lt-modal" style="width:min(520px,100%);">
+      <div class="modal-head">
+        <div><div class="kicker" id="bdKicker">Booking</div><h2 id="bdTitle" style="font-size:20px;">—</h2></div>
+        <button class="btn btn-icon btn-ghost" id="bdClose" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="bd-list" id="bdList"></div>
+      <div class="bd-acts" id="bdActs"></div>
+    </div>
+  </div>
+
+  <!-- ---------- collect money on an existing booking ---------- -->
+  <div class="lt-modal-backdrop" id="clBackdrop" style="z-index:95;">
+    <div class="glass lt-modal" style="width:min(430px,100%);">
+      <div class="modal-head">
+        <div><div class="kicker">Collect</div><h2 id="clTitle" style="font-size:19px;">Take payment</h2></div>
+        <button class="btn btn-icon btn-ghost" id="clClose" type="button" aria-label="Close">✕</button>
+      </div>
+      <p class="rs-sub" id="clSub"></p>
+      <div class="lt-grid" style="gap:var(--gap-3);">
+        <label class="field"><span>Mode</span>
+          <select id="clMode">
+            <option value="cash">Cash</option>
+            <option value="upi">UPI</option>
+            <option value="card">Card</option>
+            <option value="bank">Bank transfer</option>
+          </select>
+        </label>
+        <label class="field"><span>Collected by</span>
+          <input type="text" id="clBy" placeholder="Who took the money" maxlength="60" />
+        </label>
+        <label class="field"><span>Amount <span class="opt">(₹ — leave as-is unless it changed)</span></span>
+          <input type="number" id="clAmount" min="0" step="1" inputmode="numeric" />
+        </label>
+      </div>
+      <div class="form-msg" id="clMsg" style="min-height:0;margin:8px 0 12px;"></div>
+      <div class="rs-acts">
+        <button class="btn btn-glass" id="clCancel" type="button">Not now</button>
+        <button class="btn btn-primary" id="clConfirm" type="button">Mark collected</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- reason sheet (cancel / block) ---------- -->
+  <div class="lt-modal-backdrop" id="rsBackdrop" style="z-index:96;">
+    <div class="glass lt-modal" style="width:min(430px,100%);">
+      <div class="modal-head">
+        <div><div class="kicker" id="rsKicker"></div><h2 id="rsTitle" style="font-size:19px;"></h2></div>
+        <button class="btn btn-icon btn-ghost" id="rsClose" type="button" aria-label="Close">✕</button>
+      </div>
+      <p class="rs-sub" id="rsSub"></p>
+      <div class="rs-chips" id="rsChips"></div>
+      <input type="text" id="rsNote" placeholder="Add a note (optional)" maxlength="80" style="margin-bottom:16px;" />
+      <div class="rs-acts">
+        <button class="btn btn-glass" id="rsKeep" type="button">Keep it</button>
+        <button class="btn" id="rsConfirm" type="button"></button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/core.js?v=2"></script>
+  <script src="assets/js/cloud.js?v=2"></script>
+  <script src="assets/js/dev-data.js?v=2"></script>
+  <script>
+    /* ============================================================
+       THE OPERATOR BOOKING BOARD
+
+       Two rules shape every line below.
+
+       1. NO MONEY IS COMPUTED HERE. Not a rate table, not a weekday
+          lookup, not a discount. A price on this screen came from
+          slot_price(), or it is the amount a write RPC RETURNED. The day
+          totals SUM amounts the server sent — reporting, not pricing.
+
+       2. THE MONEY IS PART OF THE BOOKING. The old flow made an operator
+          enter a booking on one screen and the payment on another, so
+          "recorded but not collected" was a state nobody could see. The
+          add form carries amount, collected-now, mode and collected-by,
+          and record_booking_v2 takes all of it in ONE call.
+
+       And the trap that would otherwise have shipped: the ground is sold
+       by the DAY at hour 0. A board drawing hours 6..22 renders that
+       booking NOWHERE and leaves ₹25,000 out of the day's total. It gets
+       its own strip, above the grid — and anything the board still cannot
+       place lands in "Also on this day" rather than vanishing.
+       ============================================================ */
+    (function () {
+      "use strict";
+
+      if (!LT.auth.require({ staffOnly: true })) return;
+      LT.managerShell("bookings.html");
+
+      var esc = LT.esc;
+      var HOUR_OPEN = 6, HOUR_LAST = 22;          // 6 AM .. 10–11 PM slot
+      var SPORT_NETS = "nets", SPORT_GROUND = "ground";
+
+      /* Court ids are the platform's, not ours: record_booking derives them
+         as upper(left(sport,1)) || i — nets → N1..N4, ground → G1. The
+         COUNT comes from tenants.config.courts, the LABELS from
+         config.courtLabels, so the app and the SQL cannot disagree about
+         which net is which. */
+      var netCourts = ["N1", "N2", "N3", "N4"];
+      var groundCourts = ["G1"];
+
+      var state = {
+        date: LT.today(),
+        rows: null,        // server rows, or null while loading / failed
+        sample: false      // true when DEV fixtures are on screen
+      };
+
+      var fullDay = {};    // sport -> boolean, answered by is_full_day()
+
+      /* ---------- tiny helpers (no arithmetic on money) ---------- */
+      function byId(id) { return document.getElementById(id); }
+      function isArr(v) { return Object.prototype.toString.call(v) === "[object Array]"; }
+      /* Reads a number OUT of an RPC response. The shape of a Postgres
+         function's JSON depends on how it returns — scalar, row, setof —
+         so this normalises rather than assuming. It never derives a value. */
+      function numOf(v) {
+        if (v == null) return null;
+        if (typeof v === "number") return isFinite(v) ? v : null;
+        if (typeof v === "string") { return v === "" || isNaN(+v) ? null : +v; }
+        if (isArr(v)) return v.length ? numOf(v[0]) : null;
+        if (typeof v === "object") {
+          var keys = ["amount", "price", "rate", "slot_price", "value", "p_amount"];
+          for (var i = 0; i < keys.length; i++) if (v[keys[i]] != null) return numOf(v[keys[i]]);
+        }
+        return null;
+      }
+      function boolOf(v) {
+        if (typeof v === "boolean") return v;
+        if (isArr(v)) return v.length ? boolOf(v[0]) : null;
+        if (v && typeof v === "object") {
+          var keys = ["is_full_day", "full_day", "value", "fullday"];
+          for (var i = 0; i < keys.length; i++) if (v[keys[i]] != null) return boolOf(v[keys[i]]);
+        }
+        if (v === "true" || v === "t") return true;
+        if (v === "false" || v === "f") return false;
+        return null;
+      }
+      function objOf(v) {
+        if (isArr(v)) return v.length ? objOf(v[0]) : null;
+        return (v && typeof v === "object") ? v : null;
+      }
+      function amountOf(b) { var n = numOf(b && b.amount); return n == null ? 0 : n; }
+      function isPaid(b) { return !!(b && b.paid_at); }
+      function isCancelled(b) { return String((b && b.status) || "") === "cancelled"; }
+      function isPending(b) { return String((b && b.status) || "") === "pending"; }
+      function isBlock(b) { return String((b && b.source) || "").toLowerCase() === "maintenance"; }
+      function isGround(b) {
+        return String((b && b.sport) || "") === SPORT_GROUND || (b && b.court && groundCourts.indexOf(b.court) >= 0);
+      }
+      function hourShort(h) { var ap = h >= 12 ? "PM" : "AM", v = h % 12; return (v === 0 ? 12 : v) + " " + ap; }
+      function shiftDate(iso, days) {
+        var d = new Date(iso + "T00:00:00");
+        d.setDate(d.getDate() + days);
+        return LT.isoDate(d);
+      }
+      function longDate(iso) {
+        var y = new Date(iso + "T00:00:00").getFullYear();
+        return LT.dayName(iso) + ", " + LT.shortDate(iso) + " " + y;
+      }
+      function slotWhen(b) {
+        return isGround(b) ? "full day" : LT.hourLabel(Number(b.hour));
+      }
+
+      /* ---------- court labels + counts, from tenants.config ---------- */
+      function hydrateConfig() {
+        LT_CLOUD.tenantConfig().then(function (row) {
+          var cfg = (row && row.config) || null;
+          if (!cfg) throw new Error("no config");
+          if (cfg.courtLabels) LT.setCourtLabels(cfg.courtLabels);
+          var courts = cfg.courts || {};
+          var n = numOf(courts[SPORT_NETS]);
+          if (n && n > 0) {
+            netCourts = [];
+            for (var i = 1; i <= n; i++) netCourts.push("N" + i);
+          }
+          var g = numOf(courts[SPORT_GROUND]);
+          if (g && g > 0) {
+            groundCourts = [];
+            for (var j = 1; j <= g; j++) groundCourts.push("G" + j);
+          }
+          fillCourtSelect();
+          render();
+        }).catch(function () {
+          /* Labels are decoration, not data: without them the board shows
+             the raw court codes, which are honest. In DEV the sample map
+             keeps the screen reviewable, under the sample-data banner. */
+          if (LT_CLOUD.DEV && window.SKA_DEV) LT.setCourtLabels(SKA_DEV.courtLabels);
+          fillCourtSelect();
+          render();
+        });
+      }
+
+      /* ---------- is the ground really sold by the day? ---------- */
+      function askFullDay(sport, then) {
+        if (fullDay.hasOwnProperty(sport)) { if (then) then(fullDay[sport]); return; }
+        LT_CLOUD.isFullDay(sport).then(function (res) {
+          var b = boolOf(res);
+          if (b !== null) fullDay[sport] = b;
+          if (then) then(fullDay.hasOwnProperty(sport) ? fullDay[sport] : null);
+        }).catch(function () {
+          /* Unknown, not assumed. The server forces hour 0 for a full-day
+             facility whatever this client sends, so an unknown answer
+             degrades to "show the hour picker", never to a wrong price. */
+          if (LT_CLOUD.DEV) fullDay[sport] = (sport === SPORT_GROUND);
+          if (then) then(fullDay.hasOwnProperty(sport) ? fullDay[sport] : null);
+        });
+      }
+
+      /* ============================================================
+         READ THE DAY
+         ============================================================ */
+      function load() {
+        var want = state.date;
+        state.rows = null;
+        renderLoading();
+        LT_CLOUD.bookingsOn(want).then(function (rows) {
+          if (state.date !== want) return;            // a newer day won
+          state.rows = rows || [];
+          state.sample = false;
+          render();
+        }).catch(function (err) {
+          if (state.date !== want) return;
+          if (LT_CLOUD.DEV && window.SKA_DEV) {
+            state.rows = SKA_DEV.bookings.filter(function (b) { return b.date === want; });
+            state.sample = true;
+            render();
+            return;
+          }
+          /* A failed read says so. It never leaves an empty board behind,
+             because an empty academy and a broken one must not look alike. */
+          state.rows = null;
+          renderFail(err);
+        });
+        paintGroundRate();
+      }
+
+      /* The grid host is a CSS grid: a skeleton or a "could not load" panel
+         dropped into it would be squeezed into the 84px hour column, so it
+         goes back to block flow while it is not showing cells. */
+      function gridFlow(block) { byId("netGrid").style.display = block ? "block" : ""; }
+
+      function renderLoading() {
+        byId("dayLine").textContent = longDate(state.date);
+        ["sumCount", "sumPaid", "sumDue", "sumGround"].forEach(function (id) { byId(id).textContent = "—"; });
+        ["sumCountNote", "sumPaidNote", "sumDueNote", "sumGroundNote"].forEach(function (id) { byId(id).innerHTML = "&nbsp;"; });
+        LT.skeleton(byId("gdBody"), 1);
+        gridFlow(true);
+        LT.skeleton(byId("netGrid"), 6);
+        byId("reqCard").classList.add("hide");
+        byId("otherCard").classList.add("hide");
+      }
+
+      function renderFail(err) {
+        byId("dayLine").textContent = longDate(state.date);
+        ["sumCount", "sumPaid", "sumDue", "sumGround"].forEach(function (id) { byId(id).textContent = "—"; });
+        byId("sumCountNote").textContent = "not loaded";
+        byId("sumPaidNote").innerHTML = "&nbsp;";
+        byId("sumDueNote").innerHTML = "&nbsp;";
+        byId("sumGroundNote").innerHTML = "&nbsp;";
+        LT.fail(byId("gdBody"), err);
+        gridFlow(true);
+        LT.fail(byId("netGrid"), err);
+        byId("reqCard").classList.add("hide");
+        byId("otherCard").classList.add("hide");
+      }
+
+      /* ---------- put every row somewhere ---------- */
+      function classify(rows) {
+        var out = { ground: [], cells: {}, requests: [], other: [], live: [] };
+        for (var i = 0; i < rows.length; i++) {
+          var b = rows[i];
+          if (isCancelled(b)) { out.other.push(b); continue; }
+          out.live.push(b);
+          if (isGround(b)) { out.ground.push(b); continue; }
+          if (!b.court) {
+            if (isPending(b)) out.requests.push(b); else out.other.push(b);
+            continue;
+          }
+          var h = Number(b.hour);
+          var key = b.court + "|" + h;
+          if (netCourts.indexOf(b.court) >= 0 && h >= HOUR_OPEN && h <= HOUR_LAST && !out.cells[key]) {
+            out.cells[key] = b;
+          } else {
+            out.other.push(b);
+          }
+        }
+        return out;
+      }
+
+      /* ============================================================
+         RENDER
+         ============================================================ */
+      function render() {
+        byId("dayLine").textContent = longDate(state.date) +
+          (state.date === LT.today() ? " · today" : "") +
+          (state.sample ? " · sample data" : "");
+        if (state.rows === null) return;             // loading or failed; leave as-is
+
+        var rows = state.rows;
+        var g = classify(rows);
+        paintSummary(g);
+        paintRequests(g.requests);
+        paintGround(g.ground);
+        paintNets(g.cells);
+        paintOther(g.other);
+      }
+
+      /* Sums of server-sent amounts. This is the one place the page adds
+         money up, and it adds up only what Postgres already decided. */
+      function paintSummary(g) {
+        var live = g.live, count = 0, paid = 0, due = 0, pending = 0, blocks = 0;
+        for (var i = 0; i < live.length; i++) {
+          var b = live[i];
+          if (isBlock(b)) { blocks++; continue; }
+          count++;
+          if (isPending(b)) pending++;
+          if (isPaid(b)) paid += amountOf(b); else due += amountOf(b);
+        }
+        byId("sumCount").textContent = String(count);
+        byId("sumCountNote").textContent = pending
+          ? pending + " awaiting confirmation"
+          : (blocks ? blocks + " maintenance block" + (blocks === 1 ? "" : "s") : "all confirmed");
+
+        byId("sumPaid").textContent = LT.fmtINR(paid);
+        byId("sumPaidNote").textContent = "money in the till";
+
+        byId("sumDue").textContent = LT.fmtINR(due);
+        byId("sumDueNote").textContent = due > 0 ? "still to collect" : "nothing owing";
+
+        var gr = g.ground.length ? g.ground[0] : null;
+        byId("sumGround").textContent = gr ? (isBlock(gr) ? "Blocked" : "Booked") : "Free";
+        byId("sumGroundNote").textContent = gr
+          ? (isBlock(gr) ? String(gr.name || "Maintenance") : String(gr.name || ""))
+          : "no full-day booking";
+      }
+
+      function paintRequests(list) {
+        var card = byId("reqCard"), host = byId("reqTray");
+        card.classList.toggle("hide", list.length === 0);
+        if (!list.length) return;
+        host.innerHTML = list.map(function (b) {
+          return '<div class="req-row">' +
+            '<span class="rq-who">' + esc(b.name) + "</span>" +
+            '<span class="rq-what">' + esc(slotWhen(b)) + " · " + esc(b.sport || "") +
+            (b.phone ? " · " + esc(b.phone) : "") + "</span>" +
+            '<span class="grow"></span>' +
+            '<span class="rq-amt">' + LT.fmtINR(amountOf(b)) + "</span>" +
+            '<button class="btn btn-glass btn-sm" type="button" data-open="' + esc(b.id) + '">Open</button>' +
+            '<button class="btn btn-primary btn-sm" type="button" data-confirm="' + esc(b.id) + '">Confirm &amp; assign</button>' +
+            "</div>";
+        }).join("");
+      }
+
+      function paintGround(list) {
+        var host = byId("gdBody");
+        if (!list.length) {
+          host.innerHTML =
+            '<div class="gd-row">' +
+            '<div><div class="gd-who">Free all day</div>' +
+            '<div class="gd-sub">' + esc(LT.courtLabel(groundCourts[0] || "G1")) + " · full-day rental</div></div>" +
+            '<div class="gd-acts">' +
+            '<button class="btn btn-primary btn-sm" type="button" data-addground="1">Book the ground</button>' +
+            '<button class="btn btn-glass btn-sm" type="button" data-blockground="1">Block the day</button>' +
+            "</div></div>";
+          return;
+        }
+        host.innerHTML = list.map(function (b) {
+          var cls = isBlock(b) ? "blocked" : isPending(b) ? "pending" : isPaid(b) ? "paid" : "due";
+          var head = isBlock(b)
+            ? '<div class="gd-who">Blocked — ' + esc(b.name || "Maintenance") + "</div>"
+            : '<div class="gd-who">' + esc(b.name) + "</div>";
+          var sub = isBlock(b)
+            ? "Held for the whole day · nobody can book it"
+            : LT.fmtINR(amountOf(b)) + " · " + (b.source ? String(b.source) : "Counter") +
+              (b.phone ? " · " + b.phone : "");
+          var dot = isBlock(b) ? "" :
+            '<span class="paid-dot ' + (isPaid(b) ? "yes" : "no") + '"></span>' +
+            '<span class="' + (isPaid(b) ? "cell-tag green" : "cell-tag gold") + '">' +
+            (isPaid(b) ? "Paid" + (b.paid_mode ? " · " + esc(b.paid_mode) : "") : "Unpaid") + "</span>";
+          var acts = '<button class="btn btn-glass btn-sm" type="button" data-open="' + esc(b.id) + '">Details</button>';
+          if (!isBlock(b) && !isPaid(b) && amountOf(b) > 0) {
+            acts = '<button class="btn btn-primary btn-sm" type="button" data-collect="' + esc(b.id) + '">Collect</button>' + acts;
+          }
+          if (isPending(b)) {
+            acts = '<button class="btn btn-glass btn-sm" type="button" data-confirm="' + esc(b.id) + '">Confirm</button>' + acts;
+          }
+          return '<div class="gd-row ' + cls + '">' +
+            "<div>" + head + '<div class="gd-sub">' + esc(sub) + "</div>" +
+            (dot ? '<div style="margin-top:4px;">' + dot + "</div>" : "") + "</div>" +
+            '<div class="gd-acts">' + acts + "</div></div>";
+        }).join("");
+      }
+
+      function paintNets(cells) {
+        var host = byId("netGrid");
+        gridFlow(false);
+        host.style.setProperty("--nt-cols", String(netCourts.length));
+        var isToday = state.date === LT.today();
+        var nowH = new Date().getHours();
+
+        var html = '<div class="nt-h">Hour</div>';
+        netCourts.forEach(function (c) {
+          var label = LT.courtLabel(c);
+          html += '<div class="nt-h">' + esc(label) + (label === c ? "" : "<small>" + esc(c) + "</small>") + "</div>";
+        });
+
+        for (var h = HOUR_OPEN; h <= HOUR_LAST; h++) {
+          html += '<div class="nt-hour">' + hourShort(h) + "<small>to " + hourShort((h + 1) % 24) + "</small></div>";
+          for (var i = 0; i < netCourts.length; i++) {
+            html += netCell(cells[netCourts[i] + "|" + h], h, netCourts[i], isToday, nowH);
+          }
+        }
+        host.innerHTML = html;
+      }
+
+      function netCell(b, hour, court, isToday, nowH) {
+        var cls = "nt-cell";
+        if (isToday && hour < nowH) cls += " past";
+        if (isToday && hour === nowH) cls += " now";
+        var slot = hour + "|" + court;
+
+        if (!b) {
+          return '<div class="' + cls + ' free">' +
+            '<button class="nt-hit" type="button" data-add="' + slot + '" ' +
+            'aria-label="Book ' + esc(LT.courtLabel(court)) + " at " + hourShort(hour) + '">' +
+            '<span class="nt-free">Free</span></button>' +
+            '<button class="nt-block" type="button" data-block="' + slot + '" title="Block for maintenance" ' +
+            'aria-label="Block ' + esc(LT.courtLabel(court)) + " at " + hourShort(hour) + '">&#9881;</button>' +
+            "</div>";
+        }
+
+        if (isBlock(b)) {
+          return '<div class="' + cls + ' blocked">' +
+            '<button class="nt-hit" type="button" data-bk="' + esc(b.id) + '">' +
+            '<span class="nt-tag">Blocked</span>' +
+            '<span class="nt-amt">' + esc(b.name || "Maintenance") + "</span></button></div>";
+        }
+
+        cls += " on " + (isPending(b) ? "pending" : isPaid(b) ? "paid" : "due");
+        return '<div class="' + cls + '">' +
+          '<button class="nt-hit" type="button" data-bk="' + esc(b.id) + '">' +
+          '<span class="nt-who">' + esc(b.name) + "</span>" +
+          '<span class="nt-amt"><span class="paid-dot ' + (isPaid(b) ? "yes" : "no") + '"></span>' +
+          LT.fmtINR(amountOf(b)) + "</span>" +
+          (isPending(b) ? '<span class="nt-tag">Pending</span>' : "") +
+          "</button></div>";
+      }
+
+      function paintOther(list) {
+        var card = byId("otherCard"), host = byId("otherTray");
+        card.classList.toggle("hide", list.length === 0);
+        if (!list.length) return;
+        host.innerHTML = list.map(function (b) {
+          var tag = isCancelled(b) ? "Cancelled" : "Off-grid";
+          return '<div class="req-row plain">' +
+            '<span class="rq-who">' + esc(b.name) + "</span>" +
+            '<span class="rq-what">' + esc(slotWhen(b)) + " · " + esc(b.sport || "") +
+            (b.court ? " · " + esc(LT.courtLabel(b.court)) : "") + "</span>" +
+            '<span class="cell-tag' + (isCancelled(b) ? " red" : "") + '">' + tag + "</span>" +
+            '<span class="grow"></span>' +
+            '<span class="rq-amt">' + LT.fmtINR(amountOf(b)) + "</span>" +
+            (isCancelled(b) ? "" :
+              '<button class="btn btn-glass btn-sm" type="button" data-open="' + esc(b.id) + '">Open</button>') +
+            "</div>";
+        }).join("");
+      }
+
+      /* ============================================================
+         THE GROUND'S RATE FOR THIS DAY — asked, never derived.
+         Mon–Thu, Fri and the weekend are different prices; which one
+         applies is Postgres's business, not this file's.
+         ============================================================ */
+      var rateToken = 0;
+      function paintGroundRate() {
+        var el = byId("gdRate"), want = ++rateToken, forDate = state.date;
+        el.textContent = "checking rate…";
+        LT_CLOUD.slotPrice(SPORT_GROUND, forDate, 0).then(function (res) {
+          if (want !== rateToken) return;
+          var n = numOf(res);
+          el.innerHTML = n == null
+            ? "rate quoted at save time"
+            : esc(LT.dayName(forDate)) + " rate <b>" + LT.fmtINR(n) + "</b>";
+        }).catch(function (err) {
+          if (want !== rateToken) return;
+          el.textContent = LT_CLOUD.DEV
+            ? "rate unavailable in sample mode"
+            : "rate unavailable — " + (err && err.message ? err.message : "not loaded");
+        });
+
+        askFullDay(SPORT_GROUND, function (yes) {
+          var w = byId("gdWarn");
+          if (yes === false) {
+            w.style.display = "";
+            w.textContent = "Config says this facility is sold by the hour, not by the day. The board is still showing it as a full-day strip — check tenants.config.rates.ground.fullDay before taking a booking.";
+          } else {
+            w.style.display = "none";
+          }
+        });
+      }
+
+      /* ============================================================
+         ADD BOOKING
+         ============================================================ */
+      var abBackdrop = byId("abBackdrop");
+      var abForm = byId("abForm");
+      var amountDirty = false;
+
+      byId("abHour").innerHTML = (function () {
+        var out = "";
+        for (var h = HOUR_OPEN; h <= HOUR_LAST; h++) out += '<option value="' + h + '">' + esc(LT.hourLabel(h)) + "</option>";
+        return out;
+      })();
+
+      function fillCourtSelect() {
+        byId("abCourt").innerHTML = '<option value="">Auto-assign</option>' +
+          netCourts.map(function (c) {
+            return '<option value="' + esc(c) + '">' + esc(LT.courtLabel(c)) + "</option>";
+          }).join("");
+      }
+      fillCourtSelect();
+
+      /* The single source of truth for "this sale has no hour". The hour and
+         court pickers are HIDDEN for a full-day facility, and the payload
+         reads the same flag — so what the operator sees and what is sent can
+         never disagree. */
+      function slotHidden() { return byId("abSlotRow").classList.contains("hide"); }
+
+      function applyFacility() {
+        var sport = byId("abSport").value;
+        /* Paint from the cached answer immediately so the form never flashes
+           an hour picker for the ground, then confirm with is_full_day(). */
+        var cached = fullDay.hasOwnProperty(sport) ? fullDay[sport] : (sport === SPORT_GROUND);
+        byId("abSlotRow").classList.toggle("hide", !!cached);
+        refreshRate();
+        askFullDay(sport, function (yes) {
+          if (byId("abSport").value !== sport) return;      // the operator moved on
+          if (yes === null) return;                          // unknown: keep the painted default
+          if (yes === slotHidden()) return;                  // already right
+          byId("abSlotRow").classList.toggle("hide", yes);
+          refreshRate();
+        });
+      }
+
+      var priceToken = 0;
+      function setRateLine(txt, isErr) {
+        var el = byId("abRate");
+        el.textContent = txt;
+        el.className = isErr ? "gold" : "faint";
+      }
+      /* Prefills the amount from slot_price() so the operator SEES the
+         price before saving — and leaves it editable, because a club
+         negotiates. If they do not touch it we send null, which tells the
+         server "you price it": the displayed figure stays advisory and the
+         charged figure is decided in exactly one place. */
+      function refreshRate() {
+        var sport = byId("abSport").value;
+        var date = byId("abDate").value || state.date;
+        var hour = slotHidden() ? 0 : Number(byId("abHour").value);
+        var want = ++priceToken;
+        setRateLine("Checking the rate…");
+        LT_CLOUD.slotPrice(sport, date, hour).then(function (res) {
+          if (want !== priceToken) return;
+          var n = numOf(res);
+          if (n == null) { setRateLine("The server will price this slot when you save."); return; }
+          if (!amountDirty) byId("abAmount").value = String(n);
+          setRateLine(amountDirty
+            ? "Server rate " + LT.fmtINR(n) + " · you have overridden it"
+            : "Server rate " + LT.fmtINR(n) + (slotHidden() ? " · " + LT.dayName(date) + ", full day" : " · per hour") +
+              " · edit only to negotiate");
+        }).catch(function (err) {
+          if (want !== priceToken) return;
+          if (!amountDirty) byId("abAmount").value = "";
+          setRateLine(LT_CLOUD.DEV
+            ? "Sample mode — no live rate. Leave the amount blank and the server prices it on save."
+            : "Rate unavailable (" + (err && err.message ? err.message : "not loaded") +
+              "). Leave the amount blank and the server prices it.", true);
+        });
+      }
+
+      byId("abAmount").addEventListener("input", function () {
+        amountDirty = this.value !== "";
+      });
+      byId("abSport").addEventListener("change", applyFacility);
+      byId("abHour").addEventListener("change", refreshRate);
+      byId("abDate").addEventListener("change", refreshRate);
+      byId("abPaid").addEventListener("change", function () {
+        byId("abPayRow").classList.toggle("hide", !this.checked);
+      });
+
+      function openAdd(pre) {
+        pre = pre || {};
+        abForm.reset();
+        amountDirty = false;
+        byId("abMsg").textContent = "";
+        byId("abMsg").className = "form-msg";
+        byId("abSport").value = pre.sport || SPORT_NETS;
+        byId("abDate").value = pre.date || state.date;
+        if (pre.hour != null) byId("abHour").value = String(pre.hour);
+        byId("abCourt").value = pre.court || "";
+        byId("abPaid").checked = true;                       // counter sales are paid at the counter
+        byId("abPayRow").classList.remove("hide");
+        byId("abBy").value = LT.store.read("collected-by", "") || "";
+        byId("abAmount").value = "";
+        applyFacility();
+        abBackdrop.classList.add("open");
+        setTimeout(function () { byId("abName").focus(); }, 60);
+      }
+      function closeAdd() { abBackdrop.classList.remove("open"); }
+
+      byId("addBtn").addEventListener("click", function () { openAdd({}); });
+      byId("abClose").addEventListener("click", closeAdd);
+      abBackdrop.addEventListener("click", function (e) { if (e.target === abBackdrop) closeAdd(); });
+
+      abForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var msg = byId("abMsg"), btn = byId("abSave");
+        var name = String(byId("abName").value || "").trim();
+        if (!name) {
+          msg.textContent = "Please enter who booked.";
+          msg.className = "form-msg error";
+          return;
+        }
+        var amountRaw = String(byId("abAmount").value || "").trim();
+        if (amountDirty && amountRaw !== "" && (isNaN(+amountRaw) || +amountRaw < 0)) {
+          msg.textContent = "The amount must be a number, or blank to let the server price it.";
+          msg.className = "form-msg error";
+          return;
+        }
+        /* An hourly sale MUST carry a real hour. Hour 0 means "the whole
+           day" on this platform, so a net booking that fell through to 0
+           would be a row the board cannot draw and Finance cannot explain —
+           the very bug this page exists to prevent. Refuse it here. */
+        var fullDaySale = slotHidden();
+        var hourRaw = String(byId("abHour").value || "");
+        var hourNum = Number(hourRaw);
+        if (!fullDaySale && (hourRaw === "" || !isFinite(hourNum) || hourNum < HOUR_OPEN || hourNum > HOUR_LAST)) {
+          msg.textContent = "Pick an hour slot for this booking.";
+          msg.className = "form-msg error";
+          return;
+        }
+        var paid = byId("abPaid").checked;
+        var by = String(byId("abBy").value || "").trim();
+        var payload = {
+          sport: byId("abSport").value,
+          date: byId("abDate").value || state.date,
+          /* hour 0 IS the full day for the ground, and the server forces it
+             regardless — sending anything else would only be a lie in the
+             request log. */
+          hour: fullDaySale ? 0 : hourNum,
+          name: name,
+          phone: String(byId("abPhone").value || "").trim() || null,
+          source: byId("abSource").value,
+          court: fullDaySale ? null : (byId("abCourt").value || null),
+          /* untouched → null → "server, you price it" */
+          amount: amountDirty && amountRaw !== "" ? Number(amountRaw) : null,
+          paid: paid,
+          mode: paid ? byId("abMode").value : null,
+          collectedBy: paid ? (by || null) : null
+        };
+
+        btn.disabled = true;
+        msg.textContent = "";
+        msg.className = "form-msg";
+        LT_CLOUD.recordBooking(payload).then(function (res) {
+          var row = objOf(res) || {};
+          var charged = numOf(row.amount);
+          if (by) LT.store.write("collected-by", by);
+          LT_CLOUD.track("staff_booking_added", { sport: payload.sport, source: payload.source, paid: paid });
+          btn.disabled = false;
+          closeAdd();
+          /* The toast quotes the amount the DATABASE charged, not the one
+             typed into the form. They are usually the same; when they are
+             not, the database is right. */
+          LT.toast("Booking saved" +
+            (row.court ? " · " + LT.courtLabel(row.court) : "") +
+            (charged == null ? "" : " · " + LT.fmtINR(charged)));
+          state.date = payload.date;
+          byId("bkDate").value = state.date;
+          load();                                            // repaint from the server, never from the input
+        }).catch(function (err) {
+          btn.disabled = false;
+          var m = (err && err.message) || "Could not save.";
+          msg.textContent = m;
+          msg.className = "form-msg error";
+          if (err && err.dev) LT.toast(m);                   // DEV: nothing was written, and nothing pretends it was
+        });
+      });
+
+      /* ============================================================
+         BOOKING DETAIL
+         ============================================================ */
+      var bdBackdrop = byId("bdBackdrop");
+      /* Ids come back from PostgREST as whatever the column is — a uuid, a
+         bigint, a text key. The DOM only ever holds strings, so compare as
+         strings rather than assuming the column type. */
+      function bookingById(id) {
+        if (!state.rows) return null;
+        var want = String(id);
+        for (var i = 0; i < state.rows.length; i++) {
+          if (String(state.rows[i].id) === want) return state.rows[i];
+        }
+        return null;
+      }
+      function closeDetail() { bdBackdrop.classList.remove("open"); }
+      byId("bdClose").addEventListener("click", closeDetail);
+      bdBackdrop.addEventListener("click", function (e) { if (e.target === bdBackdrop) closeDetail(); });
+
+      function row(k, v) {
+        return '<div class="bd-row"><span class="k">' + esc(k) + '</span><span class="v">' + v + "</span></div>";
+      }
+      function openDetail(id) {
+        var b = bookingById(id);
+        if (!b) { LT.toast("That booking is no longer on this day."); return; }
+        byId("bdKicker").textContent = isBlock(b) ? "Maintenance block" : "Booking";
+        byId("bdTitle").textContent = isBlock(b) ? (b.name || "Maintenance") : b.name;
+
+        var facility = isGround(b) ? "Main ground" : "Practice nets";
+        var html = "";
+        html += row("Facility", esc(facility) + (b.court ? " · " + esc(LT.courtLabel(b.court)) : " · unassigned"));
+        html += row("When", esc(LT.shortDate(b.date) + " · " + slotWhen(b)));
+        html += row("Status", '<span class="cell-status ' +
+          (isCancelled(b) ? "red" : isPending(b) ? "gold" : "green") + '">' +
+          esc(b.status || "confirmed") + "</span>");
+        if (!isBlock(b)) {
+          html += row("Amount", '<span class="money">' + LT.fmtINR(amountOf(b)) + "</span>");
+          html += row("Payment", '<span class="paid-dot ' + (isPaid(b) ? "yes" : "no") + '"></span>' +
+            (isPaid(b)
+              ? esc("Collected" + (b.paid_mode ? " · " + b.paid_mode : "") + (b.collected_by ? " · " + b.collected_by : ""))
+              : "Not collected"));
+          html += row("Source", esc(b.source || "Counter"));
+          if (b.phone) {
+            html += row("Phone", '<a href="' + esc(LT.waLink(b.phone, "")) + '" target="_blank" rel="noopener">' +
+              esc(b.phone) + "</a>");
+          }
+        }
+        byId("bdList").innerHTML = html;
+
+        var acts = "";
+        if (!isCancelled(b)) {
+          if (!isBlock(b) && !isPaid(b) && amountOf(b) > 0) {
+            acts += '<button class="btn btn-primary btn-sm" type="button" data-collect="' + esc(b.id) + '">Collect payment</button>';
+          }
+          if (isPending(b)) {
+            acts += '<button class="btn btn-glass btn-sm" type="button" data-confirm="' + esc(b.id) + '">Confirm</button>';
+          }
+          if (!isBlock(b) && b.phone) {
+            acts += '<a class="btn btn-glass btn-sm" href="' +
+              esc(LT.waLink(b.phone, "Hello " + String(b.name || "").split(" ")[0] + ", this is Super Kings Academy, VAKAMAN FE.")) +
+              '" target="_blank" rel="noopener">WhatsApp</a>';
+          }
+          acts += '<button class="btn btn-ghost btn-sm" type="button" data-cancel="' + esc(b.id) + '">' +
+            (isBlock(b) ? "Remove block" : "Cancel booking") + "</button>";
+        } else {
+          acts = '<span class="faint" style="font-size:12.5px;">This booking is cancelled. The slot is free again.</span>';
+        }
+        byId("bdActs").innerHTML = acts;
+        bdBackdrop.classList.add("open");
+      }
+
+      /* ============================================================
+         COLLECT — money taken later, without leaving this screen
+         ============================================================ */
+      var clBackdrop = byId("clBackdrop");
+      var clId = null, clAmountDirty = false;
+      byId("clAmount").addEventListener("input", function () { clAmountDirty = true; });
+      function closeCollect() { clBackdrop.classList.remove("open"); clId = null; }
+      byId("clClose").addEventListener("click", closeCollect);
+      byId("clCancel").addEventListener("click", closeCollect);
+      clBackdrop.addEventListener("click", function (e) { if (e.target === clBackdrop) closeCollect(); });
+
+      function openCollect(id) {
+        var b = bookingById(id);
+        if (!b) { LT.toast("That booking is no longer on this day."); return; }
+        clId = b.id;
+        clAmountDirty = false;
+        byId("clTitle").textContent = "Collect from " + b.name;
+        byId("clSub").textContent = (isGround(b) ? "Main ground · full day" : "Practice nets · " + LT.hourLabel(Number(b.hour))) +
+          " on " + LT.shortDate(b.date) + ". This records the money against the booking — there is no second screen.";
+        byId("clBy").value = LT.store.read("collected-by", "") || "";
+        byId("clAmount").value = String(amountOf(b));        // the server's own figure, shown back
+        byId("clMsg").textContent = "";
+        byId("clMsg").className = "form-msg";
+        clBackdrop.classList.add("open");
+      }
+
+      byId("clConfirm").addEventListener("click", function () {
+        if (!clId) return;
+        var btn = this, msg = byId("clMsg");
+        var by = String(byId("clBy").value || "").trim();
+        var raw = String(byId("clAmount").value || "").trim();
+        if (clAmountDirty && raw !== "" && (isNaN(+raw) || +raw < 0)) {
+          msg.textContent = "The amount must be a number.";
+          msg.className = "form-msg error";
+          return;
+        }
+        btn.disabled = true;
+        msg.textContent = "";
+        msg.className = "form-msg";
+        /* Untouched → null: collect what the booking says it owes. Only a
+           deliberate edit sends a figure. */
+        LT_CLOUD.collectBooking(clId, byId("clMode").value, by || null,
+          clAmountDirty && raw !== "" ? Number(raw) : null)
+          .then(function (res) {
+            var got = numOf(objOf(res) && objOf(res).amount);
+            if (by) LT.store.write("collected-by", by);
+            btn.disabled = false;
+            closeCollect();
+            closeDetail();
+            LT.toast("Collected" + (got == null ? "" : " " + LT.fmtINR(got)));
+            load();
+          }).catch(function (err) {
+            btn.disabled = false;
+            var m = (err && err.message) || "Could not collect.";
+            msg.textContent = m;
+            msg.className = "form-msg error";
+            if (err && err.dev) LT.toast(m);
+          });
+      });
+
+      /* ============================================================
+         REASON SHEET — cancel and block
+         ============================================================ */
+      var rsBackdrop = byId("rsBackdrop"), rsState = null;
+      function closeReason() { rsBackdrop.classList.remove("open"); rsState = null; }
+      function openReason(opts) {
+        rsState = opts;
+        byId("rsKicker").textContent = opts.kicker || "";
+        byId("rsTitle").textContent = opts.title || "";
+        byId("rsSub").textContent = opts.sub || "";
+        byId("rsNote").value = "";
+        var c = byId("rsConfirm");
+        c.textContent = opts.confirmLabel || "Confirm";
+        c.classList.toggle("danger", !!opts.danger);
+        byId("rsChips").innerHTML = (opts.chips || []).map(function (r, i) {
+          return '<button type="button" class="rs-chip' + (i === 0 ? " sel" : "") + '" data-r="' + esc(r) + '">' + esc(r) + "</button>";
+        }).join("");
+        rsBackdrop.classList.add("open");
+      }
+      byId("rsChips").addEventListener("click", function (e) {
+        var chip = e.target.closest ? e.target.closest(".rs-chip") : null;
+        if (!chip) return;
+        LT.$$(".rs-chip", this).forEach(function (c) { c.classList.toggle("sel", c === chip); });
+      });
+      function rsReason() {
+        var sel = LT.$("#rsChips .rs-chip.sel");
+        var base = sel ? sel.getAttribute("data-r") : "";
+        var note = String(byId("rsNote").value || "").trim();
+        return note ? (base ? base + " · " + note : note) : base;
+      }
+      byId("rsClose").addEventListener("click", closeReason);
+      byId("rsKeep").addEventListener("click", closeReason);
+      rsBackdrop.addEventListener("click", function (e) { if (e.target === rsBackdrop) closeReason(); });
+      byId("rsConfirm").addEventListener("click", function () {
+        if (!rsState) return;
+        var fn = rsState.onConfirm, reason = rsReason();
+        closeReason();
+        if (fn) fn(reason);
+      });
+
+      function doCancel(id, reason) {
+        LT_CLOUD.cancelBooking(id, reason || null).then(function () {
+          closeDetail();
+          LT.toast("Cancelled — the slot is free again");
+          load();
+        }).catch(function (err) {
+          LT.toast((err && err.message) || "Could not cancel.");
+        });
+      }
+      function doBlock(sport, hour, court, reason) {
+        LT_CLOUD.blockMaintenance({
+          sport: sport, date: state.date, hour: hour, court: court, reason: reason || "Maintenance"
+        }).then(function () {
+          LT.toast("Blocked — nobody can book it");
+          load();
+        }).catch(function (err) {
+          LT.toast((err && err.message) || "Could not block.");
+        });
+      }
+
+      /* ============================================================
+         ONE DELEGATED CLICK HANDLER
+         ============================================================ */
+      document.addEventListener("click", function (e) {
+        var t = e.target;
+        if (!t || !t.closest) return;
+        var el;
+
+        if ((el = t.closest("[data-bk]"))) { openDetail(el.getAttribute("data-bk")); return; }
+        if ((el = t.closest("[data-open]"))) { openDetail(el.getAttribute("data-open")); return; }
+
+        if ((el = t.closest("[data-add]"))) {
+          var slot = el.getAttribute("data-add").split("|");
+          openAdd({ sport: SPORT_NETS, hour: Number(slot[0]), court: slot[1] });
+          return;
+        }
+        if (t.closest("[data-addground]")) {
+          openAdd({ sport: SPORT_GROUND });
+          return;
+        }
+
+        if ((el = t.closest("[data-collect]"))) { openCollect(el.getAttribute("data-collect")); return; }
+
+        if ((el = t.closest("[data-confirm]"))) {
+          var cid = el.getAttribute("data-confirm");
+          el.disabled = true;
+          LT_CLOUD.confirmBooking(cid).then(function (res) {
+            var r = objOf(res) || {};
+            closeDetail();
+            LT.toast("Confirmed" + (r.court ? " · " + LT.courtLabel(r.court) : ""));
+            load();
+          }).catch(function (err) {
+            el.disabled = false;
+            LT.toast((err && err.message) || "Could not confirm.");
+          });
+          return;
+        }
+
+        if ((el = t.closest("[data-cancel]"))) {
+          var id = el.getAttribute("data-cancel");
+          var b = bookingById(id);
+          var when = b ? (isGround(b) ? "the ground for the whole day" :
+            LT.courtLabel(b.court) + " · " + LT.hourLabel(Number(b.hour))) : "this slot";
+          openReason({
+            kicker: isBlock(b) ? "Remove block" : "Cancel booking",
+            title: isBlock(b) ? "Free this slot again?" : "Cancel this booking?",
+            sub: "Frees " + when + " on " + LT.shortDate(state.date) +
+              ". It does not refund anything already collected — do that at the counter.",
+            chips: ["Rain", "No-show", "Double-booked", "Customer request", "Entered by mistake"],
+            confirmLabel: isBlock(b) ? "Remove block" : "Cancel booking",
+            danger: true,
+            onConfirm: function (reason) { doCancel(id, reason); }
+          });
+          return;
+        }
+
+        if ((el = t.closest("[data-block]"))) {
+          var s = el.getAttribute("data-block").split("|");
+          var bh = Number(s[0]), bc = s[1];
+          openReason({
+            kicker: "Block slot",
+            title: "Block " + LT.courtLabel(bc) + "?",
+            sub: "Holds " + LT.hourLabel(bh) + " on " + LT.shortDate(state.date) +
+              " so nobody can book it, here or on the public page.",
+            chips: ["Maintenance", "Net / surface repair", "Rain", "Cleaning", "Academy session"],
+            confirmLabel: "Block slot",
+            onConfirm: function (reason) { doBlock(SPORT_NETS, bh, bc, reason); }
+          });
+          return;
+        }
+
+        if (t.closest("[data-blockground]")) {
+          openReason({
+            kicker: "Block the ground",
+            title: "Block the main ground?",
+            sub: "Holds the whole of " + LT.shortDate(state.date) +
+              " so the ground cannot be sold for that day.",
+            chips: ["Maintenance", "Pitch preparation", "Rain", "Academy match", "Tournament"],
+            confirmLabel: "Block the day",
+            onConfirm: function (reason) { doBlock(SPORT_GROUND, 0, groundCourts[0] || "G1", reason); }
+          });
+          return;
+        }
+      });
+
+      /* keyboard: escape closes the topmost sheet */
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        if (rsBackdrop.classList.contains("open")) { closeReason(); return; }
+        if (clBackdrop.classList.contains("open")) { closeCollect(); return; }
+        if (bdBackdrop.classList.contains("open")) { closeDetail(); return; }
+        if (abBackdrop.classList.contains("open")) { closeAdd(); return; }
+      });
+
+      /* ---------- day navigation ---------- */
+      var dateInput = byId("bkDate");
+      dateInput.value = state.date;
+      dateInput.addEventListener("change", function () {
+        state.date = this.value || LT.today();
+        load();
+      });
+      byId("prevDay").addEventListener("click", function () {
+        state.date = shiftDate(state.date, -1);
+        dateInput.value = state.date;
+        load();
+      });
+      byId("nextDay").addEventListener("click", function () {
+        state.date = shiftDate(state.date, 1);
+        dateInput.value = state.date;
+        load();
+      });
+      byId("todayBtn").addEventListener("click", function () {
+        state.date = LT.today();
+        dateInput.value = state.date;
+        load();
+      });
+      byId("refreshBtn").addEventListener("click", function () { load(); });
+
+      /* ---------- go ---------- */
+      hydrateConfig();
+      load();
+    })();
+  </script>
+</body>
+</html>

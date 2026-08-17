@@ -1,0 +1,486 @@
+/* ============================================================
+   SUPER KINGS ACADEMY — app shell (window.LT)
+   Tenant 'ska'. ES5, one IIFE, no build step.
+
+   A faithful port of the Academy Manager demo shell — same namespace,
+   same class names, same glass components — so page markup ports across
+   unchanged. FIVE differences, each of them a defect in the original that
+   would be a live bug in a paying academy:
+
+   1. STORAGE PREFIX 'ska-'. GitHub Pages serves every tenant app from the
+      same origin (sujittarun.github.io), and localStorage is per-origin.
+      Two apps sharing the 'amd-' prefix read each other's session and
+      theme. Every key here comes from PREFIX so it cannot drift.
+
+   2. LT.auth.require() ACTUALLY GUARDS. The demo's seats an anonymous
+      visitor as a read-only "viewer" and never redirects — deliberate,
+      because a sales prospect must never meet a password. This is not a
+      demo; an unauthenticated visitor goes to login.html.
+
+   3. THE LOGOUT BADGE IS NULL-SAFE. The original does
+      nav.querySelector("[data-logout]").title = s.email but only renders
+      those buttons when the visitor is not a viewer — so a session with
+      an email and no token throws and aborts the rest of the page's boot
+      script.
+
+   4. THE MODAL SCROLL LOCK OBSERVES document.body, subtree. The original
+      observes only the .lt-modal-backdrop elements present at
+      DOMContentLoaded, so a modal injected later never locks the page and
+      the background scrolls under it on touch. This app builds modals
+      dynamically.
+
+   5. NO VENUE SWITCHER. One centre, VAKAMAN FE. The demo's switcher
+      labels the same key two different ways on one screen and forces a
+      full location.reload() that destroys unsaved form state.
+
+   LOAD ORDER MATTERS: this file must sit at the END of <body>, never in
+   <head>. The ink-filter IIFE below returns early if document.body does
+   not exist yet and never retries. Every page also needs the blocking
+   theme script in <head> (see any page's <head>) or it renders dark and
+   flashes.
+   ============================================================ */
+(function () {
+  "use strict";
+
+  var LT = (window.LT = window.LT || {});
+  var PREFIX = "ska-";
+
+  var ACADEMY = "Super Kings Academy";
+  var VENUE = "VAKAMAN FE";   // all capitals, always. Not title case.
+
+  var MANAGER_TABS = [
+    ["dashboard.html", "Dashboard", '<path d="M3 13h8V3H3zm0 8h8v-6H3zm10 0h8V11h-8zm0-18v6h8V3z"/>'],
+    ["bookings.html", "Bookings", '<path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14zM5 8V6h14v2zm4 6H7v-2h2zm4 0h-2v-2h2zm4 0h-2v-2h2zm-8 4H7v-2h2zm4 0h-2v-2h2z"/>'],
+    ["attendance.html", "Attendance", '<path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>'],
+    ["players.html", "Members", '<path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>'],
+    ["fees.html", "Finance", '<path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1H6.32c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>']
+  ];
+
+  /* ---------- Brand mark ----------
+     A RELATIVE src, so a page served from a subdirectory would break it —
+     every page in this app is at the repo root, which is what keeps it
+     working on GitHub Pages under /SKAcademy/.
+
+     The client is a CSK franchisee and will supply their own licensed
+     mark. Until it lands, this renders a typographic monogram rather than
+     an <img> to a file that does not exist (a broken-image icon in the
+     nav of a client demo is worse than no image), and NO CSK or IPL
+     artwork is reproduced anywhere in this repo. Drop the real file in as
+     assets/img/ska-mark.png and this picks it up. */
+  var MARK_SRC = "assets/img/ska-mark.png";
+  var markOk = null;
+  LT.logoSVG = function (size) {
+    var w = size || 40;
+    if (markOk === false) return monogram(w);
+    return '<img src="' + MARK_SRC + '" width="' + w + '" alt="' + ACADEMY +
+           '" style="display:block;border-radius:8px" ' +
+           'onerror="this.outerHTML=window.LT._monogram(' + w + ')" />';
+  };
+  function monogram(w) {
+    var f = Math.round(w * 0.42);
+    return '<span aria-label="' + ACADEMY + '" style="display:grid;place-items:center;' +
+      'width:' + w + 'px;height:' + w + 'px;border-radius:9px;' +
+      'background:var(--gold-grad);color:#231d00;font-weight:800;' +
+      'font-size:' + f + 'px;letter-spacing:-.5px;line-height:1">SKA</span>';
+  }
+  LT._monogram = function (w) { markOk = false; return monogram(w); };
+
+  /* ---------- Theme (dark-first, persisted) ---------- */
+  LT.theme = {
+    get: function () { return document.documentElement.dataset.theme || "dark"; },
+    set: function (t) {
+      document.documentElement.dataset.theme = t;
+      /* Stored as a RAW string, matching the blocking <head> script that
+         reads it. Do NOT route this through LT.store — that JSON-parses
+         and would throw on every load, silently falling back forever. */
+      try { localStorage.setItem(PREFIX + "theme", t); } catch (e) {}
+      document.querySelectorAll(".theme-toggle").forEach(LT.theme.paint);
+    },
+    toggle: function () { LT.theme.set(LT.theme.get() === "dark" ? "light" : "dark"); },
+    paint: function (btn) {
+      var dark = LT.theme.get() === "dark";
+      btn.innerHTML = dark
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+      btn.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+    }
+  };
+
+  /* ---------- Toast ---------- */
+  var toastEl, toastTimer;
+  LT.toast = function (msg, kind, ms) {
+    if (!toastEl) {
+      toastEl = document.createElement("div");
+      toastEl.className = "lt-toast";
+      document.body.appendChild(toastEl);
+    }
+    toastEl.textContent = msg;
+    toastEl.dataset.kind = kind || "";
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, ms || 3200);
+  };
+
+  /* ---------- Small preference store ----------
+     UI PREFERENCES ONLY. No members, no payments, no bookings, no
+     attendance. The demo keeps all of those here as the system of record
+     with a write path that swallows quota errors, so a recorded payment
+     can vanish with no toast and no console warning. Postgres is the
+     store; this is for which tab you had open. */
+  LT.store = {
+    read: function (key, fallback) {
+      try { var v = localStorage.getItem(PREFIX + key); return v ? JSON.parse(v) : fallback; }
+      catch (e) { return fallback; }
+    },
+    write: function (key, val) {
+      try { localStorage.setItem(PREFIX + key, JSON.stringify(val)); return true; }
+      catch (e) { return false; }          // returns false — callers can react
+    },
+    drop: function (key) { try { localStorage.removeItem(PREFIX + key); } catch (e) {} }
+  };
+
+  /* ---------- Auth ----------
+     Thin wrapper over LT_CLOUD so pages never touch the session directly.
+     cloud.js may not be loaded on a purely public page, hence the guards. */
+  LT.auth = {
+    cloud: function () { return window.LT_CLOUD || null; },
+    session: function () { var c = LT.auth.cloud(); return c ? c.session() : null; },
+    signedIn: function () { var c = LT.auth.cloud(); return !!(c && c.signedIn()); },
+    role: function () { var c = LT.auth.cloud(); return c ? c.role() : ""; },
+    isCoach: function () { return LT.auth.role() === "coach"; },
+    isDev: function () { var s = LT.auth.session(); return !!(s && s.dev); },
+
+    logout: function () {
+      var c = LT.auth.cloud();
+      if (c) c.signOut();
+      /* Clear UI state too. The demo's logout clears none of it. */
+      LT.store.drop("last-tab");
+      location.href = "login.html";
+    },
+
+    /* Where this role belongs. A coach sent to a manager page sees a wall
+       of empty lists, because a coach passes no RLS policy at all. */
+    homeFor: function (role) {
+      return role === "coach" ? "coach.html" : "dashboard.html";
+    },
+
+    /* THE GUARD. Redirects, unlike the demo's.
+       Returns true when the caller may continue rendering. */
+    require: function (opts) {
+      opts = opts || {};
+      if (!LT.auth.signedIn()) {
+        var here = (location.pathname.split("/").pop() || "dashboard.html");
+        location.replace("login.html?next=" + encodeURIComponent(here));
+        return false;
+      }
+      if (opts.staffOnly && LT.auth.isCoach()) {
+        location.replace("coach.html");
+        return false;
+      }
+      return true;
+    }
+  };
+
+  /* ---------- Formatters ---------- */
+  LT.fmtINR = function (n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); };
+
+  LT.esc = function (s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  };
+
+  /* Two initials, not one. Written out rather than as one expression:
+     `+` binds tighter than `||`, so the compact form parses as
+     `first || ("" + second)` and short-circuits the moment a first name
+     exists — silently rendering "A" for "Aarav Krishnamurthy" on every
+     avatar in the app, where initials collide constantly across a roster. */
+  LT.initials = function (name) {
+    var p = String(name || "").trim().split(/\s+/);
+    var a = (p[0] || "")[0] || "";
+    var b = (p[1] || "")[0] || "";
+    return (a + b).toUpperCase() || "?";
+  };
+
+  /* LOCAL date, never toISOString(). IST is UTC+5:30, so before 05:30 IST
+     toISOString() reports YESTERDAY — and the attendance ladder and every
+     "today" filter are built on IST calendar days. */
+  LT.isoDate = function (d) {
+    d = d || new Date();
+    var m = String(d.getMonth() + 1), day = String(d.getDate());
+    return d.getFullYear() + "-" + (m.length < 2 ? "0" + m : m) + "-" + (day.length < 2 ? "0" + day : day);
+  };
+  LT.today = function () { return LT.isoDate(new Date()); };
+
+  LT.dayName = function (iso) {
+    var d = new Date(iso + "T00:00:00");
+    return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()];
+  };
+  LT.shortDate = function (iso) {
+    var d = new Date(iso + "T00:00:00");
+    return d.getDate() + " " + ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
+  };
+  LT.hourLabel = function (h) {
+    function t(x) { var ap = x >= 12 ? "PM" : "AM", hh = x % 12; return (hh === 0 ? 12 : hh) + " " + ap; }
+    return t(h) + " – " + t((h + 1) % 24);
+  };
+
+  LT.phone10 = function (s) { return String(s || "").replace(/\D/g, "").slice(-10); };
+  LT.waLink = function (phone, text) {
+    return "https://wa.me/91" + LT.phone10(phone) + (text ? "?text=" + encodeURIComponent(text) : "");
+  };
+
+  /* ---------- DOM helpers ---------- */
+  LT.$  = function (sel, root) { return (root || document).querySelector(sel); };
+  LT.$$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+
+  LT.skeleton = function (host, rows) {
+    if (!host) return;
+    var h = "";
+    for (var i = 0; i < (rows || 3); i++) h += '<div class="lt-skel"></div>';
+    host.innerHTML = h;
+  };
+
+  LT.empty = function (host, title, sub) {
+    if (!host) return;
+    host.innerHTML =
+      '<div class="lt-empty"><div class="lt-empty-t">' + LT.esc(title) + "</div>" +
+      (sub ? '<div class="lt-empty-s">' + LT.esc(sub) + "</div>" : "") + "</div>";
+  };
+
+  /* A failed read says so. It never leaves stale or invented rows on
+     screen — an empty academy and a broken one must not look alike. */
+  LT.fail = function (host, err) {
+    if (!host) return;
+    var msg = (err && err.message) || "Could not load.";
+    host.innerHTML =
+      '<div class="lt-empty"><div class="lt-empty-t">Could not load</div>' +
+      '<div class="lt-empty-s">' + LT.esc(msg) + "</div></div>";
+  };
+
+  LT.courtLabel = function (code) {
+    return (LT._courtLabels && LT._courtLabels[code]) || code || "";
+  };
+  LT.setCourtLabels = function (map) { LT._courtLabels = map || {}; };
+
+  /* ---------- Count-up ----------
+     Cancellable, unlike the original. A page that re-renders its stats
+     after a cloud fetch otherwise leaves two rAF loops writing the same
+     element, and the numbers visibly fight. */
+  LT.countUp = function (el, target, opts) {
+    if (!el) return;
+    opts = opts || {};
+    target = Number(target) || 0;
+
+    function paint(v) {
+      el.textContent = (opts.prefix || "") + Number(v).toLocaleString("en-IN") + (opts.suffix || "");
+    }
+
+    if (el._cuRaf) cancelAnimationFrame(el._cuRaf);
+    if (el._cuFail) clearTimeout(el._cuFail);
+
+    /* Jump straight to the answer when motion is not wanted, or when the
+       number is too small for a count to read as anything but a glitch.
+       Animating 1 renders a visible "0" first, which on a hero stat says
+       the academy has no ground. */
+    var reduce = false;
+    try { reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
+    if (reduce || Math.abs(target) < 5) { paint(target); return; }
+
+    var dur = opts.ms || 900, from = 0, t0 = null;
+
+    function frame(ts) {
+      if (!t0) t0 = ts;
+      var p = Math.min(1, (ts - t0) / dur);
+      paint(Math.round(from + (target - from) * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) { el._cuRaf = requestAnimationFrame(frame); }
+      else { el._cuRaf = null; clearTimeout(el._cuFail); paint(target); }
+    }
+
+    /* SAFETY NET, and the reason it exists: requestAnimationFrame stops
+       being called when the tab is not actively rendering — background
+       tab, low-power mode, an inactive window. Without this the counter
+       freezes at whatever fraction it reached and STAYS there, so the
+       hero reads "2 practice nets" when there are 4. Observed exactly
+       that, stuck at ~50%, which is worse than no animation because it
+       looks deliberate. The final value is never left to the animation. */
+    el._cuFail = setTimeout(function () {
+      if (el._cuRaf) { cancelAnimationFrame(el._cuRaf); el._cuRaf = null; }
+      paint(target);
+    }, dur + 400);
+
+    el._cuRaf = requestAnimationFrame(frame);
+  };
+
+  /* ---------- Manager shell ---------- */
+  LT.managerShell = function (activeHref, opts) {
+    opts = opts || {};
+    var s = LT.auth.session();
+
+    var tabsHtml = MANAGER_TABS.map(function (t) {
+      var act = t[0] === activeHref ? " active" : "";
+      return '<a class="nav-tab' + act + '" href="' + t[0] + '"><svg viewBox="0 0 24 24" fill="currentColor">' + t[2] + "</svg><span>" + t[1] + "</span></a>";
+    }).join("");
+    var dockHtml = MANAGER_TABS.map(function (t) {
+      var act = t[0] === activeHref ? " active" : "";
+      return '<a class="dock-tab' + act + '" href="' + t[0] + '"><svg viewBox="0 0 24 24" fill="currentColor">' + t[2] + "</svg>" + t[1] + "</a>";
+    }).join("");
+
+    var nav = document.createElement("nav");
+    nav.className = "lt-nav glass";
+    nav.innerHTML =
+      '<a class="nav-brand" href="dashboard.html"><span class="mark">' + LT.logoSVG(40) + "</span>" +
+      '<span class="t"><strong>' + ACADEMY + "</strong><span>" + VENUE + "</span></span></a>" +
+      (opts.minimal ? "" : '<div class="nav-tabs">' + tabsHtml + "</div>") +
+      '<div class="nav-actions">' +
+      '<button type="button" class="theme-toggle"></button>' +
+      '<button type="button" class="btn btn-icon btn-glass only-mobile" data-logout aria-label="Sign out" title="Sign out">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>' +
+      "</button>" +
+      '<button type="button" class="btn btn-ghost btn-sm hide-mobile" data-logout>Sign out</button>' +
+      "</div>";
+    document.body.prepend(nav);
+
+    if (!opts.minimal) {
+      var dock = document.createElement("nav");
+      dock.className = "lt-dock glass";
+      dock.innerHTML = dockHtml;
+      document.body.appendChild(dock);
+    }
+
+    /* Null-safe: the original assumes the button exists. */
+    if (s && s.email) {
+      var badge = nav.querySelector("[data-logout]");
+      if (badge) badge.title = s.email;
+    }
+
+    if (window.LT_CLOUD && LT_CLOUD.DEV) LT.devBanner();
+  };
+
+  /* ---------- DEV banner ----------
+     Loud on purpose. Sample data on screen that a manager mistakes for
+     their academy is the worst outcome this app can produce, and this
+     platform has already shipped a dashboard showing an academy that had
+     never taken a rupee. */
+  LT.devBanner = function () {
+    if (document.querySelector(".lt-devbar")) return;
+    var b = document.createElement("div");
+    b.className = "lt-devbar";
+    b.innerHTML = "SAMPLE DATA — sign-in is not wired yet, so nothing here is from the live academy and nothing you enter is saved.";
+    document.body.prepend(b);
+    document.body.classList.add("has-devbar");
+  };
+
+  /* ---------- Emblem ink filter (light theme) ---------- */
+  (function injectInkFilter() {
+    if (!document.body || document.getElementById("mxInk")) return;
+    var host = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    host.setAttribute("width", "0");
+    host.setAttribute("height", "0");
+    host.setAttribute("aria-hidden", "true");
+    host.style.position = "absolute";
+    host.innerHTML =
+      '<filter id="mxInk" color-interpolation-filters="sRGB">' +
+      '<feColorMatrix type="matrix" values="1 0 -0.87 0 0  0 1 -0.85 0 0  0 0 0.2 0 0  0 0 0 1 0"/>' +
+      "</filter>";
+    document.body.appendChild(host);
+  })();
+
+  /* ---------- Boot ---------- */
+  document.addEventListener("DOMContentLoaded", function () {
+    LT.$$("[data-logo]").forEach(function (el) {
+      el.innerHTML = LT.logoSVG(el.dataset.logo || 30);
+    });
+
+    LT.$$(".theme-toggle").forEach(function (btn) {
+      LT.theme.paint(btn);
+      btn.addEventListener("click", LT.theme.toggle);
+    });
+
+    document.addEventListener("click", function (e) {
+      if (e.target.closest && e.target.closest("[data-logout]")) LT.auth.logout();
+    });
+
+    /* Scroll reveal + the Safari safety net. .reveal markup, html.lt-js
+       and this observer are a three-part unit: ship the class without the
+       observer and every card stays permanently invisible. */
+    if ("IntersectionObserver" in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
+        });
+      }, { threshold: 0.12 });
+      LT.$$(".reveal").forEach(function (el) { io.observe(el); });
+      setTimeout(function () {
+        LT.$$(".reveal").forEach(function (el) {
+          if (getComputedStyle(el).opacity !== "1") {
+            el.style.transition = "none";
+            el.style.opacity = "1";
+            el.style.transform = "none";
+          }
+          el.classList.add("in");
+        });
+      }, 1000);
+    } else {
+      LT.$$(".reveal").forEach(function (el) { el.classList.add("in"); });
+    }
+
+    LT.$$(".glass-hover").forEach(function (card) {
+      card.addEventListener("pointermove", function (e) {
+        var r = card.getBoundingClientRect();
+        card.style.setProperty("--mx", ((e.clientX - r.left) / r.width) * 100 + "%");
+        card.style.setProperty("--my", ((e.clientY - r.top) / r.height) * 100 + "%");
+      });
+    });
+
+    /* Observe the whole body, subtree. Modals in this app are built after
+       load, and the original's element-scoped observer would never see
+       them — the page then scrolls behind an open modal on touch. */
+    if ("MutationObserver" in window) {
+      var lockSync = function () {
+        document.body.classList.toggle("lt-noscroll", !!document.querySelector(".lt-modal-backdrop.open"));
+      };
+      new MutationObserver(lockSync).observe(document.body, {
+        attributes: true, attributeFilter: ["class"], childList: true, subtree: true
+      });
+    }
+
+    /* Count-up stats.
+
+       THE MARKUP SHIPS "0" AND RELIES ON JS TO MAKE IT TRUE, so anything
+       that stops the observer firing leaves a stat reading zero — and a
+       hero tile saying "0 practice nets" is not a missing animation, it
+       is a false statement about the academy. The observer does not fire
+       when the element never reaches the threshold: a short window, a
+       zero-height viewport, a hidden tab, a print. So the same safety net
+       the reveal system uses applies here, for the same reason.
+
+       Verified the hard way: with the strip below a viewport that never
+       scrolled, all four tiles sat at 0 indefinitely. */
+    var seen = new WeakSet();
+    function runCount(el) {
+      if (seen.has(el)) return;
+      seen.add(el);
+      LT.countUp(el, Number(el.dataset.countup || 0), {
+        prefix: el.dataset.prefix || "", suffix: el.dataset.suffix || ""
+      });
+    }
+
+    if ("IntersectionObserver" in window) {
+      var cu = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) { runCount(en.target); cu.unobserve(en.target); }
+        });
+      }, { threshold: 0.4 });
+      LT.$$("[data-countup]").forEach(function (el) { cu.observe(el); });
+
+      /* Whatever has not counted by now gets its real value, animation or
+         not. Correct beats animated. */
+      setTimeout(function () {
+        LT.$$("[data-countup]").forEach(runCount);
+      }, 1200);
+    } else {
+      LT.$$("[data-countup]").forEach(runCount);
+    }
+  });
+})();
