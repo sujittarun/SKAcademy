@@ -72,13 +72,13 @@
        · an overridden amount, so the override path shows on screen. */
   var bookings = [
     { id: "B-D001", name: "Kongu Cricket Club",   phone: "9000000301", sport: "ground", court: "G1", date: d(0), hour: 0,  amount: 25000, status: "confirmed", source: "Counter", paid_at: d(0), paid_mode: "upi",  collected_by: "Front desk" },
-    { id: "B-D002", name: "Aarav Krishnamurthy",  phone: "9000000101", sport: "nets",   court: "N1", date: d(0), hour: 7,  amount: 500,   status: "confirmed", source: "Counter", paid_at: d(0), paid_mode: "cash", collected_by: "Front desk" },
-    { id: "B-D003", name: "Dhruv Sundaravel",     phone: "9000000102", sport: "nets",   court: "N2", date: d(0), hour: 7,  amount: 500,   status: "confirmed", source: "Website", paid_at: null,  paid_mode: null,   collected_by: null },
-    { id: "B-D004", name: "Walk-in",              phone: "9000000302", sport: "nets",   court: "N3", date: d(0), hour: 18, amount: 400,   status: "confirmed", source: "Counter", paid_at: d(0), paid_mode: "cash", collected_by: "Front desk" },
-    { id: "B-D005", name: "Rithvik Chidambaram",  phone: "9000000106", sport: "nets",   court: "N4", date: d(0), hour: 18, amount: 500,   status: "pending",   source: "Website", paid_at: null,  paid_mode: null,   collected_by: null },
+    { id: "B-D002", name: "Aarav Krishnamurthy",  phone: "9000000101", sport: "astro",   court: "A1", date: d(0), hour: 7,  amount: 500,   status: "confirmed", source: "Counter", paid_at: d(0), paid_mode: "cash", collected_by: "Front desk" },
+    { id: "B-D003", name: "Dhruv Sundaravel",     phone: "9000000102", sport: "astro",   court: "A2", date: d(0), hour: 7,  amount: 500,   status: "confirmed", source: "Website", paid_at: null,  paid_mode: null,   collected_by: null },
+    { id: "B-D004", name: "Walk-in",              phone: "9000000302", sport: "matting", court: "M1", date: d(0), hour: 18, amount: 400,   status: "confirmed", source: "Counter", paid_at: d(0), paid_mode: "cash", collected_by: "Front desk" },
+    { id: "B-D005", name: "Rithvik Chidambaram",  phone: "9000000106", sport: "matting", court: "M2", date: d(0), hour: 18, amount: 400,   status: "pending",   source: "Website", paid_at: null,  paid_mode: null,   collected_by: null },
     { id: "B-D006", name: "Coimbatore XI",        phone: "9000000303", sport: "ground", court: "G1", date: d(1), hour: 0,  amount: 10000, status: "confirmed", source: "Counter", paid_at: null,  paid_mode: null,   collected_by: null },
-    { id: "B-D007", name: "Sanjay Ponnusamy",     phone: "9000000107", sport: "nets",   court: "N1", date: d(1), hour: 17, amount: 500,   status: "confirmed", source: "Counter", paid_at: d(1), paid_mode: "upi",  collected_by: "Front desk" },
-    { id: "B-D008", name: "Yuvan Thirumalai",     phone: "9000000110", sport: "nets",   court: "N2", date: d(2), hour: 6,  amount: 500,   status: "confirmed", source: "Website", paid_at: null,  paid_mode: null,   collected_by: null }
+    { id: "B-D007", name: "Sanjay Ponnusamy",     phone: "9000000107", sport: "astro",   court: "A1", date: d(1), hour: 17, amount: 500,   status: "confirmed", source: "Counter", paid_at: d(1), paid_mode: "upi",  collected_by: "Front desk" },
+    { id: "B-D008", name: "Yuvan Thirumalai",     phone: "9000000110", sport: "astro",   court: "A2", date: d(2), hour: 6,  amount: 500,   status: "confirmed", source: "Website", paid_at: null,  paid_mode: null,   collected_by: null }
   ];
 
   var payments = [
@@ -109,8 +109,8 @@
     /* Sample only. The live board reads config.courtLabels so app and SQL
        cannot disagree about which net is which. */
     courtLabels: {
-      N1: "Astro Net 1", N2: "Astro Net 2",
-      N3: "Matting Net 1", N4: "Matting Net 2",
+      A1: "Astro Net 1", A2: "Astro Net 2",
+      M1: "Matting Net 1", M2: "Matting Net 2",
       G1: "Main Ground"
     },
     date: d

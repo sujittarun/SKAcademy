@@ -4,14 +4,14 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Book a net · Super Kings Academy</title>
-<meta name="description" content="Book a practice net by the hour or enquire about the main ground at Super Kings Academy, VAKAMAN FE, Coimbatore. Live availability, no advance payment online." />
+<meta name="description" content="Book an astro or matting practice net by the hour, or enquire about the main ground, at Super Kings Academy, VAKAMAN FE, Coimbatore. Live availability." />
 <script>
   /* blocking: applies the persisted theme before first paint, else the
      page renders dark and flashes. Raw string, not JSON. */
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=8" />
+<link rel="stylesheet" href="assets/css/glass.css?v=9" />
 <style>
   /* Page-local LAYOUT only. Glass, buttons, fields, pills, .slot,
      .form-msg and .lt-empty all come from glass.css. */
@@ -49,9 +49,69 @@
   .fac-card:hover { border-color: var(--input-border-hover); }
   .fac-card .fc-name { font-weight: 800; font-size: 15px; }
   .fac-card .fc-sub { font-size: 12px; color: var(--ink-mid); }
+  /* The rate keeps its row whether or not a figure arrived, so the card
+     does not jump when the server answers — and stays EMPTY when it does
+     not, because a guessed price is the one thing worse than no price. */
+  .fac-card .fc-rate {
+    min-height: 17px; margin-top: 2px;
+    font-size: 13px; font-weight: 750; color: var(--tx-gold);
+    font-variant-numeric: tabular-nums;
+  }
   .fac-card.active { border-color: var(--gold-400); background: rgba(247, 203, 21, .1); }
   .fac-card.active .fc-name { color: var(--tx-gold); }
 
+  /* ---------- The day strip ----------
+     A native <input type="date"> renders as an OS control that matches
+     nothing else on the page, and on Android it is a modal calendar for a
+     decision that is nearly always "today or the next few days". This is
+     the pattern every Indian booking app uses instead. The native input
+     is still here, one tap away, because request_booking accepts +90 days
+     and fourteen chips cannot reach that. */
+  .day-strip {
+    position: relative;              /* offsetParent for the centring maths */
+    display: flex; gap: 8px;
+    overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;      /* momentum on iOS */
+    overscroll-behavior-x: contain;         /* no page-back gesture on the strip */
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: 2px;
+    padding: 2px 2px 10px;
+    scrollbar-width: thin;
+  }
+  .day-strip::-webkit-scrollbar { height: 6px; }
+  .day-strip::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: var(--r-pill); }
+  .day-strip::-webkit-scrollbar-track { background: transparent; }
+
+  .day-chip {
+    scroll-snap-align: start;
+    flex: 0 0 auto; min-width: 64px; min-height: 68px;   /* ≥44px tap target */
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    padding: 9px 10px; border-radius: var(--r-sm);
+    border: 1px solid var(--tile-border); background: var(--tile-bg);
+    color: var(--ink-mid); font: inherit; cursor: pointer;
+    transition: border-color .2s ease, background .2s ease, transform .2s var(--ease-spring);
+  }
+  .day-chip:hover { border-color: var(--input-border-hover); color: var(--ink-hi); }
+  .day-chip:active { transform: scale(.96); }
+  .day-chip .dc-top { font-size: 11px; font-weight: 700; white-space: nowrap; line-height: 1.2; }
+  .day-chip .dc-top.wd { font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; }
+  .day-chip .dc-num {
+    font-size: 19px; font-weight: 800; line-height: 1.15; color: var(--ink-hi);
+    font-variant-numeric: tabular-nums;
+  }
+  /* A block with a min-height holds its row even when the month is blank,
+     so only the chips where the month CHANGES print one and every chip is
+     still the same height. */
+  .day-chip .dc-mon { display: block; min-height: 13px; line-height: 13px; font-size: 10.5px; color: var(--ink-low); }
+  .day-chip.on {
+    border-color: transparent; background: var(--gold-grad); color: #231d00;
+    box-shadow: 0 8px 20px rgba(242, 194, 32, .28);
+  }
+  .day-chip.on .dc-num, .day-chip.on .dc-mon { color: #231d00; }
+  .day-chip:focus-visible { outline: 2px solid var(--tx-optic); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .day-chip { transition: none; } }
+
+  .day-sel { margin-top: 2px; font-size: 12.5px; color: var(--ink-mid); }
   #bkDate { max-width: 240px; }
   #refreshBtn { min-height: 44px; }
 
@@ -103,6 +163,30 @@
   }
   .q-note { margin-top: 6px; font-size: 11.5px; line-height: 1.45; color: var(--ink-low); }
   @media (max-width: 420px) { .q-amt { font-size: 21px; } }
+
+  /* ---------- Pay by UPI, on the success card ----------
+     Below the confirmation line, never above it: the academy still has to
+     confirm the slot, and that has to be the first thing read. */
+  .pay {
+    margin: var(--gap-4) auto 0; max-width: 340px; text-align: center;
+    padding: var(--gap-3); border-radius: var(--r-md);
+    border: 1px solid var(--tile-border); background: var(--tile-bg);
+  }
+  .pay-lab { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-low); }
+  .pay-amt {
+    font-size: 28px; font-weight: 800; color: var(--ink-hi);
+    font-variant-numeric: tabular-nums; letter-spacing: -.02em; margin: 2px 0 var(--gap-3);
+  }
+  .pay-vpa { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: var(--gap-2); }
+  .pay-vpa code {
+    user-select: all; -webkit-user-select: all;
+    display: inline-flex; align-items: center; min-height: 34px; padding: 7px 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px;
+    border-radius: var(--r-sm); border: 1px dashed var(--tile-border);
+    background: var(--input-bg); color: var(--ink-hi); word-break: break-all;
+  }
+  #payCopy { min-height: 38px; }
+  .pay-note { margin-top: var(--gap-2); font-size: 11.5px; line-height: 1.5; color: var(--ink-low); }
 </style>
 </head>
 <body>
@@ -110,9 +194,9 @@
 
   <!-- PUBLIC page: no LT.managerShell(). The staff tabs, the sign-out
        button and the sample-data banner do not belong in front of a
-       customer. public_slots, request_booking and submit_application are
-       genuinely anon-executable, so this page works in DEV exactly as it
-       will at go-live. -->
+       customer. public_slots, public_quote, request_booking and
+       submit_application are genuinely anon-executable, so this page
+       works in DEV exactly as it will at go-live. -->
   <nav class="lt-nav glass">
     <a class="nav-brand" href="index.html">
       <span class="mark" data-logo="40"></span>
@@ -143,21 +227,55 @@
             </button>
             <button type="button" class="fac-card" data-f="ground" aria-pressed="false">
               <span class="fc-name">Main Ground</span>
+              <span class="fc-sub">Full day</span>
             </button>
           </div>
         </section>
 
         <!-- 2 · when -->
         <section class="glass glass-card tight step" id="step2" hidden>
-          <div class="step-h"><span class="n">2</span><h2>Which day?</h2></div>
-          <input type="date" id="bkDate" aria-label="Date" />
+          <div class="step-h">
+            <span class="n">2</span><h2>Which day?</h2>
+            <span class="grow"></span>
+            <button type="button" class="btn btn-ghost btn-sm" id="otherDateBtn"
+                    aria-expanded="false" aria-controls="otherDateWrap">Other date</button>
+          </div>
+          <div class="day-strip" id="dayStrip" role="radiogroup" aria-label="Choose a day"></div>
+          <div class="day-sel" id="daySel"></div>
+          <div class="mt-3" id="otherDateWrap" hidden>
+            <label class="field" style="max-width:240px">
+              <span>Any date up to 90 days ahead</span>
+              <input type="date" id="bkDate" />
+            </label>
+          </div>
           <div class="mt-3" id="groundState" hidden></div>
         </section>
 
-        <!-- 3 · hours (nets only — the ground is never hourly) -->
+        <!-- 3 · surface (nets only) -->
         <section class="glass glass-card tight step" id="step3" hidden>
+          <div class="step-h"><span class="n">3</span><h2>Which surface?</h2></div>
+          <!-- Astro and Matting are SEPARATE facilities in the database as of
+               2026-08-18c, because they are priced apart. The two figures
+               below are read from public_quote() for the chosen day; this
+               page holds neither of them. -->
+          <div class="fac-pick" id="surfPick" role="group" aria-label="Choose a surface">
+            <button type="button" class="fac-card" data-s="astro" aria-pressed="false">
+              <span class="fc-name">Astro nets</span>
+              <span class="fc-sub" data-count="astro"></span>
+              <span class="fc-rate" data-rate="astro"></span>
+            </button>
+            <button type="button" class="fac-card" data-s="matting" aria-pressed="false">
+              <span class="fc-name">Matting nets</span>
+              <span class="fc-sub" data-count="matting"></span>
+              <span class="fc-rate" data-rate="matting"></span>
+            </button>
+          </div>
+        </section>
+
+        <!-- 4 · hours (nets only — the ground is never hourly) -->
+        <section class="glass glass-card tight step" id="step4" hidden>
           <div class="step-h">
-            <span class="n">3</span><h2>Which hours?</h2>
+            <span class="n">4</span><h2>Which hours?</h2>
             <span class="grow"></span>
             <span class="pill gold" id="selCount" hidden></span>
             <button type="button" class="btn btn-ghost btn-sm" id="refreshBtn" aria-label="Check availability again">
@@ -167,11 +285,11 @@
           <div class="slot-grid" id="slotGrid"></div>
         </section>
 
-        <!-- 4 · who, and 5 · send -->
-        <section class="glass glass-card tight step" id="step4" hidden>
-          <!-- the number is set in script: the ground has no hours step, so
-               this is its step 3, not a 4 with a gap above it -->
-          <div class="step-h"><span class="n" id="detailsNum">4</span><h2>Your details</h2></div>
+        <!-- 5 · who, and send -->
+        <section class="glass glass-card tight step" id="step5" hidden>
+          <!-- the number is set in script: the ground has no surface and no
+               hours step, so this is its step 3, not a 5 with gaps above it -->
+          <div class="step-h"><span class="n" id="detailsNum">5</span><h2>Your details</h2></div>
           <form class="bk-form" id="bkForm" novalidate>
             <!-- NEVER prefill anything here. This repo is public and served
                  as a static site, so a value= attribute is published the
@@ -210,6 +328,21 @@
         <p class="muted mt-2" id="doneDetail"></p>
         <div class="done-lines" id="doneLines"></div>
         <p class="faint mt-3" id="doneHonest" style="font-size:13px;line-height:1.55;"></p>
+
+        <!-- Optional payment, revealed only when the SERVER supplies both a
+             collection handle and a figure. There is no fallback UPI id in
+             this file, by design — see loadPayment(). -->
+        <div class="pay" id="payBlock" hidden>
+          <div class="pay-lab">Amount due</div>
+          <div class="pay-amt" id="payAmt">—</div>
+          <a class="btn btn-primary btn-block btn-lg" id="payBtn" href="#" rel="noopener">Pay by UPI</a>
+          <div class="pay-vpa">
+            <code id="payVpa"></code>
+            <button type="button" class="btn btn-glass btn-sm" id="payCopy">Copy</button>
+          </div>
+          <p class="pay-note" id="payNote"></p>
+        </div>
+
         <div class="mt-4 flex" style="justify-content:center; flex-wrap:wrap;">
           <button type="button" class="btn btn-primary" id="againBtn">Book again</button>
           <a class="btn btn-glass" href="index.html">Back to home</a>
@@ -218,15 +351,15 @@
     </div>
   </main>
 
-  <script src="assets/js/core.js?v=8"></script>
-  <script src="assets/js/cloud.js?v=8"></script>
+  <script src="assets/js/core.js?v=9"></script>
+  <script src="assets/js/cloud.js?v=9"></script>
   <!-- dev-data.js loads for shell consistency and is DELIBERATELY NOT USED
        here. Sample rows behind the striped banner are a preview on a staff
        screen; on a public page they would be a customer shown invented
        availability with no way to tell. A failed read says "could not
        load" instead — an empty academy and a broken one must not look
        alike. -->
-  <script src="assets/js/dev-data.js?v=8"></script>
+  <script src="assets/js/dev-data.js?v=9"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -235,28 +368,41 @@
 
       /* WHAT AN ANONYMOUS VISITOR MAY ACTUALLY DO
          · availability → public_slots (no name, phone or amount in the view)
-         · nets         → request_booking(), which writes a PENDING row with
+         · a price      → public_quote(), which computes in Postgres. This
+                          page holds NO rate and does NO arithmetic on one.
+         · the nets     → request_booking(), which writes a PENDING row with
                           no court for staff to confirm
          · the ground   → NOT request_booking. It raises 'invalid hour'
-                          outside 6..22 and a full day is hour 0, and it
-                          prices through slot_rate(), which has no key for
-                          'ska's daily ground block. Both paths hard-fail,
-                          so the ground is an ENQUIRY via
-                          submit_application() and is labelled as one. When
-                          the platform grows a full-day-aware anon entry
-                          point, only submitGround() changes.
-         · a price      → never. slot_price() is revoked from public and
-                          anon, so this page cannot quote one. The only
-                          figure it prints is the amount request_booking
-                          RETURNS. No rate table, no arithmetic. */
+                          outside 6..22 and a full day is hour 0. So the
+                          ground is an ENQUIRY via submit_application() and
+                          is labelled as one. When the platform grows a
+                          full-day-aware anon entry point, only
+                          submitGround() changes.
 
-      var NETS = "nets", GROUND = "ground";
+         FACILITY CODES, as of migration 2026-08-18c. 'nets' IS NO LONGER A
+         FACILITY — slot_price('ska','nets',…) raises 'unknown sport'. The
+         four nets are two facilities because they are priced apart:
+             astro    A1 A2      matting  M1 M2      ground  G1
+         NETS below is a TRACK through this page, not a sport, and is never
+         sent to the database. `sport` is what goes over the wire. */
+      var NETS = "nets";                       // UI track only. Never sent.
+      var GROUND = "ground";
+      var SURFACES = ["astro", "matting"];
+      var SURFACE_NAME = { astro: "astro nets", matting: "matting nets" };
+
       /* request_booking's own window, mirrored only to draw the grid; the
          server re-checks it and its answer wins. */
       var HOUR_FROM = 6, HOUR_TO = 22;
       /* Facility counts, read from the tenant row so the app and the
          database cannot disagree. Fallbacks only. Never money. */
-      var COURTS_FALLBACK = { nets: 4, ground: 1 };
+      var COURTS_FALLBACK = { astro: 2, matting: 2, ground: 1 };
+
+      /* Fourteen chips. request_booking accepts +90, which is what the
+         "Other date" input is for — the strip is the common case, not the
+         whole capability. */
+      var STRIP_DAYS = 14;
+      var DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      var MON_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
       var el = {
         head:    LT.$("#bkHead"),
@@ -264,7 +410,13 @@
         s2:      LT.$("#step2"),
         s3:      LT.$("#step3"),
         s4:      LT.$("#step4"),
+        s5:      LT.$("#step5"),
         facPick: LT.$("#facPick"),
+        surfPick:LT.$("#surfPick"),
+        strip:   LT.$("#dayStrip"),
+        daySel:  LT.$("#daySel"),
+        otherBtn:LT.$("#otherDateBtn"),
+        otherWrap:LT.$("#otherDateWrap"),
         date:    LT.$("#bkDate"),
         ground:  LT.$("#groundState"),
         grid:    LT.$("#slotGrid"),
@@ -285,23 +437,37 @@
         doneDetail:LT.$("#doneDetail"),
         doneLines: LT.$("#doneLines"),
         doneHonest:LT.$("#doneHonest"),
+        pay:       LT.$("#payBlock"),
+        payAmt:    LT.$("#payAmt"),
+        payBtn:    LT.$("#payBtn"),
+        payVpa:    LT.$("#payVpa"),
+        payCopy:   LT.$("#payCopy"),
+        payNote:   LT.$("#payNote"),
         again:     LT.$("#againBtn")
       };
 
       /* `slots` stays null when a read fails, which keeps "we do not know"
          distinct from "nothing is booked". Nothing renders off a null. */
-      var facility = "";
+      var track = "";        // "" | NETS | GROUND — which path through the page
+      var sport = "";        // "" | astro | matting | ground — the DB facility
       var selected = [];
       var slots = null, slotsAt = 0, loadErr = null;
-      var courts = { nets: COURTS_FALLBACK.nets, ground: COURTS_FALLBACK.ground };
-      var reqSeq = 0, sending = false, step4Open = false;
+      var courts = { astro: COURTS_FALLBACK.astro, matting: COURTS_FALLBACK.matting, ground: COURTS_FALLBACK.ground };
+      /* The per-hour figure for each surface, straight from public_quote().
+         null means "not known", and a null renders as nothing at all. */
+      var surfUnit = { astro: null, matting: null };
+      var reqSeq = 0, rateSeq = 0, sending = false, lastOpen = false;
 
       function longDate(iso) { return iso ? LT.dayName(iso) + ", " + LT.shortDate(iso) : ""; }
       function plural(n, one, many) { return n === 1 ? one : many; }
       function say(t, bad) { el.msg.textContent = t || ""; el.msg.className = bad ? "form-msg error" : "form-msg"; }
+      function reduceMotion() {
+        try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; }
+      }
 
       /* Every string below is one a real code path raises — request_booking
-         (schema.sql:432), submit_application, or cloud.js's rewrites. */
+         (schema.sql:432), submit_application, public_quote, or cloud.js's
+         rewrites. */
       function readable(m) {
         m = String(m || "");
         if (/no connection|failed to fetch|networkerror|load failed/i.test(m)) return "No connection — please try again.";
@@ -311,7 +477,7 @@
         if (/too many requests/i.test(m)) return "We already have an enquiry from this number today.";
         if (/valid phone required/i.test(m)) return "Please enter a 10-digit mobile number.";
         if (/name required/i.test(m)) return "Please enter your name.";
-        if (/date too far ahead/i.test(m)) return "Requests open up to 90 days ahead. Please pick an earlier date.";
+        if (/date too far ahead|pick a date within/i.test(m)) return "Requests open up to 90 days ahead. Please pick an earlier date.";
         if (/date in the past/i.test(m)) return "That date has passed. Please pick today or later.";
         if (/invalid hour/i.test(m)) return "The nets are bookable between 6 AM and 11 PM.";
         if (/unknown sport|no rate configured|unknown academy/i.test(m)) return "That facility is not open for online requests yet.";
@@ -330,10 +496,130 @@
         return "other";
       }
 
-      /* ---------- availability ----------
+      /* ============================================================
+         THE DAY STRIP
+         ============================================================ */
+      function buildStrip() {
+        var now = new Date(), html = "", prevMon = -1;
+        for (var i = 0; i < STRIP_DAYS; i++) {
+          /* Built from y/m/d + i so month and year roll over correctly, and
+             in LOCAL time — LT.isoDate exists because toISOString() reports
+             yesterday before 05:30 IST. */
+          var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+          var iso = LT.isoDate(d);
+          var wd = i > 1;
+          var top = i === 0 ? "Today" : i === 1 ? "Tomorrow" : DAY_SHORT[d.getDay()];
+          var mon = d.getMonth() !== prevMon ? MON_SHORT[d.getMonth()] : "";
+          prevMon = d.getMonth();
+          var label = (i === 0 ? "Today" : i === 1 ? "Tomorrow" : LT.dayName(iso)) + ", " + LT.shortDate(iso);
+          html +=
+            '<button type="button" role="radio" class="day-chip" data-d="' + LT.esc(iso) + '"' +
+            ' aria-checked="false" tabindex="-1" aria-label="' + LT.esc(label) + '">' +
+            '<span class="dc-top' + (wd ? " wd" : "") + '">' + LT.esc(top) + "</span>" +
+            '<span class="dc-num">' + LT.esc(String(d.getDate())) + "</span>" +
+            '<span class="dc-mon">' + LT.esc(mon) + "</span></button>";
+        }
+        el.strip.innerHTML = html;
+      }
+
+      /* Paints the strip from el.date.value — which stays the single source
+         of truth for the chosen date, so the chips and the native input can
+         never disagree. Returns the checked chip, or null when the date is
+         outside the fourteen (picked through "Other date"). */
+      function paintStrip() {
+        var cur = el.date.value, found = null;
+        LT.$$(".day-chip", el.strip).forEach(function (c) {
+          var on = c.getAttribute("data-d") === cur;
+          c.classList.toggle("on", on);
+          c.setAttribute("aria-checked", on ? "true" : "false");
+          /* Roving tabindex: one stop for the whole group, as a radiogroup
+             should be — seventeen tab stops would be worse than the OS
+             control this replaced. */
+          c.tabIndex = on ? 0 : -1;
+          if (on) found = c;
+        });
+        if (!found && el.strip.firstElementChild) el.strip.firstElementChild.tabIndex = 0;
+        el.daySel.textContent = cur ? longDate(cur) : "";
+        return found;
+      }
+
+      function centreChip(chip, smooth) {
+        if (!chip || !el.strip) return;
+        /* .day-strip is position:relative, so offsetLeft is measured from
+           the strip itself rather than from whatever is positioned above it. */
+        var target = chip.offsetLeft - (el.strip.clientWidth - chip.offsetWidth) / 2;
+        if (target < 0) target = 0;
+        if (smooth && !reduceMotion() && "scrollBehavior" in document.documentElement.style) {
+          el.strip.scrollTo({ left: target, behavior: "smooth" });
+        } else {
+          el.strip.scrollLeft = target;
+        }
+      }
+
+      /* THE one place the date changes. Everything downstream of a date —
+         availability, the two surface rates, the quote — is re-read here,
+         so a slot taken five minutes ago cannot still show free and a rate
+         is never carried across from another day. */
+      function commitDate(iso) {
+        if (!iso) return;
+        var changed = iso !== el.date.value;
+        el.date.value = iso;
+        centreChip(paintStrip(), true);
+        if (!changed) return;
+        selected = []; say("");
+        loadAvailability();
+        loadSurfaceRates();
+      }
+
+      el.strip.addEventListener("click", function (e) {
+        var c = e.target.closest ? e.target.closest(".day-chip") : null;
+        if (c) commitDate(c.getAttribute("data-d"));
+      });
+
+      /* A real radiogroup: left/right move the selection AND the focus, and
+         Home/End jump to the ends. Space and Enter come free — these are
+         <button>s, so the click handler above already answers them. */
+      el.strip.addEventListener("keydown", function (e) {
+        var chips = LT.$$(".day-chip", el.strip);
+        if (!chips.length) return;
+        var i = chips.indexOf(document.activeElement);
+        if (i === -1) { for (var j = 0; j < chips.length; j++) if (chips[j].classList.contains("on")) { i = j; break; } }
+        if (i === -1) i = 0;
+
+        var next;
+        if (e.key === "ArrowRight" || e.key === "ArrowDown") next = i + 1;
+        else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = i - 1;
+        else if (e.key === "Home") next = 0;
+        else if (e.key === "End") next = chips.length - 1;
+        else return;
+
+        e.preventDefault();
+        if (next < 0) next = 0;
+        if (next > chips.length - 1) next = chips.length - 1;
+        /* preventScroll, then centre by hand: letting the browser scroll a
+           focused chip into view also scrolls the PAGE, which throws the
+           step out from under the reader's eye. */
+        try { chips[next].focus({ preventScroll: true }); } catch (err) { chips[next].focus(); }
+        commitDate(chips[next].getAttribute("data-d"));
+      });
+
+      el.otherBtn.addEventListener("click", function () {
+        var open = el.otherWrap.hidden;
+        el.otherWrap.hidden = !open;
+        el.otherBtn.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) el.date.focus();
+      });
+
+      /* The native input is still the +90-day capability, just no longer
+         the primary control. */
+      el.date.addEventListener("change", function () { commitDate(el.date.value); });
+
+      /* ============================================================
+         AVAILABILITY
          Two reads fired together, not one after the other: a round trip is
          ~180 ms to Tokyo and the network is ~97% of it. Slots are required;
-         the tenant read is optional and falls back. */
+         the tenant read is optional and falls back.
+         ============================================================ */
       function loadAvailability() {
         var date = el.date.value;
         if (!date) return;
@@ -348,11 +634,16 @@
           if (seq !== reqSeq) return;
           var cfg = out[1] && out[1].config;
           if (cfg && cfg.courts) {
-            courts.nets   = Number(cfg.courts.nets)   > 0 ? Number(cfg.courts.nets)   : COURTS_FALLBACK.nets;
-            courts.ground = Number(cfg.courts.ground) > 0 ? Number(cfg.courts.ground) : COURTS_FALLBACK.ground;
+            /* astro / matting / ground — the codes migration 2026-08-18c
+               writes. A missing key falls back rather than reading 0 nets. */
+            ["astro", "matting", "ground"].forEach(function (k) {
+              var n = Number(cfg.courts[k]);
+              courts[k] = n > 0 ? n : COURTS_FALLBACK[k];
+            });
           }
           slots = out[0] || [];
           slotsAt = Date.now();
+          renderSurfaces();
           render();
         }).catch(function (err) {
           if (seq !== reqSeq) return;
@@ -362,11 +653,14 @@
       }
 
       /* public_slots already excludes cancelled rows, and a pending website
-         request still holds the slot. Counting courts is not money. */
-      function takenAt(sport, hour) {
+         request still holds the slot. Counting courts is not money.
+         FILTERED BY FACILITY: public_slots returns every facility's rows, so
+         an unfiltered count would tell an astro customer that a matting net
+         is taken. */
+      function takenAt(code, hour) {
         if (!slots) return 0;
         var n = 0;
-        for (var i = 0; i < slots.length; i++) if (slots[i].sport === sport && Number(slots[i].hour) === hour) n++;
+        for (var i = 0; i < slots.length; i++) if (slots[i].sport === code && Number(slots[i].hour) === hour) n++;
         return n;
       }
       function groundTaken() {
@@ -379,6 +673,47 @@
         if (loadErr) return true;      // could not check; an enquiry is still fine
         if (!slots) return false;      // still checking
         return groundTaken() < courts.ground;
+      }
+
+      /* ============================================================
+         SURFACE CARDS
+         The two figures on these cards come from public_quote(code, date,
+         []) — with no hours the RPC returns the per-hour `unit` and a total
+         of 0, which is exactly what "₹500 / hour" needs. There is no rate
+         in this file to fall back to, deliberately: a card with no price is
+         honest, a card with a stale one is not.
+         ============================================================ */
+      function loadSurfaceRates() {
+        if (track !== NETS || !el.date.value) return;
+        var mine = ++rateSeq, date = el.date.value;
+        surfUnit = { astro: null, matting: null };
+        renderSurfaces();
+        /* Both fired together — see the round-trip note above. */
+        SURFACES.forEach(function (code) {
+          LT_CLOUD.publicQuote(code, date, []).then(function (q) {
+            if (mine !== rateSeq) return;
+            if (q && q.unit != null) surfUnit[code] = q.unit;
+            renderSurfaces();
+          }).catch(function () {
+            if (mine !== rateSeq) return;
+            renderSurfaces();          // stays blank. Never a guessed figure.
+          });
+        });
+      }
+
+      function renderSurfaces() {
+        SURFACES.forEach(function (code) {
+          var rate = LT.$('[data-rate="' + code + '"]', el.surfPick);
+          var cnt  = LT.$('[data-count="' + code + '"]', el.surfPick);
+          if (cnt) cnt.textContent = courts[code] + plural(courts[code], " net", " nets");
+          if (!rate) return;
+          rate.textContent = surfUnit[code] == null ? "" : LT.fmtINR(surfUnit[code]) + " / hour";
+        });
+        LT.$$(".fac-card", el.surfPick).forEach(function (c) {
+          var on = c.getAttribute("data-s") === sport;
+          c.classList.toggle("active", on);
+          c.setAttribute("aria-pressed", on ? "true" : "false");
+        });
       }
 
       /* ---------- nets grid ---------- */
@@ -399,11 +734,12 @@
 
         var isToday = el.date.value === LT.today();
         var nowHour = new Date().getHours();
+        var total = courts[sport] || 0;         // 2 for a surface, not 4
         var html = "", open = 0;
 
         for (var h = HOUR_FROM; h <= HOUR_TO; h++) {
           var past = isToday && h <= nowHour;
-          var left = courts.nets - takenAt(NETS, h);
+          var left = total - takenAt(sport, h);
           var full = left <= 0;
           if (!past && !full) open++;
           var sel = selected.indexOf(h) !== -1;
@@ -420,21 +756,19 @@
         el.grid.innerHTML = html;
 
         /* A grid of seventeen greyed tiles is a dead end — offer the next
-           date rather than leaving the visitor to find the date picker. */
+           date rather than leaving the visitor to find it. */
         if (open === 0) {
           var note = document.createElement("div");
           note.className = "grid-dead";
           note.innerHTML = "<span>" +
-            (isToday && nowHour >= HOUR_TO ? "Today's last slot has started." : "Every net is taken.") +
+            (isToday && nowHour >= HOUR_TO ? "Today's last slot has started." : "Every net on this surface is taken.") +
             '</span><button type="button" class="btn btn-glass btn-sm" id="nextDayBtn">Try the next day</button>';
           el.grid.appendChild(note);
           var nd = LT.$("#nextDayBtn");
           if (nd) nd.addEventListener("click", function () {
             var d2 = new Date(el.date.value + "T00:00:00");
             d2.setDate(d2.getDate() + 1);
-            el.date.value = LT.isoDate(d2);
-            selected = []; say("");
-            loadAvailability();
+            commitDate(LT.isoDate(d2));
           });
         }
       }
@@ -456,15 +790,16 @@
          A step appears once the one above it is answered. The date is
          pre-filled with today, so choosing a facility answers step 2 too.
 
-         Step 4 does not disappear again once it is open. It holds the
-         name, the number AND the error message, so hiding it when the last
-         hour is deselected would throw away typing — and a failed send
+         The details step does not disappear again once it is open. It holds
+         the name, the number AND the error message, so hiding it when the
+         last hour is deselected would throw away typing — and a failed send
          clears the selection, which would take the very message explaining
          the failure off the screen with it. */
       function renderSteps() {
-        var nets = facility === NETS;
+        var nets = track === NETS;
         var haveDate = !!el.date.value;
-        if (haveDate && (nets ? selected.length > 0 : groundOk())) step4Open = true;
+        var haveSurface = nets && !!sport;
+        if (haveDate && (nets ? (haveSurface && selected.length > 0) : groundOk())) lastOpen = true;
 
         var fresh = [];
         function step(node, on) {
@@ -472,21 +807,28 @@
           node.hidden = !on;
           if (on && !was) fresh.push(node);
         }
-        step(el.s2, !!facility);
+        step(el.s2, !!track);
         step(el.s3, nets && haveDate);
-        step(el.s4, step4Open);
+        step(el.s4, nets && haveDate && haveSurface);
+        step(el.s5, lastOpen);
 
         el.ground.hidden = nets || !haveDate;
-        el.detailsNum.textContent = nets ? "4" : "3";
+        /* The ground has no surface and no hours step, so its details step
+           is 3 — a contiguous 1-2-3, not a 5 with two gaps above it. */
+        el.detailsNum.textContent = nets ? "5" : "3";
         el.selCount.hidden = !selected.length;
         el.selCount.textContent = selected.length + plural(selected.length, " hour", " hours");
         syncSubmit();
 
-        /* Re-quote whenever the selection, the date or the facility moves.
-           Hooked here rather than in render(), because picking an hour
-           calls renderSteps() ALONE — quoting from render() would miss
-           exactly the change that alters the price. */
+        /* Re-quote whenever the selection, the date, the surface or the
+           facility moves. Hooked here rather than in render(), because
+           picking an hour calls renderSteps() ALONE — quoting from render()
+           would miss exactly the change that alters the price. */
         loadQuote();
+
+        /* The strip is inside step 2, so it has no width until step 2 is
+           first shown; centring before that measures a zero-width box. */
+        if (fresh.indexOf(el.s2) !== -1) centreChip(paintStrip(), false);
 
         /* Scroll the newest step into view on narrow screens only — on a
            desktop the whole flow is already visible. */
@@ -501,7 +843,8 @@
          keyboard user loses focus to <body> after every Enter and a touch
          user sees a flicker. The other tiles' numbers have not changed. */
       function render() {
-        if (facility) { if (facility === NETS) renderSlots(); else renderGround(); }
+        if (track === GROUND) renderGround();
+        else if (track === NETS && sport) renderSlots();
         renderSteps();
       }
 
@@ -509,7 +852,7 @@
         if (String(el.name.value || "").trim().length < 2) return false;
         if (String(el.phone.value || "").replace(/\D/g, "").length < 10) return false;
         if (!el.date.value) return false;
-        return facility === NETS ? selected.length > 0 : groundOk();
+        return track === NETS ? (!!sport && selected.length > 0) : groundOk();
       }
       function syncSubmit() {
         /* "Book" on both paths. The old wording ("Send request" / "Send
@@ -518,7 +861,7 @@
            the academy confirms it, which is where that caveat belongs. */
         el.submit.textContent = sending
           ? "Booking…"
-          : (facility === GROUND ? "Book the ground" : "Book");
+          : (track === GROUND ? "Book the ground" : "Book");
         el.submit.disabled = sending || !valid();
       }
 
@@ -535,21 +878,26 @@
       function loadQuote() {
         var host = el.quote;
         if (!host) return;
-        if (!facility || !el.date.value) { clearQuote(); return; }
-        var wantHours = facility === NETS ? selected.slice() : [];
-        if (facility === NETS && !wantHours.length) { clearQuote(); return; }
+        if (!sport || !el.date.value) { clearQuote(); return; }
+        var wantHours = track === NETS ? selected.slice() : [];
+        if (track === NETS && !wantHours.length) { clearQuote(); return; }
 
         var mine = ++quoteSeq;
         el.quoteAmt.textContent = "…";
         el.quoteNote.textContent = "";
         host.hidden = false;
 
-        LT_CLOUD.publicQuote(facility, el.date.value, wantHours).then(function (q) {
+        LT_CLOUD.publicQuote(sport, el.date.value, wantHours).then(function (q) {
           if (mine !== quoteSeq || !q) return;
+          /* NULL IS NOT ZERO. LT.fmtINR is `"₹" + Number(n || 0)…`, so a
+             missing total renders as a confident "₹0" — which above a Book
+             button, on a ₹25,000 ground day, is the worst wrong number
+             this page could show. No figure beats a false one. */
+          if (q.total == null) { clearQuote(); return; }
           el.quoteLab.textContent = q.full_day
             ? "Full day · " + LT.shortDate(el.date.value)
             : wantHours.length + (wantHours.length === 1 ? " hour" : " hours") +
-              " × " + LT.fmtINR(q.unit);
+              (q.unit == null ? "" : " × " + LT.fmtINR(q.unit));
           el.quoteAmt.textContent = LT.fmtINR(q.total);
           el.quoteNote.textContent = q.note || "";
         }).catch(function () {
@@ -561,15 +909,29 @@
         });
       }
 
-      function setFacility(next) {
-        facility = next === GROUND ? GROUND : NETS;
-        selected = []; step4Open = false; say("");
+      function setTrack(next) {
+        track = next === GROUND ? GROUND : NETS;
+        sport = track === GROUND ? GROUND : "";     // the surface is still unanswered
+        selected = []; lastOpen = false; say("");
         LT.$$(".fac-card", el.facPick).forEach(function (c) {
-          var on = c.getAttribute("data-f") === facility;
+          var on = c.getAttribute("data-f") === track;
           c.classList.toggle("active", on);
           c.setAttribute("aria-pressed", on ? "true" : "false");
         });
+        renderSurfaces();
         loadAvailability();
+        loadSurfaceRates();
+      }
+
+      /* Changing the surface needs NO new availability read: public_slots
+         returned every facility's rows for this date already, and the grid
+         simply counts a different one. One round trip saved per tap. */
+      function setSurface(code) {
+        if (SURFACES.indexOf(code) === -1) return;
+        sport = code;
+        selected = []; say("");
+        renderSurfaces();
+        render();
       }
 
       /* ---------- submit ----------
@@ -584,9 +946,10 @@
 
       function submitNets(name, phone) {
         var date = el.date.value;
+        var code = sport;
         var hours = selected.slice().sort(function (a, b) { return a - b; });
         return Promise.all(hours.map(function (h) {
-          return settle(LT_CLOUD.requestBooking({ sport: NETS, date: date, hour: h, name: name, phone: phone }))
+          return settle(LT_CLOUD.requestBooking({ sport: code, date: date, hour: h, name: name, phone: phone }))
             .then(function (r) { r.hour = h; return r; });
         })).then(function (results) {
           var ok = results.filter(function (r) { return r.ok; });
@@ -595,20 +958,21 @@
           if (!ok.length) {
             var first = bad.length ? String(bad[0].error && bad[0].error.message) : "";
             say(readable(first) || "Something went wrong. Please try again.", true);
-            LT_CLOUD.track("booking_request_failed", { sport: NETS, reason: classify(first) });
+            LT_CLOUD.track("booking_request_failed", { sport: code, reason: classify(first) });
             selected = [];
             loadAvailability();
             return;
           }
 
-          LT_CLOUD.track("booking_requested", { sport: NETS, hours: ok.length });
+          LT_CLOUD.track("booking_requested", { sport: code, hours: ok.length });
           el.doneTitle.textContent = "Request received";
           el.doneDetail.innerHTML = "Thanks, <strong>" + LT.esc(name) + "</strong> — " + ok.length +
-            plural(ok.length, " hour", " hours") + " at the nets on <strong>" + LT.esc(longDate(date)) + "</strong>.";
+            plural(ok.length, " hour", " hours") + " on the <strong>" + LT.esc(SURFACE_NAME[code] || code) +
+            "</strong> on <strong>" + LT.esc(longDate(date)) + "</strong>.";
 
           /* Each amount is the figure request_booking RETURNED for that
-             hour. Printed one per line and never added up: a total this
-             page invented is a number no database agreed to. */
+             hour. Printed one per line and never added up here: a total
+             this page invented is a number no database agreed to. */
           el.doneLines.innerHTML = ok.map(function (r) {
             var amt = r.value && r.value.amount;
             return '<div class="dl"><span>' + LT.esc(LT.hourLabel(r.hour)) + "</span><b>" +
@@ -619,14 +983,20 @@
             "This is a request, not a confirmed booking — the academy confirms your net and shares payment details." +
             (bad.length ? "<br />" + bad.length + plural(bad.length, " hour was", " hours were") + " not requested: " +
               LT.esc(readable(String(bad[0].error && bad[0].error.message))) : "");
+
           showDone();
+          offerPayment(ok, code, date);
         });
       }
 
       /* The ground is an enquiry — see the note at the top. The wanted date
          rides in p_trial and the facility is named in p_program, so it is
          unmistakable in the academy's enquiry list. All nine arguments are
-         passed: none has a default, and PostgREST omitting one hard-fails. */
+         passed: none has a default, and PostgREST omitting one hard-fails.
+
+         NO PAYMENT OPTION ON THIS PATH, deliberately: submit_application
+         creates no booking and returns no amount, so there is no
+         server-blessed figure to ask anyone to pay. */
       function submitGround(name, phone) {
         var date = el.date.value;
         return LT_CLOUD.submitApplication({
@@ -648,13 +1018,163 @@
         });
       }
 
+      /* ============================================================
+         PAY BY UPI — optional, and only ever on figures the server gave
+         ============================================================
+         TWO things must come from the database or this block does not
+         render at all:
+
+         1. THE HANDLE comes from public_quote().pay — { vpa, payee } —
+            which Postgres fills from the academy's own billing config
+            (migration 2026-08-18d). There is NO fallback VPA in this file
+            and there must never be one: a wrong payment handle sends a
+            customer's money to a stranger, silently, and the customer has
+            no way to tell. A missing handle comes back as `pay: null`, so
+            "not configured" and "could not read" both end in no button —
+            the only two safe outcomes.
+
+            WHY NOT resolve_upi(): it is the function that owns where a fee
+            is collected, but its first line is assert_staff_or_service()
+            and this page has no session. SECURITY DEFINER changes the
+            database role, not the JWT, so an anonymous visitor is refused
+            INSIDE it — verified over HTTP, anon gets 42501. Wiring this to
+            resolve_upi meant the payment block could never appear at all.
+
+            The narrow read that replaced it is deliberately narrow: a court
+            rental booked from a public page has no enrolment and no group,
+            so the academy-level handle is not a fallback here — it is the
+            only branch of that chain which can ever apply. If a rental ever
+            needs to collect somewhere else, that belongs in resolve_upi
+            behind a public-safe wrapper, not in this file.
+
+         2. THE AMOUNT. One booked hour → the amount request_booking itself
+            returned. Several → public_quote() re-run over exactly the hours
+            that LANDED, which is a figure Postgres computed for that set.
+            This page never adds the per-hour amounts together; if the
+            re-quote fails there is simply no payment option.
+            (Worth knowing: request_booking prices through slot_rate() and
+            public_quote through slot_price(). They agree for ska today —
+            the nets are flat, peak == offPeak — but they are different
+            functions, so a future evening premium set on one and not the
+            other would show a total here that differs from the sum charged.
+            Reconciling those two is platform work.) */
+      function dueAmount(ok, code, date) {
+        if (ok.length === 1) {
+          var a = ok[0].value && ok[0].value.amount;
+          return Promise.resolve(a == null ? null : a);
+        }
+        var hours = ok.map(function (r) { return r.hour; });
+        return LT_CLOUD.publicQuote(code, date, hours).then(function (q) {
+          return (q && q.total != null) ? q.total : null;
+        }).catch(function () { return null; });
+      }
+
+      function upiLink(vpa, payee, amount, ref) {
+        /* Every part encoded — a payee name with an ampersand in it would
+           otherwise silently truncate the amount out of the link. */
+        return "upi://pay?pa=" + encodeURIComponent(vpa) +
+               "&pn=" + encodeURIComponent(payee || "") +
+               "&am=" + encodeURIComponent(String(amount)) +
+               "&cu=INR" +
+               "&tn=" + encodeURIComponent(ref || "");
+      }
+
+      /* WHERE TO PAY comes from public_quote(), NOT from resolve_upi().
+
+         resolve_upi() is the shared function that owns which account money
+         is collected to, and its first line is assert_staff_or_service().
+         This page has no session, and SECURITY DEFINER changes the database
+         role, not the JWT — so an anonymous visitor is refused inside it.
+         Verified over HTTP: anon gets 42501. Calling it here meant the
+         payment block could never appear at all.
+
+         public_quote returns `pay: { vpa, payee }` for exactly this
+         (migration 2026-08-18d), computed server-side from the academy's
+         own billing config, and `pay` is null when no handle is set — so
+         "no handle" and "could not read" both end in no button, which is
+         the only safe outcome. */
+      function payTo(code, date, hours) {
+        return LT_CLOUD.publicQuote(code, date, hours)
+          .then(function (q) {
+            var p = q && q.pay;
+            return (p && p.vpa) ? p : null;
+          })
+          .catch(function () { return null; });
+      }
+
+      function offerPayment(ok, code, date) {
+        el.pay.hidden = true;
+        if (!ok.length) return;
+
+        /* The booking reference the academy will match the payment against.
+           `tn` is short in most UPI apps, so several hours ride as one ref
+           plus a count rather than a wall of ids. */
+        var first = ok[0].value && ok[0].value.id;
+        if (!first) return;
+        var ref = ok.length === 1 ? String(first) : String(first) + " +" + (ok.length - 1);
+
+        var landed = ok.map(function (r) { return r.hour; });
+        Promise.all([dueAmount(ok, code, date), payTo(code, date, landed)])
+          .then(function (out) {
+            var amount = out[0];
+            var p = out[1];
+            var vpa = p && p.vpa;
+            /* The payee NAME may fall back to a display string — it is a
+               label, not a destination, so a wrong one cannot misdirect
+               money. The VPA may never fall back to anything. */
+            var payee = (p && p.payee) || "Super Kings Academy";
+            /* Both, or nothing. No figure and no handle may be invented. */
+            if (amount == null || !vpa) return;
+
+            el.payAmt.textContent = LT.fmtINR(amount);
+            el.payBtn.textContent = "Pay " + LT.fmtINR(amount) + " by UPI";
+            el.payBtn.setAttribute("href", upiLink(vpa, payee, amount, ref));
+            el.payVpa.textContent = vpa;
+            el.payCopy.dataset.vpa = vpa;
+            el.payNote.textContent =
+              "Paying now is optional. The academy still confirms your slot — a payment on its own does not reserve anything.";
+            el.pay.hidden = false;
+            LT_CLOUD.track("upi_offered", { sport: code, hours: ok.length });
+          })
+          .catch(function () { /* no handle, no figure, no button */ });
+      }
+
+      el.payCopy.addEventListener("click", function () {
+        var v = el.payCopy.dataset.vpa || el.payVpa.textContent || "";
+        if (!v) return;
+        function fallback() {
+          /* Selecting it is the honest fallback — the visitor copies it
+             themselves rather than being told it was copied when it was not. */
+          try {
+            var r = document.createRange();
+            r.selectNodeContents(el.payVpa);
+            var s = window.getSelection();
+            s.removeAllRanges(); s.addRange(r);
+          } catch (e) {}
+          LT.toast("Select and copy the UPI id.");
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(v).then(function () { LT.toast("UPI id copied."); }, fallback);
+        } else {
+          fallback();
+        }
+      });
+
+      el.payBtn.addEventListener("click", function () {
+        LT_CLOUD.track("upi_opened", { sport: sport });
+      });
+
       function showDone() {
         selected = [];
+        /* Hidden until offerPayment() has BOTH a server handle and a server
+           figure. The ground path never calls it, so this is also what
+           keeps a previous booking's amount off an enquiry card. */
+        el.pay.hidden = true;
         el.head.style.display = "none";
         el.steps.style.display = "none";
         el.done.classList.add("show");
         window.scrollTo({ top: 0, behavior: "smooth" });
-        LT.toast(facility === GROUND ? "Enquiry sent." : "Request sent.");
+        LT.toast(track === GROUND ? "Enquiry sent." : "Request sent.");
       }
 
       function busy(on) {
@@ -664,6 +1184,7 @@
       }
 
       /* ---------- wiring ---------- */
+      buildStrip();
       el.date.value = LT.today();
       el.date.min = LT.today();
       /* 90 days is request_booking's ceiling, computed against the
@@ -671,10 +1192,16 @@
       var maxDate = new Date();
       maxDate.setDate(maxDate.getDate() + 90);
       el.date.max = LT.isoDate(maxDate);
+      paintStrip();
 
       el.facPick.addEventListener("click", function (e) {
         var btn = e.target.closest ? e.target.closest(".fac-card") : null;
-        if (btn) setFacility(btn.getAttribute("data-f"));
+        if (btn) setTrack(btn.getAttribute("data-f"));
+      });
+
+      el.surfPick.addEventListener("click", function (e) {
+        var btn = e.target.closest ? e.target.closest(".fac-card") : null;
+        if (btn) setSurface(btn.getAttribute("data-s"));
       });
 
       /* Paints THAT tile, then re-runs the steps only — see render(). */
@@ -691,13 +1218,6 @@
         renderSteps();
       });
 
-      /* EVERY date change re-reads availability, so a slot taken five
-         minutes ago cannot still show free. */
-      el.date.addEventListener("change", function () {
-        selected = []; say("");
-        loadAvailability();
-      });
-
       el.refresh.addEventListener("click", loadAvailability);
       el.name.addEventListener("input", syncSubmit);
       el.phone.addEventListener("input", syncSubmit);
@@ -705,7 +1225,7 @@
       /* A page left open in a pocket goes stale. */
       document.addEventListener("visibilitychange", function () {
         if (document.visibilityState !== "visible") return;
-        if (el.done.classList.contains("show") || !facility) return;
+        if (el.done.classList.contains("show") || !track) return;
         if (Date.now() - slotsAt > 60000) loadAvailability();
       });
 
@@ -718,11 +1238,12 @@
         var phone = LT.phone10(digits);
         if (name.length < 2) { say("Please enter your name.", true); el.name.focus(); return; }
         if (digits.length < 10 || phone.length !== 10) { say("Please enter a 10-digit mobile number.", true); el.phone.focus(); return; }
-        if (facility === NETS && !selected.length) { say("Pick at least one hour first.", true); return; }
+        if (track === NETS && !sport) { say("Pick a surface first.", true); return; }
+        if (track === NETS && !selected.length) { say("Pick at least one hour first.", true); return; }
         say("");
 
         busy(true);
-        (facility === GROUND ? submitGround(name, phone) : submitNets(name, phone))
+        (track === GROUND ? submitGround(name, phone) : submitNets(name, phone))
           .catch(function (err) {
             /* Nothing above rejects in normal operation — this catches a
                genuine defect rather than losing it to an unhandled
@@ -734,23 +1255,31 @@
       });
 
       el.again.addEventListener("click", function () {
-        selected = []; step4Open = false;
+        selected = []; lastOpen = false;
         el.done.classList.remove("show");
+        el.pay.hidden = true;
         el.head.style.display = "";
         el.steps.style.display = "";
         el.form.reset();
         say("");
         loadAvailability();
+        loadSurfaceRates();
         window.scrollTo({ top: 0, behavior: "smooth" });
       });
 
-      /* Deep link: booking.html?facility=ground (?sport= honoured too, so a
-         link written in the SQL's vocabulary works). Nothing is selected
-         otherwise — step 1 is the first question. */
+      /* Deep link: booking.html?facility=ground, and ?sport=astro or
+         ?sport=matting land straight on a surface. ?facility=nets still
+         works and simply opens the nets track with the surface unanswered —
+         'nets' has not been a facility since 2026-08-18c, so it is honoured
+         as a link, never sent to the database. Nothing is selected
+         otherwise; step 1 is the first question. */
       var m = /[?&](?:facility|sport)=([^&]*)/.exec(location.search);
       var pre = "";
       if (m) { try { pre = decodeURIComponent(m[1]).toLowerCase(); } catch (e) { pre = ""; } }
-      if (pre === GROUND || pre === NETS) setFacility(pre); else render();
+      if (pre === GROUND) setTrack(GROUND);
+      else if (SURFACES.indexOf(pre) !== -1) { setTrack(NETS); setSurface(pre); }
+      else if (pre === NETS) setTrack(NETS);
+      else render();
     })();
   </script>
 </body>

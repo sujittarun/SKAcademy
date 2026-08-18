@@ -4,14 +4,14 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Bookings · Super Kings Academy</title>
-<meta name="description" content="Operator booking board for VAKAMAN FE — the day's practice nets, the main ground, what has been collected and what is still owed." />
+<meta name="description" content="Operator booking board for VAKAMAN FE — the day's astro and matting nets, the main ground, what has been collected and what is still owed." />
 <script>
   /* blocking: applies the persisted theme before first paint, else the
      page renders dark and flashes. Raw string, not JSON. */
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=8" />
+<link rel="stylesheet" href="assets/css/glass.css?v=9" />
 <style>
   /* ------------------------------------------------------------
      Page-local components only. Anything reusable belongs in
@@ -59,12 +59,43 @@
   .gd-rate { font-size: 12.5px; color: var(--ink-mid); }
   .gd-rate b { color: var(--tx-gold); }
 
-  /* ---- the nets grid: 4 courts x operating hours ---- */
+  /* ---- the nets: ONE GRID PER SURFACE ----
+     Astro and matting were a single 'nets' facility until 2026-08-18c
+     split them, because they are now priced apart. TWO two-column grids
+     beat one four-column grid, and the deciding screen is a 375px phone:
+     a glass card there gives 323px of content, 68px of hour column plus
+     two 104px courts is 288px, so a facility fits with NO sideways
+     scroll. Four columns cannot, at any column width wide enough to hold
+     a name and an amount. Grouping by surface is also the read an
+     operator now wants, because the surface is what sets the price.
+     .nt-scroll still wraps each grid on its own, so a facility that grows
+     past two courts scrolls itself rather than squeezing its neighbour. */
+  .fac + .fac { margin-top: var(--gap-4); padding-top: var(--gap-3); border-top: 1px solid var(--line); }
+  /* Wide screens put the two surfaces SIDE BY SIDE, which is the same
+     four courts the old single grid showed and the same hour rows — but
+     grouped and headed by surface, and reached without a horizontal
+     scrollbar. Stacked, two courts would each stretch past 500px on a
+     desktop, which is a lot of empty cell for one name and one amount.
+     .fac-cols is set only when #netsBody actually holds facilities, so a
+     skeleton or a "could not load" panel is never split into columns. */
+  @media (min-width: 1100px) {
+    #netsBody.fac-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--gap-4); align-items: start; }
+    #netsBody.fac-cols .fac + .fac { margin-top: 0; padding-top: 0; border-top: none; }
+  }
+  .fac-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 10px; flex-wrap: wrap; margin-bottom: 8px;
+  }
+  .fac-name { font-size: 14.5px; font-weight: 700; color: var(--ink-hi); }
+  .fac-sub { font-size: 11.5px; color: var(--ink-low); margin-top: 2px; }
+  .fac-rate { font-size: 12.5px; color: var(--ink-mid); }
+  .fac-rate b { color: var(--tx-gold); }
+
   .nt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
   .nt-grid {
     display: grid;
-    grid-template-columns: 84px repeat(var(--nt-cols, 4), minmax(128px, 1fr));
-    gap: 6px; min-width: 620px;
+    grid-template-columns: 84px repeat(var(--nt-cols, 2), minmax(104px, 1fr));
+    gap: 6px;
   }
   .nt-h {
     padding: 8px 10px; font-size: 11px; font-weight: 700; letter-spacing: .09em;
@@ -145,6 +176,11 @@
   @media (max-width: 699px) {
     .day-nav { width: 100%; justify-content: space-between; }
     .gd-row .gd-acts { margin-left: 0; width: 100%; }
+    /* 68 + 6 + 104 + 6 + 104 = 288px, inside the 323px a 375px phone
+       leaves in a glass card. Measured, not guessed. */
+    .nt-grid { grid-template-columns: 68px repeat(var(--nt-cols, 2), minmax(104px, 1fr)); }
+    .nt-hour { font-size: 11px; }
+    .nt-hour small { font-size: 10px; }
   }
 </style>
 </head>
@@ -223,16 +259,21 @@
       <div class="faint" id="gdWarn" style="font-size:12px;margin-top:8px;display:none;"></div>
     </div>
 
-    <!-- ---------- the nets ---------- -->
+    <!-- ---------- the nets: one grid per surface ----------
+         Astro and matting are separate facilities in the database as of
+         2026-08-18c, priced apart, so they are separate grids here. The
+         blocks are built in JS from tenants.config — court COUNT from
+         config.courts, court NAMES from config.courtLabels — so this
+         board cannot disagree with the SQL about which net is which. -->
     <div class="glass glass-card reveal" id="netsCard">
       <div class="card-head" style="margin-bottom:10px;">
         <div>
           <div class="kicker">Practice nets</div>
           <h2 style="font-size:17px;">Nets by the hour</h2>
-          <div class="sub" id="netsSub">Tap a free slot to book, a booked slot to collect or cancel.</div>
+          <div class="sub" id="netsSub">Astro and matting are priced apart. Tap a free slot to book, a booked slot to collect or cancel.</div>
         </div>
       </div>
-      <div class="nt-scroll"><div class="nt-grid" id="netGrid"></div></div>
+      <div id="netsBody"></div>
       <div class="legend">
         <span><span class="sw" style="background:rgba(52,211,153,.35);"></span>Paid</span>
         <span><span class="sw" style="background:rgba(247,203,21,.35);"></span>Unpaid</span>
@@ -266,11 +307,13 @@
       </div>
       <form id="abForm" class="lt-grid" style="gap:var(--gap-3);" autocomplete="off">
         <div class="lt-grid cols-2" style="gap:var(--gap-2);">
+          <!-- Options are BUILT IN JS from the same facility list the board
+               draws, so a select and a grid can never offer different
+               facilities. No rate in a label: a price in this file would
+               be a money constant, and it would go stale the day the
+               academy reprices a surface. -->
           <label class="field"><span>Facility</span>
-            <select name="sport" id="abSport">
-              <option value="nets">Practice nets</option>
-              <option value="ground">Main ground · full day</option>
-            </select>
+            <select name="sport" id="abSport"></select>
           </label>
           <label class="field"><span>Date</span><input type="date" name="date" id="abDate" required /></label>
         </div>
@@ -393,9 +436,9 @@
     </div>
   </div>
 
-  <script src="assets/js/core.js?v=8"></script>
-  <script src="assets/js/cloud.js?v=8"></script>
-  <script src="assets/js/dev-data.js?v=8"></script>
+  <script src="assets/js/core.js?v=9"></script>
+  <script src="assets/js/cloud.js?v=9"></script>
+  <script src="assets/js/dev-data.js?v=9"></script>
   <script>
     /* ============================================================
        THE OPERATOR BOOKING BOARD
@@ -427,15 +470,67 @@
 
       var esc = LT.esc;
       var HOUR_OPEN = 6, HOUR_LAST = 22;          // 6 AM .. 10–11 PM slot
-      var SPORT_NETS = "nets", SPORT_GROUND = "ground";
+      var SPORT_GROUND = "ground";
 
-      /* Court ids are the platform's, not ours: record_booking derives them
-         as upper(left(sport,1)) || i — nets → N1..N4, ground → G1. The
-         COUNT comes from tenants.config.courts, the LABELS from
-         config.courtLabels, so the app and the SQL cannot disagree about
-         which net is which. */
-      var netCourts = ["N1", "N2", "N3", "N4"];
+      /* THE FACILITY SPLIT (migration 2026-08-18c).
+         'nets' is gone. It was one facility of four courts while the
+         surface was only a label; astro and matting are now priced apart
+         (₹500 and ₹400 an hour — both figures Postgres's, neither of them
+         written down anywhere in this file), and a label cannot carry a
+         price. slot_price('ska','nets',…) raises 'unknown sport', so any
+         'nets' left in a client is a broken read, not a cosmetic one.
+
+         Court ids are the platform's, not ours: record_booking derives
+         them as upper(left(sport,1)) || i — astro → A1 A2, matting →
+         M1 M2, ground → G1. Hence courtPrefix() below rather than a
+         hardcoded letter: the app derives the id the same way the SQL
+         does, so the two cannot drift.
+
+         The COUNT comes from tenants.config.courts, the NAMES from
+         config.courtLabels via LT.courtLabel. Both are overwritten by
+         hydrateConfig(); the values here are only what the board draws
+         before the config read lands. */
+      var FACILITIES = [
+        { sport: "astro",   name: "Astro nets",   shortName: "Astro",   courts: ["A1", "A2"] },
+        { sport: "matting", name: "Matting nets", shortName: "Matting", courts: ["M1", "M2"] }
+      ];
       var groundCourts = ["G1"];
+
+      function courtPrefix(sport) { return String(sport || "").charAt(0).toUpperCase(); }
+
+      function facilityOfSport(sport) {
+        var s = String(sport || "");
+        for (var i = 0; i < FACILITIES.length; i++) if (FACILITIES[i].sport === s) return FACILITIES[i];
+        return null;
+      }
+      function facilityOfCourt(court) {
+        if (!court) return null;
+        for (var i = 0; i < FACILITIES.length; i++) {
+          if (FACILITIES[i].courts.indexOf(court) >= 0) return FACILITIES[i];
+        }
+        return null;
+      }
+      /* Sport first, court as the fallback — a row whose sport this client
+         does not know still lands on the right grid if its court is one we
+         draw. A row that matches NEITHER is not guessed at: it falls
+         through to "Also on this day", where it is visible and labelled
+         with whatever the server actually said. */
+      function facilityOf(b) {
+        return facilityOfSport(b && b.sport) || facilityOfCourt(b && b.court);
+      }
+      function netCourtIndex(court) {
+        var f = facilityOfCourt(court);
+        return f ? f.courts.indexOf(court) : -1;
+      }
+      /* What to CALL this row on screen. Never invents a facility: an
+         unknown sport is printed as the server sent it. */
+      function facilityName(b) {
+        if (isGround(b)) return "Main ground";
+        var f = facilityOf(b);
+        if (f) return f.name;
+        var s = String((b && b.sport) || "").trim();
+        return s || "Unassigned";
+      }
 
       var state = {
         date: LT.today(),
@@ -506,24 +601,28 @@
           if (!cfg) throw new Error("no config");
           if (cfg.courtLabels) LT.setCourtLabels(cfg.courtLabels);
           var courts = cfg.courts || {};
-          var n = numOf(courts[SPORT_NETS]);
-          if (n && n > 0) {
-            netCourts = [];
-            for (var i = 1; i <= n; i++) netCourts.push("N" + i);
-          }
+          /* Each facility's court list, rebuilt from ITS OWN count. Astro
+             and matting are two entries in config.courts now, not one. */
+          FACILITIES.forEach(function (f) {
+            var n = numOf(courts[f.sport]);
+            if (n && n > 0) {
+              f.courts = [];
+              for (var i = 1; i <= n; i++) f.courts.push(courtPrefix(f.sport) + i);
+            }
+          });
           var g = numOf(courts[SPORT_GROUND]);
           if (g && g > 0) {
             groundCourts = [];
             for (var j = 1; j <= g; j++) groundCourts.push("G" + j);
           }
-          fillCourtSelect();
+          fillCourtSelect(null, byId("abCourt").value);   // keep an open form's choice
           render();
         }).catch(function () {
           /* Labels are decoration, not data: without them the board shows
              the raw court codes, which are honest. In DEV the sample map
              keeps the screen reviewable, under the sample-data banner. */
           if (LT_CLOUD.DEV && window.SKA_DEV) LT.setCourtLabels(SKA_DEV.courtLabels);
-          fillCourtSelect();
+          fillCourtSelect(null, byId("abCourt").value);   // keep an open form's choice
           render();
         });
       }
@@ -550,6 +649,7 @@
       function load() {
         var want = state.date;
         state.rows = null;
+        netRate = {};                               // re-ask the server for this day's rates
         renderLoading();
         LT_CLOUD.bookingsOn(want).then(function (rows) {
           if (state.date !== want) return;            // a newer day won
@@ -572,18 +672,17 @@
         paintGroundRate();
       }
 
-      /* The grid host is a CSS grid: a skeleton or a "could not load" panel
-         dropped into it would be squeezed into the 84px hour column, so it
-         goes back to block flow while it is not showing cells. */
-      function gridFlow(block) { byId("netGrid").style.display = block ? "block" : ""; }
-
+      /* #netsBody is a plain block container that HOLDS the grids rather
+         than being one, so a skeleton or a "could not load" panel dropped
+         into it lays out normally. (It used to be the grid itself, and a
+         panel put there was squeezed into the 84px hour column.) */
       function renderLoading() {
         byId("dayLine").textContent = longDate(state.date);
         ["sumCount", "sumPaid", "sumDue", "sumGround"].forEach(function (id) { byId(id).textContent = "—"; });
         ["sumCountNote", "sumPaidNote", "sumDueNote", "sumGroundNote"].forEach(function (id) { byId(id).innerHTML = "&nbsp;"; });
         LT.skeleton(byId("gdBody"), 1);
-        gridFlow(true);
-        LT.skeleton(byId("netGrid"), 6);
+        byId("netsBody").className = "";
+        LT.skeleton(byId("netsBody"), 6);
         byId("reqCard").classList.add("hide");
         byId("otherCard").classList.add("hide");
       }
@@ -596,8 +695,8 @@
         byId("sumDueNote").innerHTML = "&nbsp;";
         byId("sumGroundNote").innerHTML = "&nbsp;";
         LT.fail(byId("gdBody"), err);
-        gridFlow(true);
-        LT.fail(byId("netGrid"), err);
+        byId("netsBody").className = "";
+        LT.fail(byId("netsBody"), err);
         byId("reqCard").classList.add("hide");
         byId("otherCard").classList.add("hide");
       }
@@ -616,7 +715,13 @@
           }
           var h = Number(b.hour);
           var key = b.court + "|" + h;
-          if (netCourts.indexOf(b.court) >= 0 && h >= HOUR_OPEN && h <= HOUR_LAST && !out.cells[key]) {
+          /* Court ids are unique ACROSS facilities (A1 A2 M1 M2 G1), which
+             is the property the migration header asks us not to break — so
+             one cells map still serves both grids without a sport in the
+             key. A court this board does not draw (a retired 'nets' N1,
+             say) falls to "Also on this day" rather than being silently
+             remapped onto a surface it may not belong to. */
+          if (netCourtIndex(b.court) >= 0 && h >= HOUR_OPEN && h <= HOUR_LAST && !out.cells[key]) {
             out.cells[key] = b;
           } else {
             out.other.push(b);
@@ -644,20 +749,42 @@
       }
 
       /* Sums of server-sent amounts. This is the one place the page adds
-         money up, and it adds up only what Postgres already decided. */
+         money up, and it adds up only what Postgres already decided.
+
+         It walks EVERY live row, whatever facility it is on — so the
+         totals covered astro, matting and the ground the moment the split
+         landed, without a facility list to keep in step. The note breaks
+         the count down by facility, which is what makes that coverage
+         visible instead of merely true: a surface missing from the board
+         would show as a missing line here. */
       function paintSummary(g) {
         var live = g.live, count = 0, paid = 0, due = 0, pending = 0, blocks = 0;
+        var perFac = {}, offBoard = 0;
         for (var i = 0; i < live.length; i++) {
           var b = live[i];
           if (isBlock(b)) { blocks++; continue; }
           count++;
           if (isPending(b)) pending++;
           if (isPaid(b)) paid += amountOf(b); else due += amountOf(b);
+
+          if (isGround(b)) { perFac[SPORT_GROUND] = (perFac[SPORT_GROUND] || 0) + 1; }
+          else {
+            var f = facilityOf(b);
+            if (f) perFac[f.sport] = (perFac[f.sport] || 0) + 1;
+            else offBoard++;                       // counted, named honestly below
+          }
         }
         byId("sumCount").textContent = String(count);
-        byId("sumCountNote").textContent = pending
-          ? pending + " awaiting confirmation"
-          : (blocks ? blocks + " maintenance block" + (blocks === 1 ? "" : "s") : "all confirmed");
+
+        var parts = [];
+        FACILITIES.forEach(function (f) {
+          if (perFac[f.sport]) parts.push(f.shortName + " " + perFac[f.sport]);
+        });
+        if (perFac[SPORT_GROUND]) parts.push("Ground " + perFac[SPORT_GROUND]);
+        if (offBoard) parts.push("Elsewhere " + offBoard);
+        if (pending) parts.push(pending + " pending");
+        if (blocks) parts.push(blocks + " blocked");
+        byId("sumCountNote").textContent = parts.length ? parts.join(" · ") : "nothing booked";
 
         byId("sumPaid").textContent = LT.fmtINR(paid);
         byId("sumPaidNote").textContent = "money in the till";
@@ -679,7 +806,7 @@
         host.innerHTML = list.map(function (b) {
           return '<div class="req-row">' +
             '<span class="rq-who">' + esc(b.name) + "</span>" +
-            '<span class="rq-what">' + esc(slotWhen(b)) + " · " + esc(b.sport || "") +
+            '<span class="rq-what">' + esc(slotWhen(b)) + " · " + esc(facilityName(b)) +
             (b.phone ? " · " + esc(b.phone) : "") + "</span>" +
             '<span class="grow"></span>' +
             '<span class="rq-amt">' + LT.fmtINR(amountOf(b)) + "</span>" +
@@ -729,40 +856,62 @@
         }).join("");
       }
 
+      /* One block per facility, in board order: Astro, then Matting. */
       function paintNets(cells) {
-        var host = byId("netGrid");
-        gridFlow(false);
-        host.style.setProperty("--nt-cols", String(netCourts.length));
         var isToday = state.date === LT.today();
         var nowH = new Date().getHours();
-
-        var html = '<div class="nt-h">Hour</div>';
-        netCourts.forEach(function (c) {
-          var label = LT.courtLabel(c);
-          html += '<div class="nt-h">' + esc(label) + (label === c ? "" : "<small>" + esc(c) + "</small>") + "</div>";
-        });
-
-        for (var h = HOUR_OPEN; h <= HOUR_LAST; h++) {
-          html += '<div class="nt-hour">' + hourShort(h) + "<small>to " + hourShort((h + 1) % 24) + "</small></div>";
-          for (var i = 0; i < netCourts.length; i++) {
-            html += netCell(cells[netCourts[i] + "|" + h], h, netCourts[i], isToday, nowH);
-          }
-        }
-        host.innerHTML = html;
+        var host = byId("netsBody");
+        host.innerHTML = FACILITIES.map(function (f, idx) {
+          return facilityBlock(f, idx, cells, isToday, nowH);
+        }).join("");
+        /* Only now may the wide-screen column layout apply — see the CSS. */
+        host.className = "fac-cols";
+        paintNetRates();
       }
 
-      function netCell(b, hour, court, isToday, nowH) {
+      function facilityBlock(f, idx, cells, isToday, nowH) {
+        /* The sub-line names the courts from config.courtLabels, so it is
+           the same source the column headers use. */
+        var courtNames = f.courts.map(function (c) { return LT.courtLabel(c); }).join(" · ");
+
+        var grid = '<div class="nt-h">Hour</div>';
+        f.courts.forEach(function (c) {
+          var label = LT.courtLabel(c);
+          grid += '<div class="nt-h">' + esc(label) + (label === c ? "" : "<small>" + esc(c) + "</small>") + "</div>";
+        });
+        for (var h = HOUR_OPEN; h <= HOUR_LAST; h++) {
+          grid += '<div class="nt-hour">' + hourShort(h) + "<small>to " + hourShort((h + 1) % 24) + "</small></div>";
+          for (var i = 0; i < f.courts.length; i++) {
+            grid += netCell(cells[f.courts[i] + "|" + h], h, f.courts[i], f, isToday, nowH);
+          }
+        }
+
+        return '<section class="fac">' +
+          '<div class="fac-head">' +
+            "<div><div class=\"fac-name\">" + esc(f.name) + "</div>" +
+            '<div class="fac-sub">' + esc(f.courts.length) + " net" + (f.courts.length === 1 ? "" : "s") +
+            (courtNames ? " · " + esc(courtNames) : "") + "</div></div>" +
+            '<div class="fac-rate" id="ntRate' + idx + '">checking rate…</div>' +
+          "</div>" +
+          '<div class="nt-scroll"><div class="nt-grid" style="--nt-cols:' + f.courts.length + '">' +
+          grid + "</div></div></section>";
+      }
+
+      function netCell(b, hour, court, fac, isToday, nowH) {
         var cls = "nt-cell";
         if (isToday && hour < nowH) cls += " past";
         if (isToday && hour === nowH) cls += " now";
-        var slot = hour + "|" + court;
+        /* sport travels WITH the slot, because the two grids no longer
+           share one. A click that lost it would open the add form on the
+           wrong facility and quote the wrong surface's rate. */
+        var slot = fac.sport + "|" + hour + "|" + court;
 
         if (!b) {
           return '<div class="' + cls + ' free">' +
-            '<button class="nt-hit" type="button" data-add="' + slot + '" ' +
+            '<button class="nt-hit" type="button" data-add="' + esc(slot) + '" ' +
             'aria-label="Book ' + esc(LT.courtLabel(court)) + " at " + hourShort(hour) + '">' +
             '<span class="nt-free">Free</span></button>' +
-            '<button class="nt-block" type="button" data-block="' + slot + '" title="Block for maintenance" ' +
+            '<button class="nt-block" type="button" data-block="' + esc(slot) + '" title="Block for maintenance" ' +
             'aria-label="Block ' + esc(LT.courtLabel(court)) + " at " + hourShort(hour) + '">&#9881;</button>' +
             "</div>";
         }
@@ -792,7 +941,7 @@
           var tag = isCancelled(b) ? "Cancelled" : "Off-grid";
           return '<div class="req-row plain">' +
             '<span class="rq-who">' + esc(b.name) + "</span>" +
-            '<span class="rq-what">' + esc(slotWhen(b)) + " · " + esc(b.sport || "") +
+            '<span class="rq-what">' + esc(slotWhen(b)) + " · " + esc(facilityName(b)) +
             (b.court ? " · " + esc(LT.courtLabel(b.court)) : "") + "</span>" +
             '<span class="cell-tag' + (isCancelled(b) ? " red" : "") + '">' + tag + "</span>" +
             '<span class="grow"></span>' +
@@ -801,6 +950,80 @@
               '<button class="btn btn-glass btn-sm" type="button" data-open="' + esc(b.id) + '">Open</button>') +
             "</div>";
         }).join("");
+      }
+
+      /* ============================================================
+         WHAT EACH SURFACE COSTS — asked, never derived.
+
+         Astro is dearer than matting, which is the whole reason they were
+         split. The board must say so, and it must say so without holding
+         a rate: every figure below came back from slot_price().
+
+         TWO probes per facility, the first open hour and the last. The
+         rate model has an evening band (config.rates.peakFrom), so one
+         sample could not honestly be called "an hour" — these two sit one
+         on each side of it. Equal figures are reported as a flat hourly
+         rate; different ones are reported as two figures, each labelled
+         with the hour it was quoted for. Nothing in between is inferred,
+         and no figure is ever multiplied, averaged or looked up here.
+         ============================================================ */
+      var netRate = {};                       // "sport|date" -> rendered html, or "pending"
+
+      function paintNetRates() {
+        var forDate = state.date;
+        FACILITIES.forEach(function (f, idx) {
+          var el = byId("ntRate" + idx);
+          if (!el) return;
+          var key = f.sport + "|" + forDate;
+          var have = netRate[key];
+          if (have && have !== "pending") { el.innerHTML = have; return; }
+          el.textContent = "checking rate…";
+          if (have === "pending") return;     // a call for this day is already out
+          netRate[key] = "pending";
+
+          Promise.all([
+            LT_CLOUD.slotPrice(f.sport, forDate, HOUR_OPEN),
+            LT_CLOUD.slotPrice(f.sport, forDate, HOUR_LAST)
+          ]).then(function (res) {
+            var open = numOf(res[0]), late = numOf(res[1]);
+            var html;
+            if (open == null && late == null) {
+              html = "rate quoted at save time";
+            } else if (open != null && late != null && open !== late) {
+              html = "<b>" + LT.fmtINR(open) + "</b> at " + esc(hourShort(HOUR_OPEN)) +
+                     " · <b>" + LT.fmtINR(late) + "</b> at " + esc(hourShort(HOUR_LAST));
+            } else if (open != null && late != null) {
+              html = "<b>" + LT.fmtINR(open) + "</b> an hour";
+            } else {
+              /* Only one of the two came back as a number. Name the hour
+                 it belongs to rather than calling it the hourly rate. */
+              var one = open == null ? late : open;
+              var atH = open == null ? HOUR_LAST : HOUR_OPEN;
+              html = "<b>" + LT.fmtINR(one) + "</b> at " + esc(hourShort(atH));
+            }
+            netRate[key] = html;
+            /* Guard on the DATE, not on a counter. `want = ++netRateToken`
+               was bumped by every render, so a second render a few ms after
+               the first (hydrateConfig resolving after the day's rows — a
+               coin flip on a ~180ms round trip) discarded the in-flight
+               answer, while itself returning early because the key was
+               already "pending". Nothing fired again, so both headers sat
+               on "checking rate…" for the whole session — on the one line
+               of this board whose entire job is to say that Astro and
+               Matting are priced apart. */
+            if (forDate !== state.date) return;
+            var live = byId("ntRate" + idx);
+            if (live) live.innerHTML = html;
+          }).catch(function (err) {
+            delete netRate[key];                      // let a Refresh try again
+            if (forDate !== state.date) return;
+            var live = byId("ntRate" + idx);
+            if (!live) return;
+            live.textContent = LT_CLOUD.DEV
+              ? "rate unavailable in sample mode"
+              : "rate unavailable — " + (err && err.message ? err.message : "not loaded");
+          });
+        });
       }
 
       /* ============================================================
@@ -849,11 +1072,30 @@
         return out;
       })();
 
-      function fillCourtSelect() {
-        byId("abCourt").innerHTML = '<option value="">Auto-assign</option>' +
-          netCourts.map(function (c) {
+      /* The facility list, from the same array the board draws. Ground is
+         appended here rather than living in FACILITIES because it is not
+         an hourly grid — it has a strip of its own and no court picker. */
+      function fillFacilitySelect() {
+        byId("abSport").innerHTML =
+          FACILITIES.map(function (f) {
+            return '<option value="' + esc(f.sport) + '">' + esc(f.name) + "</option>";
+          }).join("") +
+          '<option value="' + esc(SPORT_GROUND) + '">Main ground · full day</option>';
+      }
+      fillFacilitySelect();
+
+      /* ONLY the chosen facility's courts. Offering A1 under matting would
+         be offering a court the server will refuse — record_booking derives
+         the id from the sport, so the two must agree here. */
+      function fillCourtSelect(sport, want) {
+        var sel = byId("abCourt");
+        var f = facilityOfSport(sport == null ? byId("abSport").value : sport);
+        var list = f ? f.courts : [];
+        sel.innerHTML = '<option value="">Auto-assign</option>' +
+          list.map(function (c) {
             return '<option value="' + esc(c) + '">' + esc(LT.courtLabel(c)) + "</option>";
           }).join("");
+        sel.value = (want && list.indexOf(want) >= 0) ? want : "";
       }
       fillCourtSelect();
 
@@ -863,8 +1105,11 @@
          never disagree. */
       function slotHidden() { return byId("abSlotRow").classList.contains("hide"); }
 
-      function applyFacility() {
+      function applyFacility(wantCourt) {
         var sport = byId("abSport").value;
+        /* Courts first: the picker must never be showing another
+           facility's nets, not even for the frame before the rate lands. */
+        fillCourtSelect(sport, wantCourt);
         /* Paint from the cached answer immediately so the form never flashes
            an hour picker for the ground, then confirm with is_full_day(). */
         var cached = fullDay.hasOwnProperty(sport) ? fullDay[sport] : (sport === SPORT_GROUND);
@@ -918,7 +1163,9 @@
       byId("abAmount").addEventListener("input", function () {
         amountDirty = this.value !== "";
       });
-      byId("abSport").addEventListener("change", applyFacility);
+      /* Wrapped, not passed straight through: the listener's first argument
+         is the Event, and applyFacility's is the court to keep. */
+      byId("abSport").addEventListener("change", function () { applyFacility(); });
       byId("abHour").addEventListener("change", refreshRate);
       byId("abDate").addEventListener("change", refreshRate);
       byId("abPaid").addEventListener("change", function () {
@@ -931,15 +1178,20 @@
         amountDirty = false;
         byId("abMsg").textContent = "";
         byId("abMsg").className = "form-msg";
-        byId("abSport").value = pre.sport || SPORT_NETS;
+        /* Setting a <select> to a value it has no option for leaves it at
+           "", which would send an empty sport. Fall back to the first
+           facility on the board instead. */
+        byId("abSport").value = pre.sport || FACILITIES[0].sport;
+        if (!byId("abSport").value) byId("abSport").value = FACILITIES[0].sport;
         byId("abDate").value = pre.date || state.date;
         if (pre.hour != null) byId("abHour").value = String(pre.hour);
-        byId("abCourt").value = pre.court || "";
         byId("abPaid").checked = true;                       // counter sales are paid at the counter
         byId("abPayRow").classList.remove("hide");
         byId("abBy").value = LT.store.read("collected-by", "") || "";
         byId("abAmount").value = "";
-        applyFacility();
+        /* AFTER the sport is set: applyFacility rebuilds the court options
+           for that facility, and only then can pre.court be selected. */
+        applyFacility(pre.court || "");
         abBackdrop.classList.add("open");
         setTimeout(function () { byId("abName").focus(); }, 60);
       }
@@ -1052,7 +1304,7 @@
         byId("bdKicker").textContent = isBlock(b) ? "Maintenance block" : "Booking";
         byId("bdTitle").textContent = isBlock(b) ? (b.name || "Maintenance") : b.name;
 
-        var facility = isGround(b) ? "Main ground" : "Practice nets";
+        var facility = facilityName(b);
         var html = "";
         html += row("Facility", esc(facility) + (b.court ? " · " + esc(LT.courtLabel(b.court)) : " · unassigned"));
         html += row("When", esc(LT.shortDate(b.date) + " · " + slotWhen(b)));
@@ -1112,7 +1364,9 @@
         clId = b.id;
         clAmountDirty = false;
         byId("clTitle").textContent = "Collect from " + b.name;
-        byId("clSub").textContent = (isGround(b) ? "Main ground · full day" : "Practice nets · " + LT.hourLabel(Number(b.hour))) +
+        byId("clSub").textContent = (isGround(b)
+            ? "Main ground · full day"
+            : facilityName(b) + " · " + LT.hourLabel(Number(b.hour))) +
           " on " + LT.shortDate(b.date) + ". This records the money against the booking — there is no second screen.";
         byId("clBy").value = LT.store.read("collected-by", "") || "";
         byId("clAmount").value = String(amountOf(b));        // the server's own figure, shown back
@@ -1227,8 +1481,8 @@
         if ((el = t.closest("[data-open]"))) { openDetail(el.getAttribute("data-open")); return; }
 
         if ((el = t.closest("[data-add]"))) {
-          var slot = el.getAttribute("data-add").split("|");
-          openAdd({ sport: SPORT_NETS, hour: Number(slot[0]), court: slot[1] });
+          var slot = el.getAttribute("data-add").split("|");   // sport|hour|court
+          openAdd({ sport: slot[0], hour: Number(slot[1]), court: slot[2] });
           return;
         }
         if (t.closest("[data-addground]")) {
@@ -1256,8 +1510,12 @@
         if ((el = t.closest("[data-cancel]"))) {
           var id = el.getAttribute("data-cancel");
           var b = bookingById(id);
-          var when = b ? (isGround(b) ? "the ground for the whole day" :
-            LT.courtLabel(b.court) + " · " + LT.hourLabel(Number(b.hour))) : "this slot";
+          /* A pending website request has no court yet, and courtLabel(null)
+             is the empty string — which read as " · 7 PM – 8 PM". Name the
+             facility when there is no court to name. */
+          var when = !b ? "this slot"
+            : isGround(b) ? "the ground for the whole day"
+            : (b.court ? LT.courtLabel(b.court) : facilityName(b)) + " · " + LT.hourLabel(Number(b.hour));
           openReason({
             kicker: isBlock(b) ? "Remove block" : "Cancel booking",
             title: isBlock(b) ? "Free this slot again?" : "Cancel this booking?",
@@ -1272,8 +1530,8 @@
         }
 
         if ((el = t.closest("[data-block]"))) {
-          var s = el.getAttribute("data-block").split("|");
-          var bh = Number(s[0]), bc = s[1];
+          var s = el.getAttribute("data-block").split("|");    // sport|hour|court
+          var bs = s[0], bh = Number(s[1]), bc = s[2];
           openReason({
             kicker: "Block slot",
             title: "Block " + LT.courtLabel(bc) + "?",
@@ -1281,7 +1539,7 @@
               " so nobody can book it, here or on the public page.",
             chips: ["Maintenance", "Net / surface repair", "Rain", "Cleaning", "Academy session"],
             confirmLabel: "Block slot",
-            onConfirm: function (reason) { doBlock(SPORT_NETS, bh, bc, reason); }
+            onConfirm: function (reason) { doBlock(bs, bh, bc, reason); }
           });
           return;
         }
