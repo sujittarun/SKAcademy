@@ -414,15 +414,22 @@
       });
       document.addEventListener("keydown", onKey);
 
-      /* Two frames: one to land in the DOM, one for the transition to have
-         a "from" to animate out of. */
-      requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
-          back.classList.add("open");
-          var f = noteEl || back.querySelector("[data-yes]");
-          if (f) { try { f.focus(); } catch (e) {} }
-        });
-      });
+      /* Force layout so the transition has a "from" state, then open in the
+         same tick.
+
+         NOT requestAnimationFrame. rAF does not fire while a tab is hidden
+         or backgrounded, so the sheet was appended and never given .open —
+         it sat at opacity 0 forever. An operator who taps Approve, switches
+         to WhatsApp to check something and comes back would find nothing
+         had happened, which is the exact failure this function exists to
+         remove. Reading offsetHeight is synchronous and always runs.
+
+         Same lesson the reveal and count-up observers already carry: never
+         let a visual step depend on a frame that may never come. */
+      void back.offsetHeight;
+      back.classList.add("open");
+      var f = noteEl || back.querySelector("[data-yes]");
+      if (f) { try { f.focus(); } catch (e) {} }
     });
   };
 
