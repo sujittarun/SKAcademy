@@ -273,6 +273,28 @@
     return m;
   }
 
+  /* One member can hold more than one enrolment over time. The roster
+     shows a person, so it needs ONE — the active one, else the newest.
+     Flattened here rather than in each page, so every screen agrees on
+     which enrolment it is talking about. */
+  function flattenMember(m) {
+    var list = (m && m.enrollments) || [];
+    var pick = null, i;
+    for (i = 0; i < list.length; i++) {
+      if (list[i] && list[i].status === "active") { pick = list[i]; break; }
+    }
+    if (!pick && list.length) pick = list[list.length - 1];
+    m.enrollment_id = pick ? pick.id : null;
+    m.centre_id     = pick ? pick.centre_id : null;
+    m.batch         = pick ? pick.batch_id : null;
+    m.renews_on     = pick ? pick.renewal_on : null;
+    /* members.program is the roster's "sport"; fall back to the
+       enrolment's when the application never carried one. */
+    if (!m.sport && pick) m.sport = pick.sport;
+    m.enrolled      = !!pick;
+    return m;
+  }
+
   function get(path)        { return req(path, {}, false); }
   function getPublic(path)  { return req(path, {}, true); }
   function post(path, body) { return req(path, { method: "POST", body: body }, false); }
@@ -618,9 +640,26 @@
     },
 
     /* ---------- members / roster ---------- */
+    /* THE ROSTER. Two columns in the first version of this did not exist:
+       `sport` and `centre_id`. members has neither — it has `program`, and
+       the centre lives on the ENROLMENT, because a member is a person and
+       an enrolment is what they signed up to. The read failed outright
+       with "column members.sport does not exist", and it had been broken
+       since it was written; it only surfaced the day there was a member to
+       load.
+
+       So: real columns only, `program` aliased to the `sport` the roster
+       screen reads, and the enrolment embedded through the
+       enrollments.member_id foreign key. The embed is what carries the
+       centre, the batch and the renewal date — and enrollment_id, which
+       record_fee_payment() needs to take money at all. */
     members: function () {
       return get("/members?tenant_id=eq." + TENANT +
-                 "&select=id,name,phone,sport,status,centre_id,created_at&order=name.asc");
+                 "&select=id,name,phone,status,created_at,joined,parent_name,parent_phone,dob," +
+                 "sport:program," +
+                 "enrollments(id,centre_id,batch_id,sport,status,renewal_on,plan_months)" +
+                 "&order=name.asc")
+        .then(function (rows) { return (rows || []).map(flattenMember); });
     },
     member: function (id) {
       return get("/members?tenant_id=eq." + TENANT + "&id=eq." + encodeURIComponent(id) + "&select=*")
