@@ -85,7 +85,23 @@
      stretched to 1200px puts a finger-width of whitespace between columns
      and makes six months look like six unrelated events; capped at 760 it
      reads as one trend, which is the only thing this chart is for. */
-  .perf-card { max-width: 760px; margin-left: auto; margin-right: auto; }
+  /* The CARD is full width, like every other block on this page — a
+     narrow centred card between full-width ones has its left edge aligned
+     to nothing, which is what "not aligned" looked like on a desktop:
+     everything else ran 120→1312 and this sat at 472→959.
+
+     What actually needed to be narrower is the CHART, not the card. Six
+     bar-pairs stretched across 1200px is six lonely events rather than a
+     trend. So the chart is capped inside the card and the space beside it
+     carries the numbers the bars cannot say precisely. */
+  .perf-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: var(--gap-4); align-items: start; }
+  .rv-main { min-width: 0; }
+  .rv-side { min-width: 0; border-left: 1px solid var(--line); padding-left: var(--gap-4); }
+  .rv-side h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-low); margin-bottom: 12px; }
+  @media (max-width: 899px) {
+    .perf-body { grid-template-columns: 1fr; gap: var(--gap-3); }
+    .rv-side { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; padding-top: var(--gap-3); }
+  }
   .rv-legend { display: flex; gap: var(--gap-3); flex-wrap: wrap; font-size: 12px; color: var(--ink-mid); align-items: center; }
   .rv-legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 6px; vertical-align: -2px; }
   .rv-legend .sw-rev { background: var(--gold-grad); }
@@ -107,7 +123,7 @@
   .rv-xlabel { fill: var(--ink-low); font-size: 11px; font-family: var(--font-body); font-weight: 600; cursor: pointer; }
   .rv-xlabel.focus { fill: var(--tx-gold); font-weight: 800; }
   .rv-hint { font-size: 11.5px; color: var(--ink-faint); text-align: center; margin-top: 6px; }
-  .rv-detail { display: none; margin-top: var(--gap-3); border-top: 1px solid var(--line); padding-top: var(--gap-3); }
+  .rv-detail { display: none; }
   .rv-detail.show { display: block; animation: lt-step-in .45s var(--ease-spring) both; }
   .rv-detail .rd-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
   .rv-detail .rd-head h3 { font-size: 15px; }
@@ -223,9 +239,16 @@
           <span><span class="sw sw-net"></span>Net</span>
         </div>
       </div>
-      <div class="rv-host" id="rvHost"><div class="lt-skel"></div><div class="lt-skel"></div></div>
-      <div class="rv-hint" id="rvHint">Tap a month to see what it was made of.</div>
-      <div class="rv-detail" id="rvDetail"></div>
+      <div class="perf-body">
+        <div class="rv-main">
+          <div class="rv-host" id="rvHost"><div class="lt-skel"></div><div class="lt-skel"></div></div>
+          <div class="rv-hint" id="rvHint">Tap a month to see what it was made of.</div>
+        </div>
+        <div class="rv-side">
+          <div class="rv-summary" id="rvSummary"></div>
+          <div class="rv-detail" id="rvDetail"></div>
+        </div>
+      </div>
     </div>
 
     <!-- ---------- the ledger: money in and money out, one card ----------
@@ -1139,10 +1162,18 @@
       var from = list[0].key + "-01";
       var to   = monthBounds(list[list.length - 1].key).to;
 
+      /* Preview mode reads nothing from the database by design, so the
+         three reads below reject. Every other panel on this page already
+         falls back to the seed; without the same fallback here the demo
+         showed a broken chart next to working tiles. */
+      function devOr(p, rows) {
+        return p.catch(function () { return LT_CLOUD.DEV ? (rows || []) : null; });
+      }
+
       Promise.all([
-        LT_CLOUD.bookingsBetween(from, to).catch(function () { return null; }),
-        readVia("payments", [from, to], "Coaching fee payments").catch(function () { return null; }),
-        readVia("expenses", [from, to], "Expenses").catch(function () { return null; })
+        devOr(LT_CLOUD.bookingsBetween(from, to), SKA_DEV.bookings),
+        devOr(readVia("payments", [from, to], "Coaching fee payments"), SKA_DEV.payments),
+        devOr(readVia("expenses", [from, to], "Expenses"), SKA_DEV.expenses)
       ]).then(function (res) {
         /* A read that failed is not a zero. If none of the three landed the
            chart says so rather than drawing a flat line the academy would
@@ -1175,6 +1206,7 @@
         list.forEach(function (r) { r.rev = r.fees + r.nets + r.ground; });
         RV.months = list;
         drawChart();
+        paintRvSummary();
       });
     }
 
@@ -1233,8 +1265,49 @@
         grid + groups + '<path class="rv-net" d="' + netLine + '"/>' + dots + labels + "</svg>";
     }
 
+    /* The six-month totals, beside the bars.
+
+       Bars are good at shape and bad at value — an owner can see July beat
+       June and still not know by how much. This is the same six months the
+       chart is drawing, summed, so the two cannot disagree. It is replaced
+       by a single month's breakdown when one is selected. */
+    function paintRvSummary() {
+      var box = $("#rvSummary");
+      if (!box) return;
+      if (RV.focus !== -1 || !RV.months.length) { box.innerHTML = ""; return; }
+      var inn = 0, out = 0, best = null;
+      RV.months.forEach(function (m) {
+        inn += m.rev; out += m.exp;
+        if (!best || m.rev > best.rev) best = m;
+      });
+      var net = inn - out;
+      var rows = [
+        ["Money in", inn, "g"],
+        ["Money out", out, "r"]
+      ];
+      var scale = Math.max(inn, out, 1);
+      box.innerHTML =
+        "<h3>Last six months</h3>" +
+        rows.map(function (r, i) {
+          return '<div class="rd-row ' + r[2] + '"><span class="rd-l">' + r[0] + "</span>" +
+            '<span class="rd-bar"><i style="width:' + Math.round((r[1] / scale) * 100) +
+            "%;animation-delay:" + (i * 60) + 'ms;"></i></span>' +
+            '<span class="rd-v">' + LT.fmtINR(r[1]) + "</span></div>";
+        }).join("") +
+        '<div class="st-total" style="margin-top:12px;padding-top:12px;">' +
+          '<span class="lbl">Net</span>' +
+          '<strong style="font-size:19px;color:' + (net < 0 ? "var(--tx-red)" : "var(--ink-hi)") + ';">' +
+            (net < 0 ? "−" : "") + LT.fmtINR(Math.abs(net)) + "</strong>" +
+        "</div>" +
+        (best && best.rev > 0
+          ? '<div class="faint" style="font-size:12px;margin-top:10px;">Best month ' +
+            LT.esc(best.label) + " · " + LT.fmtINR(best.rev) + "</div>"
+          : "");
+    }
+
     function paintRvDetail() {
-      var box = $("#rvDetail");
+      var box = $("#rvDetail"), hint = $("#rvHint");
+      if (hint) hint.style.visibility = RV.focus === -1 ? "" : "hidden";
       if (RV.focus === -1) { box.classList.remove("show"); box.innerHTML = ""; return; }
       var f = RV.months[RV.focus], net = f.rev - f.exp;
       var scale = Math.max(f.rev, f.exp, 1);
@@ -1259,6 +1332,7 @@
     function rvFocus(i) {
       RV.focus = RV.focus === i ? -1 : i;
       drawChart();
+      paintRvSummary();
       paintRvDetail();
     }
     $("#rvHost").addEventListener("click", function (e) {
