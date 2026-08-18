@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=13" />
+<link rel="stylesheet" href="assets/css/glass.css?v=14" />
 <style>
   /* Page-local layout only. Glass, pills, tables, chips, modals, empty
      states and the money/skeleton helpers all come from glass.css. */
@@ -299,9 +299,9 @@
     </div>
   </div>
 
-  <script src="assets/js/core.js?v=13"></script>
-  <script src="assets/js/cloud.js?v=13"></script>
-  <script src="assets/js/dev-data.js?v=13"></script>
+  <script src="assets/js/core.js?v=14"></script>
+  <script src="assets/js/cloud.js?v=14"></script>
+  <script src="assets/js/dev-data.js?v=14"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -1360,8 +1360,18 @@
         }
 
         /* ----- actions ----- */
-        var canRemind = digits(m.phone).length >= 10 &&
-          !(qr && (qr.blocked_reason === "overdue_15_days" || qr.blocked_reason === "whatsapp_opted_out" || qr.blocked_reason === "wrong_phone_number"));
+        /* ANY blocked_reason blocks. This used to name three of them, and
+           the SQL has since grown a fourth — `fee_not_set`, set when no fee
+           rule matches. That one was not in the list, so a member with no
+           fee showed an enabled "Send a reminder" button and the message
+           would have quoted an amount of null.
+
+           reminder_queue() sets blocked_reason to mean "do not chase this
+           person". Enumerating the reasons here re-decides that in
+           JavaScript, and goes stale the moment the ladder learns a new
+           one. Trusting the field is both simpler and correct; BLOCKED
+           only supplies the wording. */
+        var canRemind = digits(m.phone).length >= 10 && !(qr && qr.blocked_reason);
         var canPay = !!(en && en.enrollment_id) || !!(qr && qr.enrollment_id);
 
         var actions =
