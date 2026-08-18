@@ -647,6 +647,12 @@
       if (when) meta.push("Applied " + when);
       if (a.age) meta.push(LT.esc(String(a.age)) + " yrs");
       if (a.parent_name) meta.push(LT.esc(String(a.parent_name)));
+      /* What they asked for. Approving is the moment to honour it, and it
+         is the one field on the form that nothing downstream reads. */
+      var wants = a.batch_id
+        ? batchName(a.batch_id)
+        : (admWantedBatch(a) ? admWantedBatch(a).name : null);
+      if (wants) meta.push("wants " + LT.esc(wants));
 
       /* Three states, not two: refused and never-recorded are different
          facts about a family. */
@@ -678,6 +684,39 @@
         "</div>" +
         '<div class="adm-edit" id="admEdit' + LT.esc(String(a.id)) + '" hidden></div>' +
       "</div>";
+    }
+
+    /* ---------- the batch the family asked for ----------
+       The admission form offers Morning / Evening and sends the choice as
+       TEXT in `slot` ("VAKAMAN FE · Morning batch") — submit_application
+       has no batch argument. So the preference was captured and then
+       dropped: approve_application copies applications.batch_id, which is
+       null, and the new member lands in no batch at all.
+
+       That is not cosmetic. A register is a batch on a date, so a member
+       in no batch never appears on the attendance screen, and resolve_fee
+       reads the batch, so nothing can be charged either. Found on
+       2026-08-18 by admitting a test applicant and looking at the row.
+
+       The slot string is written by our own form, so matching a batch name
+       inside it is reliable. It only ever PRE-FILLS — the operator sees it
+       named in the confirm sheet and can cancel or edit. */
+    function batchName(id) {
+      for (var i = 0; i < admBatches.length; i++) {
+        if (String(admBatches[i].id) === String(id)) return admBatches[i].name || ("Batch " + id);
+      }
+      return null;
+    }
+
+    function admWantedBatch(a) {
+      if (a.batch_id) return null;                    // already decided
+      var slot = String(a.slot || "");
+      if (!slot) return null;
+      for (var i = 0; i < admBatches.length; i++) {
+        var nm = String(admBatches[i].name || "");
+        if (nm && slot.toLowerCase().indexOf(nm.toLowerCase()) >= 0) return admBatches[i];
+      }
+      return null;
     }
 
     /* The edit form. Only the fields approve_application actually consumes
@@ -897,15 +936,30 @@
         /* LT.ask, not window.confirm — confirm() returns false without ever
            showing a dialog in several browsers this app runs in, which read
            as "the operator said no" and made Approve do nothing at all. */
+        var want = admWantedBatch(arow);
+        var placed = arow.batch_id
+          ? " They join " + (batchName(arow.batch_id) || "their batch") + "."
+          : want
+            ? " They asked for " + want.name + " and will be placed there."
+            : " No batch is set, so they will not appear on a register until one is.";
         LT.ask({
           kicker: "Admissions",
           title: "Approve " + (arow.name || "this application") + "?",
-          sub: "This creates the member and their enrolment. It cannot be undone from here." + warn,
+          sub: "This creates the member and their enrolment. It cannot be undone from here." +
+               placed + warn,
           confirmLabel: "Approve"
         }).then(function (ok) {
           if (ok === null) return;
           ap.disabled = true; ap.textContent = "Approving…";
-          return LT_CLOUD.approveApplication(Number(aid), admWho()).then(function (r) {
+          /* Set the batch on the APPLICATION first, because that is what
+             approve_application reads. update_application refuses once the
+             row is approved, so the order matters. */
+          var pre = want
+            ? LT_CLOUD.updateApplication(Number(aid), { batch: want.id, by: admWho() })
+            : Promise.resolve();
+          return pre.then(function () {
+            return LT_CLOUD.approveApplication(Number(aid), admWho());
+          }).then(function (r) {
             var fee = r && r.fee;
             /* "unset" is the ABSENCE of a fee rule, not a fee of zero. Never
                print a 0 here as though it were a price. */
