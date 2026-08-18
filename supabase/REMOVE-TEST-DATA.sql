@@ -48,10 +48,27 @@ delete from applications
 
 delete from members where tenant_id = 'ska' and is_demo;
 
+-- 3b. the empty registers those students leave behind.
+--
+-- A session is "this batch met on this date"; the marks hang off it. Once
+-- the seeded students are gone their sessions survive with nothing in
+-- them, and attendance_dashboard() then reports a class that met and
+-- nobody attended — worse than no record at all. Only sessions with no
+-- marks LEFT are removed, so a session holding a real student's
+-- attendance is never touched.
+delete from sessions s
+ where s.tenant_id = 'ska'
+   and not exists (select 1 from attendance_records ar where ar.session_id = s.id);
+
 -- 4. what is left should be only what you made by hand
 select 'members'      as t, count(*) from members      where tenant_id='ska'
 union all select 'enrollments', count(*) from enrollments where tenant_id='ska'
 union all select 'bookings',    count(*) from bookings    where tenant_id='ska'
 union all select 'applications',count(*) from applications where tenant_id='ska'
 union all select 'fee_rules',   count(*) from fee_rules   where tenant_id='ska'
-union all select 'batches',     count(*) from batches     where tenant_id='ska';
+union all select 'batches',     count(*) from batches     where tenant_id='ska'
+union all select 'sessions',     count(*) from sessions     where tenant_id='ska'
+union all select 'attendance',   count(*) from attendance_records ar
+                                  join sessions s on s.id = ar.session_id
+                                 where s.tenant_id='ska'
+union all select 'payments',     count(*) from payments     where tenant_id='ska';
