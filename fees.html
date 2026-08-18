@@ -80,6 +80,48 @@
 
   .note { font-size: 12px; color: var(--ink-low); line-height: 1.5; }
   .note b { color: var(--ink-mid); font-weight: 650; }
+  /* ---------- performance: revenue vs expenses ----------
+     Deliberately NARROWER than the cards above it. A six-column bar chart
+     stretched to 1200px puts a finger-width of whitespace between columns
+     and makes six months look like six unrelated events; capped at 760 it
+     reads as one trend, which is the only thing this chart is for. */
+  .perf-card { max-width: 760px; margin-left: auto; margin-right: auto; }
+  .rv-legend { display: flex; gap: var(--gap-3); flex-wrap: wrap; font-size: 12px; color: var(--ink-mid); align-items: center; }
+  .rv-legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 6px; vertical-align: -2px; }
+  .rv-legend .sw-rev { background: var(--gold-grad); }
+  .rv-legend .sw-exp { background: rgba(255, 107, 107, 0.8); }
+  :root[data-theme="light"] .rv-legend .sw-exp { background: rgba(194, 56, 63, 0.8); }
+  .rv-legend .sw-net { background: #7fb3ff; border-radius: 99px; height: 4px; margin-top: 4px; }
+  .rv-host { position: relative; width: 100%; min-height: 150px; }
+  .rv-host svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .rv-bar { cursor: pointer; transform-origin: bottom; animation: lt-grow-bar .7s var(--ease-spring) both; transition: opacity .3s ease, filter .3s ease; }
+  .rv-bar.rev { fill: url(#rvGold); }
+  .rv-bar.exp { fill: rgba(255, 107, 107, 0.78); }
+  :root[data-theme="light"] .rv-bar.exp { fill: rgba(194, 56, 63, 0.72); }
+  .rv-group.dim .rv-bar { opacity: .25; filter: saturate(.4); }
+  .rv-group.focus .rv-bar { filter: brightness(1.12); }
+  .rv-net { fill: none; stroke: #7fb3ff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  :root[data-theme="light"] .rv-net { stroke: #2f6fd0; }
+  .rv-net-dot { fill: #7fb3ff; stroke: rgba(0,0,0,.3); stroke-width: 1.2; }
+  :root[data-theme="light"] .rv-net-dot { fill: #2f6fd0; stroke: #fff; }
+  .rv-xlabel { fill: var(--ink-low); font-size: 11px; font-family: var(--font-body); font-weight: 600; cursor: pointer; }
+  .rv-xlabel.focus { fill: var(--tx-gold); font-weight: 800; }
+  .rv-hint { font-size: 11.5px; color: var(--ink-faint); text-align: center; margin-top: 6px; }
+  .rv-detail { display: none; margin-top: var(--gap-3); border-top: 1px solid var(--line); padding-top: var(--gap-3); }
+  .rv-detail.show { display: block; animation: lt-step-in .45s var(--ease-spring) both; }
+  .rv-detail .rd-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .rv-detail .rd-head h3 { font-size: 15px; }
+  .rd-row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; margin-bottom: 8px; }
+  .rd-row .rd-l { flex: none; width: 118px; color: var(--ink-mid); font-weight: 650; }
+  .rd-row .rd-bar { flex: 1; min-width: 30px; height: 8px; border-radius: 5px; background: var(--line); overflow: hidden; }
+  .rd-row .rd-bar i { display: block; height: 100%; border-radius: 5px; transform-origin: left; animation: lt-fill-bar .6s var(--ease-spring) both; }
+  .rd-row.g .rd-bar i { background: var(--gold-grad); }
+  .rd-row.r .rd-bar i { background: linear-gradient(90deg, rgba(255,107,107,.9), rgba(220,80,86,.9)); }
+  .rd-row .rd-v { flex: none; width: 86px; text-align: right; font-weight: 700; color: var(--ink-hi); font-variant-numeric: tabular-nums; }
+  @media (max-width: 480px) {
+    .rd-row .rd-l { width: 92px; font-size: 11.5px; }
+    .rd-row .rd-v { width: 74px; font-size: 11.5px; }
+  }
 </style>
 </head>
 <body>
@@ -164,59 +206,87 @@
       </div>
     </div>
 
-    <!-- ---------- the ledger ---------- -->
+    <!-- ---------- performance: revenue vs expenses ----------
+         Six months, from the same three reads the tiles above use, so the
+         chart and the tiles cannot quote different money. That is not a
+         style choice: 2026-08-12zb records a demo dashboard showing ₹57k
+         and ₹527,200 for the same month because the chart came from
+         tenant_revenue_streams() — a COURT-VENUE function that by contract
+         excludes coaching fees. It is right for what it reports and wrong
+         as a total, so this page does not use it. -->
+    <div class="glass glass-card reveal perf-card">
+      <div class="card-head">
+        <div><div class="kicker">Performance</div><h2>Revenue vs expenses</h2></div>
+        <div class="rv-legend">
+          <span><span class="sw sw-rev"></span>Revenue</span>
+          <span><span class="sw sw-exp"></span>Expenses</span>
+          <span><span class="sw sw-net"></span>Net</span>
+        </div>
+      </div>
+      <div class="rv-host" id="rvHost"><div class="lt-skel"></div><div class="lt-skel"></div></div>
+      <div class="rv-hint" id="rvHint">Tap a month to see what it was made of.</div>
+      <div class="rv-detail" id="rvDetail"></div>
+    </div>
+
+    <!-- ---------- the ledger: money in and money out, one card ----------
+         Two cards became one with tabs. They were the same object — a list
+         of transactions for the chosen month — split only by direction, and
+         an owner comparing what came in against what went out was scrolling
+         between two headers to do it.
+
+         Both tables stay in the DOM and are toggled. paintLedger() and
+         paintExpenses() are untouched; a tab that re-renders is a tab that
+         can lose a filter. -->
     <div class="glass reveal">
       <div class="ledger-head">
         <div class="lh-title">
           <div class="kicker">Ledger</div>
-          <h2 style="font-size: 18px;">Money received</h2>
+          <h2 style="font-size: 18px;" id="ledgerTitle">Money received</h2>
         </div>
         <div class="lh-controls">
+          <div class="chip-row filters" id="ledgerTabs">
+            <button class="chip active" type="button" data-tab="in">Money in</button>
+            <button class="chip" type="button" data-tab="out">Money out</button>
+          </div>
           <div class="chip-row filters" id="txTabs">
             <button class="chip active" type="button" data-f="all">All</button>
             <button class="chip" type="button" data-f="fees">Coaching fees</button>
             <button class="chip" type="button" data-f="nets">Nets</button>
             <button class="chip" type="button" data-f="ground">Ground</button>
           </div>
+          <button class="btn btn-glass btn-sm hide" id="expAdd2" type="button">+ Add expense</button>
         </div>
       </div>
-      <div class="table-wrap">
-        <table class="lt-table tight">
-          <thead>
-            <tr>
-              <th>Date</th><th>From</th><th>Stream</th>
-              <th style="text-align:right;">Amount</th><th>Mode</th><th>Collected by</th>
-            </tr>
-          </thead>
-          <tbody id="txBody"></tbody>
-        </table>
-      </div>
-      <div class="ledger-foot" id="txFoot"></div>
-    </div>
 
-    <!-- ---------- money out ---------- -->
-    <div class="glass reveal">
-      <div class="ledger-head">
-        <div class="lh-title">
-          <div class="kicker">Money out</div>
-          <h2 style="font-size: 18px;">Expenses</h2>
+      <div id="paneIn">
+        <div class="table-wrap">
+          <table class="lt-table tight">
+            <thead>
+              <tr>
+                <th>Date</th><th>From</th><th>Stream</th>
+                <th style="text-align:right;">Amount</th><th>Mode</th><th>Collected by</th>
+              </tr>
+            </thead>
+            <tbody id="txBody"></tbody>
+          </table>
         </div>
-        <div class="lh-controls">
-          <button class="btn btn-glass btn-sm" id="expAdd2" type="button">+ Add expense</button>
+        <div class="ledger-foot" id="txFoot"></div>
+      </div>
+
+      <div id="paneOut" class="hide">
+        <div class="table-wrap">
+          <table class="lt-table tight">
+            <thead>
+              <tr>
+                <th>Date</th><th>Paid to</th><th>Category</th>
+                <th style="text-align:right;">Amount</th><th>Mode</th><th>Note</th>
+              </tr>
+            </thead>
+            <tbody id="expBody"></tbody>
+          </table>
         </div>
+        <div class="ledger-foot" id="expFoot"></div>
       </div>
-      <div class="table-wrap">
-        <table class="lt-table tight">
-          <thead>
-            <tr>
-              <th>Date</th><th>Paid to</th><th>Category</th>
-              <th style="text-align:right;">Amount</th><th>Mode</th><th>Note</th>
-            </tr>
-          </thead>
-          <tbody id="expBody"></tbody>
-        </table>
-      </div>
-      <div class="ledger-foot" id="expFoot"></div>
     </div>
 
   </main>
@@ -1014,6 +1084,191 @@
       paintLedger();
     });
 
+    /* ---------- money in / money out, one card ----------
+       Swaps which table is on screen, plus the controls that belong to it:
+       the stream filter is meaningless over expenses, and "+ Add expense"
+       is meaningless over receipts. */
+    $("#ledgerTabs").addEventListener("click", function (e) {
+      var btn = e.target.closest(".chip");
+      if (!btn) return;
+      var out = btn.dataset.tab === "out";
+      LT.$$(".chip", this).forEach(function (c) { c.classList.toggle("active", c === btn); });
+      $("#ledgerTitle").textContent = out ? "Money spent" : "Money received";
+      $("#paneIn").classList.toggle("hide", out);
+      $("#paneOut").classList.toggle("hide", !out);
+      $("#txTabs").classList.toggle("hide", out);
+      $("#expAdd2").classList.toggle("hide", !out);
+    });
+
+    /* ============================================================
+       REVENUE VS EXPENSES — six months
+
+       Three more round trips, dispatched together, over the SAME reads the
+       month tiles use. Deliberately not tenant_revenue_streams(): that
+       function's contract is court income, so at this academy it would
+       report the ground and the nets and silently omit every coaching fee
+       — a chart that looks authoritative and disagrees with the tile
+       directly above it.
+
+       Nothing here prices anything. It sums amounts the server already put
+       on the rows, which is aggregation, not a money rule.
+       ============================================================ */
+    var RV = { months: [], focus: -1 };
+
+    function rvMonthList() {
+      var now = new Date(), out = [];
+      for (var i = 5; i >= 0; i--) {
+        var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        out.push({
+          key: monthKey(d),
+          m: d.toLocaleDateString("en-IN", { month: "short" }),
+          label: d.toLocaleDateString("en-IN", { month: "long", year: "numeric" }),
+          fees: 0, nets: 0, ground: 0, exp: 0
+        });
+      }
+      return out;
+    }
+    function rvFind(list, iso) {
+      var k = String(iso || "").slice(0, 7);
+      for (var i = 0; i < list.length; i++) if (list[i].key === k) return list[i];
+      return null;
+    }
+
+    function loadChart() {
+      var list = rvMonthList();
+      var from = list[0].key + "-01";
+      var to   = monthBounds(list[list.length - 1].key).to;
+
+      Promise.all([
+        LT_CLOUD.bookingsBetween(from, to).catch(function () { return null; }),
+        readVia("payments", [from, to], "Coaching fee payments").catch(function () { return null; }),
+        readVia("expenses", [from, to], "Expenses").catch(function () { return null; })
+      ]).then(function (res) {
+        /* A read that failed is not a zero. If none of the three landed the
+           chart says so rather than drawing a flat line the academy would
+           read as six months of nothing. */
+        if (!res[0] && !res[1] && !res[2]) {
+          $("#rvHost").innerHTML =
+            '<div class="lt-empty" style="padding:18px 12px;">' +
+            '<div class="lt-empty-t">Could not load the six-month view</div>' +
+            '<div class="lt-empty-s">The month figures above are unaffected.</div></div>';
+          $("#rvHint").style.display = "none";
+          return;
+        }
+
+        live(res[0] || []).filter(isPaid).forEach(function (b) {
+          var row = rvFind(list, isoOf(b.date));
+          if (!row) return;
+          var sp = sportOf(b);
+          if (sp === "ground") row.ground += num(b.amount);
+          else if (isNet(sp))  row.nets   += num(b.amount);
+        });
+        (res[1] || []).forEach(function (p) {
+          var row = rvFind(list, isoOf(feeDate(p)));
+          if (row) row.fees += feeAmount(p);
+        });
+        (res[2] || []).forEach(function (x) {
+          var row = rvFind(list, isoOf(pick(x, ["on_date", "date", "created_at"])));
+          if (row) row.exp += num(x.amount);
+        });
+
+        list.forEach(function (r) { r.rev = r.fees + r.nets + r.ground; });
+        RV.months = list;
+        drawChart();
+      });
+    }
+
+    function drawChart() {
+      var F = RV.months, host = $("#rvHost");
+      if (!F.length) return;
+      var W = 620, H = 190, P = 30, base = H - 26;
+      var max = 0;
+      F.forEach(function (f) { max = Math.max(max, f.rev, f.exp); });
+      /* An academy with no expenses yet must not divide by zero, and a
+         chart scaled to 0 draws every bar full height. */
+      if (max <= 0) max = 1;
+
+      function gx(i) { return P + (i + 0.5) * ((W - P * 2) / F.length); }
+      function y(v) { return base - (v / max) * (base - 16); }
+      var barW = Math.min(20, ((W - P * 2) / F.length) / 2.6);
+
+      var grid = [0.5, 1].map(function (g) {
+        var gy = y(max * g);
+        return '<line x1="' + P + '" y1="' + gy + '" x2="' + (W - P) + '" y2="' + gy +
+          '" stroke="var(--line)" stroke-width="1"/>' +
+          '<text x="' + (P - 6) + '" y="' + (gy + 3) + '" text-anchor="end" fill="var(--ink-faint)" ' +
+          'font-size="9" font-family="var(--font-body)">' + LT.fmtINR(Math.round(max * g)) + "</text>";
+      }).join("");
+
+      var groups = F.map(function (f, i) {
+        var cls = "rv-group" + (RV.focus === -1 ? "" : RV.focus === i ? " focus" : " dim");
+        return '<g class="' + cls + '" data-i="' + i + '">' +
+          '<rect class="rv-bar rev" x="' + (gx(i) - barW - 2) + '" y="' + y(f.rev) +
+            '" width="' + barW + '" height="' + Math.max(0, base - y(f.rev)) +
+            '" rx="4" style="animation-delay:' + (i * 60) + 'ms;"><title>' +
+            LT.esc(f.label) + " · in " + LT.fmtINR(f.rev) + "</title></rect>" +
+          '<rect class="rv-bar exp" x="' + (gx(i) + 2) + '" y="' + y(f.exp) +
+            '" width="' + barW + '" height="' + Math.max(0, base - y(f.exp)) +
+            '" rx="4" style="animation-delay:' + (i * 60 + 40) + 'ms;"><title>' +
+            LT.esc(f.label) + " · out " + LT.fmtINR(f.exp) + "</title></rect>" +
+          "</g>";
+      }).join("");
+
+      var netLine = F.map(function (f, i) {
+        return (i ? "L" : "M") + gx(i).toFixed(1) + " " + y(Math.max(0, f.rev - f.exp)).toFixed(1);
+      }).join(" ");
+      var dots = F.map(function (f, i) {
+        return '<circle class="rv-net-dot" cx="' + gx(i).toFixed(1) + '" cy="' +
+          y(Math.max(0, f.rev - f.exp)).toFixed(1) + '" r="3"/>';
+      }).join("");
+      var labels = F.map(function (f, i) {
+        return '<text class="rv-xlabel' + (RV.focus === i ? " focus" : "") + '" data-i="' + i +
+          '" x="' + gx(i).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + f.m + "</text>";
+      }).join("");
+
+      host.innerHTML =
+        '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Revenue against expenses, six months">' +
+        '<defs><linearGradient id="rvGold" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0" stop-color="#ffd75e"/><stop offset="1" stop-color="#d19a00"/></linearGradient></defs>' +
+        grid + groups + '<path class="rv-net" d="' + netLine + '"/>' + dots + labels + "</svg>";
+    }
+
+    function paintRvDetail() {
+      var box = $("#rvDetail");
+      if (RV.focus === -1) { box.classList.remove("show"); box.innerHTML = ""; return; }
+      var f = RV.months[RV.focus], net = f.rev - f.exp;
+      var scale = Math.max(f.rev, f.exp, 1);
+      var rows = [
+        ["Coaching fees", f.fees, "g"], ["Nets", f.nets, "g"], ["Ground", f.ground, "g"],
+        ["Expenses", f.exp, "r"]
+      ];
+      box.innerHTML =
+        '<div class="rd-head"><h3>' + LT.esc(f.label) + "</h3>" +
+        '<div class="flex"><span class="pill ' + (net >= 0 ? "green" : "red") + '">Net ' +
+          (net < 0 ? "−" : "") + LT.fmtINR(Math.abs(net)) + "</span>" +
+        '<button class="btn btn-ghost btn-sm" id="rdClose" type="button">✕ Close</button></div></div>' +
+        rows.map(function (r, i) {
+          return '<div class="rd-row ' + r[2] + '"><span class="rd-l">' + r[0] + "</span>" +
+            '<span class="rd-bar"><i style="width:' + Math.round((r[1] / scale) * 100) +
+            "%;animation-delay:" + (i * 60) + 'ms;"></i></span>' +
+            '<span class="rd-v">' + LT.fmtINR(r[1]) + "</span></div>";
+        }).join("");
+      box.classList.add("show");
+    }
+
+    function rvFocus(i) {
+      RV.focus = RV.focus === i ? -1 : i;
+      drawChart();
+      paintRvDetail();
+    }
+    $("#rvHost").addEventListener("click", function (e) {
+      var g = e.target.closest(".rv-group, .rv-xlabel");
+      if (g) rvFocus(Number(g.dataset.i));
+    });
+    $("#rvDetail").addEventListener("click", function (e) {
+      if (e.target.closest("#rdClose")) rvFocus(RV.focus);
+    });
+
     /* ============================================================
        COLLECT A RENTAL
 
@@ -1182,6 +1437,9 @@
 
     /* ---------- go ---------- */
     load($("#monthSel").value);
+    /* The chart's six months do not change when the month picker does —
+       it is the context around the month, not a view of it. */
+    loadChart();
   })();
   </script>
 </body>

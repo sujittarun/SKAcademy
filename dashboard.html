@@ -135,7 +135,7 @@
          the Active members number above does not move when this one does.
          The pill, the count and the names all live inside #admBody's
          region so that a failed read can replace the whole thing. -->
-    <div class="glass glass-card reveal" id="admCard">
+    <div class="glass glass-card reveal hide" id="admCard">
       <div class="card-head" style="margin-bottom:10px;">
         <div><div class="kicker">Admissions</div><h2>New applications</h2></div>
         <div class="flex">
@@ -607,25 +607,24 @@
       return LT.shortDate(iso);
     }
 
+    /* The card is hidden until there is a reason for it. An academy has a
+       new application a few times a month, so an "All clear" panel sitting
+       at the top of the dashboard the other 27 days is a permanent empty
+       shelf. A FAILED read still shows it — an inbox nobody could read
+       must not look like an inbox with nothing in it. */
+    function admShow(on) {
+      var card = $("#admCard");
+      if (card) card.classList.toggle("hide", !on);
+    }
+
     function renderAdmissions(rows) {
       rows = rows || [];
       var host = $("#admBody");
       var pill = $("#admPill");
       admRows = rows || [];
 
-      if (!admRows.length) {
-        /* Calm, not an alarm. Nothing waiting is the normal state of an
-           inbox and must not look like a problem. */
-        pill.className = "pill";
-        pill.textContent = "All clear";
-        host.innerHTML =
-          '<div class="lt-empty" style="padding:16px 12px;">' +
-            '<div class="lt-empty-t">No new applications</div>' +
-            '<div class="lt-empty-s">Enquiries from the admission form arrive here and wait ' +
-            "until someone approves or declines them.</div>" +
-          "</div>";
-        return;
-      }
+      if (!admRows.length) { admShow(false); return; }
+      admShow(true);
 
       pill.className = "pill gold";
       pill.textContent = admRows.length + (admRows.length === 1 ? " waiting" : " waiting");
@@ -716,6 +715,7 @@
        zero: an academy nobody applied to and an academy whose database did
        not answer are different academies. */
     function admissionsFailed(err) {
+      admShow(true);
       var pill = $("#admPill");
       pill.className = "pill";
       pill.textContent = "—";
@@ -1013,6 +1013,7 @@
        wording that cannot be mistaken for "all clear". Unreachable the
        moment a live session answers the read. */
     function devAdmissionsPanel() {
+      admShow(true);
       var pill = $("#admPill");
       pill.className = "pill";
       pill.textContent = "—";

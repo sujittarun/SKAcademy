@@ -282,6 +282,18 @@
      element, and the numbers visibly fight. */
   LT.countUp = function (el, target, opts) {
     if (!el) return;
+    /* A direct call is the authority on this element, and it retires the
+       observer below for good.
+
+       Without this the same tile animates TWICE on every load: a page
+       fetches its data, calls this to paint the real number, and then the
+       1200ms safety net at the foot of this file finds the element still
+       unvisited and counts it up from zero all over again. The two runs
+       never overlap, so the rAF cancel above does not catch it — it reads
+       as the number counting, settling, then counting again. Reported on
+       the dashboard's "Collected today", but it was every stat on every
+       page that paints from a fetch. */
+    el._cuDone = true;
     opts = opts || {};
     target = Number(target) || 0;
 
@@ -485,7 +497,7 @@
        scrolled, all four tiles sat at 0 indefinitely. */
     var seen = new WeakSet();
     function runCount(el) {
-      if (seen.has(el)) return;
+      if (seen.has(el) || el._cuDone) return;
       seen.add(el);
       LT.countUp(el, Number(el.dataset.countup || 0), {
         prefix: el.dataset.prefix || "", suffix: el.dataset.suffix || ""

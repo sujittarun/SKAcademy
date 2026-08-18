@@ -149,42 +149,66 @@
      so the field's blue/peach/lavender visibly TRANSMITS through the card;
      blur 30 + saturate 170% + a touch of contrast does the optics; the
      specular border is strongest along the top and left edges. */
-  --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.1));
-  --glass-border: rgba(255, 255, 255, 0.55);
+  /* EDGES ARE DARK IN LIGHT MODE. They used to be white — the same white
+     as the dark theme's specular rim — which measured 1.06:1 against the
+     #f2f3f7 page. A 6% difference is not an edge, and it disappears
+     completely on a dim screen: reported as "very difficult to see the
+     edges of panes/cards/buttons when the brightness is not high".
+
+     The white rim was never wrong, it was only ever HALF the material. A
+     real glass edge is a bright specular highlight ON TOP of a darker
+     refraction boundary. Dark mode shows the highlight because the field
+     behind it is dark; light mode has to show the boundary. So the white
+     survives as the inset top rim below, and the OUTLINE becomes ink.
+
+     Do not "restore" these to white to match the dark theme. The two
+     themes agree on the material, not on the value. */
+  --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.36));
+  --glass-border: rgba(28, 32, 44, 0.15);
   --glass-blur: 30px;
   --glass-sat: 1.7;
   --glass-bright: 1.04;
   --glass-contrast: 1.05;
   --glass-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)) brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+  /* Three drop shadows, not one. A single wide 70px shadow is a haze with
+     no visible start, so the card floats without ever landing; the tight
+     1px and 3px contact shadows are what make an eye read "this sits above
+     that". Same reason a real object has a sharp shadow at the point it
+     touches and a soft one further out. */
   --glass-shadow:
-    0 28px 70px rgba(45, 55, 90, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    inset 1px 0 0 rgba(255, 255, 255, 0.45),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 16px 30px -18px rgba(45, 55, 90, 0.13),
-    inset 0 -18px 32px -18px rgba(255, 255, 255, 0.5);
+    0 1px 1.5px rgba(24, 30, 50, 0.07),
+    0 3px 8px rgba(24, 30, 50, 0.06),
+    0 20px 48px rgba(45, 55, 90, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 1px 0 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 16px 30px -18px rgba(45, 55, 90, 0.1),
+    inset 0 -18px 32px -18px rgba(255, 255, 255, 0.55);
   --glass-shadow-soft:
-    0 12px 32px rgba(45, 55, 90, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.14);
-  --glass-border-hover: rgba(255, 255, 255, 0.95);
+    0 1px 1.5px rgba(24, 30, 50, 0.06),
+    0 8px 22px rgba(45, 55, 90, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.2);
+  --glass-border-hover: rgba(28, 32, 44, 0.3);
   --specular: linear-gradient(90deg, transparent 4%, rgba(255, 255, 255, 0.98) 30%, rgba(255, 255, 255, 0.45) 65%, transparent 96%);
   --corner-glow: rgba(255, 255, 255, 0.55);
 
-  --input-bg: rgba(255, 255, 255, 0.18);
-  --input-bg-focus: rgba(255, 255, 255, 0.38);
-  --input-border: rgba(255, 255, 255, 0.55);
-  --input-border-hover: rgba(255, 255, 255, 0.85);
-  --input-shadow: inset 0 1px 2px rgba(28, 32, 44, 0.05);
-  --tile-bg: rgba(255, 255, 255, 0.2);
-  --tile-border: rgba(255, 255, 255, 0.52);
-  --line: rgba(28, 32, 44, 0.1);
-  --row-hover: rgba(255, 255, 255, 0.26);
-  --chip-bg: rgba(255, 255, 255, 0.24);
-  --chip-border: rgba(255, 255, 255, 0.56);
-  --thead-bg: rgba(255, 255, 255, 0.4);
-  --pill-bg: rgba(255, 255, 255, 0.24);
-  --pill-border: rgba(255, 255, 255, 0.56);
+  /* Anything a finger can press gets a firmer edge than a card does — a
+     control that reads as decoration is a control nobody presses. */
+  --input-bg: rgba(255, 255, 255, 0.66);
+  --input-bg-focus: rgba(255, 255, 255, 0.92);
+  --input-border: rgba(28, 32, 44, 0.2);
+  --input-border-hover: rgba(28, 32, 44, 0.36);
+  --input-shadow: inset 0 1px 2px rgba(28, 32, 44, 0.07);
+  --tile-bg: rgba(255, 255, 255, 0.58);
+  --tile-border: rgba(28, 32, 44, 0.14);
+  --line: rgba(28, 32, 44, 0.14);
+  --row-hover: rgba(255, 255, 255, 0.72);
+  --chip-bg: rgba(255, 255, 255, 0.62);
+  --chip-border: rgba(28, 32, 44, 0.18);
+  --thead-bg: rgba(255, 255, 255, 0.62);
+  --pill-bg: rgba(255, 255, 255, 0.62);
+  --pill-border: rgba(28, 32, 44, 0.18);
   --dot-border: rgba(28, 32, 44, 0.32);
   --ghost-hover: rgba(255, 255, 255, 0.6);
   --option-bg: #ffffff;
