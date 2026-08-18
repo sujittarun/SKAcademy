@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=7" />
+<link rel="stylesheet" href="assets/css/glass.css?v=8" />
 <style>
   /* Page-local LAYOUT only. Glass, buttons, fields, pills, .slot,
      .form-msg and .lt-empty all come from glass.css. */
@@ -83,6 +83,26 @@
     font-size: 13px; color: var(--ink-mid);
   }
   .done-lines .dl b { color: var(--ink-hi); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* ---------- The quote, shown before the Book button ----------
+     Sits directly above the action it prices, so the figure and the
+     commitment are read in one glance rather than one screen apart. */
+  .quote {
+    margin: var(--gap-3) 0 var(--gap-2);
+    padding: 13px 15px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--tile-border);
+    background: var(--tile-bg);
+  }
+  .q-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .q-lab { font-size: 13px; color: var(--ink-mid); }
+  .q-amt {
+    font-size: 24px; font-weight: 800; color: var(--ink-hi);
+    /* tabular so the figure does not jump sideways as it re-quotes */
+    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+  }
+  .q-note { margin-top: 6px; font-size: 11.5px; line-height: 1.45; color: var(--ink-low); }
+  @media (max-width: 420px) { .q-amt { font-size: 21px; } }
 </style>
 </head>
 <body>
@@ -167,8 +187,18 @@
               <input type="tel" id="bkPhone" name="phone" autocomplete="tel" inputmode="numeric"
                      placeholder="10-digit mobile" required />
             </label>
+            <!-- What it costs, BEFORE committing. Filled by public_quote(),
+                 which works the figure out in Postgres — this page never
+                 multiplies hours by a rate and never holds one. -->
+            <div class="quote" id="bkQuote" aria-live="polite" hidden>
+              <div class="q-row">
+                <span class="q-lab" id="bkQuoteLab">Total</span>
+                <span class="q-amt" id="bkQuoteAmt">—</span>
+              </div>
+              <div class="q-note" id="bkQuoteNote"></div>
+            </div>
             <div class="form-msg" id="bkMsg" role="status" aria-live="polite" style="min-height:0;"></div>
-            <button type="submit" class="btn btn-primary btn-block btn-lg" id="bkSubmit" disabled>Send request</button>
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="bkSubmit" disabled>Book</button>
           </form>
         </section>
       </div>
@@ -188,15 +218,15 @@
     </div>
   </main>
 
-  <script src="assets/js/core.js?v=7"></script>
-  <script src="assets/js/cloud.js?v=7"></script>
+  <script src="assets/js/core.js?v=8"></script>
+  <script src="assets/js/cloud.js?v=8"></script>
   <!-- dev-data.js loads for shell consistency and is DELIBERATELY NOT USED
        here. Sample rows behind the striped banner are a preview on a staff
        screen; on a public page they would be a customer shown invented
        availability with no way to tell. A failed read says "could not
        load" instead — an empty academy and a broken one must not look
        alike. -->
-  <script src="assets/js/dev-data.js?v=7"></script>
+  <script src="assets/js/dev-data.js?v=8"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -246,6 +276,10 @@
         phone:   LT.$("#bkPhone"),
         msg:     LT.$("#bkMsg"),
         submit:  LT.$("#bkSubmit"),
+        quote:     LT.$("#bkQuote"),
+        quoteLab:  LT.$("#bkQuoteLab"),
+        quoteAmt:  LT.$("#bkQuoteAmt"),
+        quoteNote: LT.$("#bkQuoteNote"),
         done:      LT.$("#doneCard"),
         doneTitle: LT.$("#doneTitle"),
         doneDetail:LT.$("#doneDetail"),
@@ -448,6 +482,12 @@
         el.selCount.textContent = selected.length + plural(selected.length, " hour", " hours");
         syncSubmit();
 
+        /* Re-quote whenever the selection, the date or the facility moves.
+           Hooked here rather than in render(), because picking an hour
+           calls renderSteps() ALONE — quoting from render() would miss
+           exactly the change that alters the price. */
+        loadQuote();
+
         /* Scroll the newest step into view on narrow screens only — on a
            desktop the whole flow is already visible. */
         if (fresh.length && window.innerWidth < 720) {
@@ -472,8 +512,53 @@
         return facility === NETS ? selected.length > 0 : groundOk();
       }
       function syncSubmit() {
-        el.submit.textContent = sending ? "Sending…" : (facility === GROUND ? "Send enquiry" : "Send request");
+        /* "Book" on both paths. The old wording ("Send request" / "Send
+           enquiry") described the plumbing rather than the intent — the
+           customer is booking. The success card still says plainly that
+           the academy confirms it, which is where that caveat belongs. */
+        el.submit.textContent = sending
+          ? "Booking…"
+          : (facility === GROUND ? "Book the ground" : "Book");
         el.submit.disabled = sending || !valid();
+      }
+
+      /* ---------- the quote ----------
+         Every figure comes back from public_quote(). The page holds no
+         rate and does no arithmetic: `total` is what the database says the
+         selection costs, so the screen and the charge cannot disagree.
+
+         Requests are sequenced by a token — a fast tapper can have two in
+         flight, and the slower one must not overwrite the newer answer. */
+      var quoteSeq = 0;
+      function clearQuote() { quoteSeq++; el.quote.hidden = true; }
+
+      function loadQuote() {
+        var host = el.quote;
+        if (!host) return;
+        if (!facility || !el.date.value) { clearQuote(); return; }
+        var wantHours = facility === NETS ? selected.slice() : [];
+        if (facility === NETS && !wantHours.length) { clearQuote(); return; }
+
+        var mine = ++quoteSeq;
+        el.quoteAmt.textContent = "…";
+        el.quoteNote.textContent = "";
+        host.hidden = false;
+
+        LT_CLOUD.publicQuote(facility, el.date.value, wantHours).then(function (q) {
+          if (mine !== quoteSeq || !q) return;
+          el.quoteLab.textContent = q.full_day
+            ? "Full day · " + LT.shortDate(el.date.value)
+            : wantHours.length + (wantHours.length === 1 ? " hour" : " hours") +
+              " × " + LT.fmtINR(q.unit);
+          el.quoteAmt.textContent = LT.fmtINR(q.total);
+          el.quoteNote.textContent = q.note || "";
+        }).catch(function () {
+          if (mine !== quoteSeq) return;
+          /* A quote that cannot be fetched says so and gets out of the
+             way. It must never fall back to a number this page made up —
+             that is the one failure that would be worse than silence. */
+          clearQuote();
+        });
       }
 
       function setFacility(next) {

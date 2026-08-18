@@ -109,9 +109,38 @@
   })();
 
   /* ---------- session ---------- */
+  /* THE SESSION LIVES IN sessionStorage, NOT localStorage.
+
+     It therefore survives navigating between screens and reloading, and
+     is gone the moment the tab or the browser closes. That is what was
+     asked for, and it is the right default here: the manager's screen is
+     a shared front-desk device, and a token in localStorage stays signed
+     in on it indefinitely — through the evening, through whoever uses the
+     machine next.
+
+     Two consequences to know rather than discover:
+       · a second TAB is a second session, so staff sign in again there;
+       · a token still expires on its own hour-long clock and is refreshed
+         in bearer(); closing the tab is a floor on the lifetime, not the
+         whole of it.
+
+     The theme stays in localStorage — a preference is not a credential. */
   function session() {
     var s;
-    try { s = JSON.parse(localStorage.getItem(SESSION_KEY)); } catch (e) { return null; }
+    try { s = JSON.parse(sessionStorage.getItem(SESSION_KEY)); } catch (e) { return null; }
+    /* Adopt a pre-existing localStorage session once, then move it, so a
+       staff member who was already signed in is not kicked out by this
+       change landing mid-shift. */
+    if (!s) {
+      try {
+        var old = JSON.parse(localStorage.getItem(SESSION_KEY));
+        localStorage.removeItem(SESSION_KEY);
+        if (old && old.access_token) {
+          sessionStorage.setItem(SESSION_KEY, JSON.stringify(old));
+          s = old;
+        }
+      } catch (e) { /* nothing to adopt */ }
+    }
     /* EVICT A STALE PREVIEW SESSION. devSignIn() is gated on DEV, so no
        NEW preview session can be minted once DEV is false — but one
        already sitting in a browser would otherwise keep satisfying
@@ -122,9 +151,13 @@
     return s;
   }
   function saveSession(s) {
-    try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch (e) {}
+    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch (e) {}
   }
   function clearSession() {
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+    /* Also clear the old localStorage key. Anyone signed in before this
+       change has a session sitting there that would otherwise outlive
+       every sign-out and every tab close, invisibly. */
     try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
   }
 
@@ -496,6 +529,18 @@
     /* Anonymous availability. public_slots is opt-in per tenant and 'ska'
        is opted in (config.features.publicSlots). Anon cannot read the
        bookings table itself. */
+    /* What a selection COSTS, before anything is submitted.
+       Anon-callable by design (migration 2026-08-18b) and the figure is
+       computed in Postgres — the page never multiplies hours by a rate,
+       and never holds one. Returns { currency, full_day, unit, count,
+       total, note }. */
+    publicQuote: function (sport, date, hours) {
+      return rpc("public_quote", {
+        p_tenant: TENANT, p_sport: sport, p_date: date,
+        p_hours: hours && hours.length ? hours : null
+      }, true);
+    },
+
     publicSlots: function (from, to) {
       var q = "/public_slots?tenant_id=eq." + TENANT + "&date=gte." + from;
       if (to) q += "&date=lte." + to;

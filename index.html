@@ -17,7 +17,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=7" />
+<link rel="stylesheet" href="assets/css/glass.css?v=8" />
 <style>
   /* ============================================================
      PUBLIC LANDING — deliberately one screen.
@@ -65,8 +65,15 @@
     -webkit-text-fill-color: transparent;
   }
   /* brand yellow as TEXT on a near-white field is ~1.6:1 — unreadable.
-     Same reasoning as --tx-gold in the light token block. */
-  :root[data-theme="light"] .hero h1 .grad { background: linear-gradient(115deg, #8a6a00, #5f4a00); }
+     Same reasoning as --tx-gold in the light token block.
+
+     background-IMAGE, not the `background` shorthand. The shorthand resets
+     background-clip to border-box, so the gradient painted the BOX while
+     -webkit-text-fill-color:transparent kept the letters invisible — the
+     word "Academy" rendered as a solid dark rectangle in light mode. */
+  :root[data-theme="light"] .hero h1 .grad {
+    background-image: linear-gradient(115deg, #8a6a00, #5f4a00);
+  }
   .gold-rule {
     height: 4px; width: 120px; border-radius: 99px; margin-top: var(--gap-3);
     background: var(--gold-grad); box-shadow: 0 4px 16px rgba(247, 203, 21, 0.4);
@@ -118,8 +125,6 @@
     gap: var(--gap-2); flex-wrap: wrap;
     font-size: 12.5px; color: var(--ink-low);
   }
-  .lp-foot .staff { color: var(--ink-faint); font-size: 12px; }
-  .lp-foot .staff:hover { color: var(--tx-gold); }
 
   @media (max-width: 699px) {
     .lt-main { padding: calc(var(--nav-h) + 28px) var(--gap-3) var(--gap-4); }
@@ -129,9 +134,7 @@
   }
   @media (max-width: 429px) {
     .lt-nav { gap: 8px; }
-    .nav-cta-long { display: none; }
   }
-  @media (min-width: 430px) { .nav-cta-short { display: none; } }
 </style>
 </head>
 <body>
@@ -139,8 +142,9 @@
 
   <a class="skip" href="#main">Skip to content</a>
 
-  <!-- top nav. Staff sign-in is deliberately NOT here — it lives once,
-       discreetly, in the footer. This page is for parents and players. -->
+  <!-- top nav. Sign in lives here now, and ONLY here — it used to sit in
+       the footer instead, and having it in both places was two links to
+       the same door. -->
   <nav class="lt-nav glass">
     <a class="nav-brand" href="index.html">
       <span class="mark" data-logo="34"></span>
@@ -148,10 +152,11 @@
     </a>
     <div class="nav-actions">
       <button type="button" class="theme-toggle"></button>
-      <a class="btn btn-ghost btn-sm hide-mobile" href="admission.html" data-cta="nav-join">Join the academy</a>
-      <a class="btn btn-primary btn-sm" href="booking.html" data-cta="nav-book">
-        <span class="nav-cta-long">Book a net</span><span class="nav-cta-short">Book</span>
-      </a>
+      <!-- No "Book" here. The hero's two cards ARE the booking and
+           admission routes, and repeating one of them in the nav gave the
+           page three competing calls to action above the fold. Sign in is
+           the only thing the nav needs that the page body does not offer. -->
+      <a class="btn btn-ghost btn-sm" href="login.html" data-cta="nav-signin">Sign in</a>
     </div>
   </nav>
 
@@ -194,13 +199,12 @@
 
     <footer class="lp-foot">
       <span>© <span id="year">2026</span> Super Kings Academy · VAKAMAN FE, Coimbatore</span>
-      <a class="staff" href="login.html">Staff sign in</a>
     </footer>
   </main>
 
-  <script src="assets/js/core.js?v=7"></script>
-  <script src="assets/js/cloud.js?v=7"></script>
-  <script src="assets/js/dev-data.js?v=7"></script>
+  <script src="assets/js/core.js?v=8"></script>
+  <script src="assets/js/cloud.js?v=8"></script>
+  <script src="assets/js/dev-data.js?v=8"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
