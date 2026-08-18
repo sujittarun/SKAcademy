@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=4" />
+<link rel="stylesheet" href="assets/css/glass.css?v=7" />
 <style>
   /* ------------------------------------------------------------
      Page-local components only. Anything reusable belongs in
@@ -211,9 +211,11 @@
     <div class="glass glass-card reveal" id="groundCard">
       <div class="card-head" style="margin-bottom:10px;">
         <div>
+          <!-- The heading says "full day"; the sub-line that used to
+               explain it again was the sort of prose the client asked to
+               be cut. An operator learns this once. -->
           <div class="kicker">Main Ground</div>
           <h2 style="font-size:17px;">Main Ground — full day</h2>
-          <div class="sub">Sold by the day, never by the hour. The booking sits outside the hourly grid.</div>
         </div>
         <div class="gd-rate" id="gdRate">—</div>
       </div>
@@ -227,7 +229,7 @@
         <div>
           <div class="kicker">Practice nets</div>
           <h2 style="font-size:17px;">Nets by the hour</h2>
-          <div class="sub" id="netsSub">One pool of four. Tap a free slot to book it, a booked slot to collect or cancel.</div>
+          <div class="sub" id="netsSub">Tap a free slot to book, a booked slot to collect or cancel.</div>
         </div>
       </div>
       <div class="nt-scroll"><div class="nt-grid" id="netGrid"></div></div>
@@ -246,7 +248,7 @@
     <div class="glass glass-card tight hide reveal" id="otherCard">
       <div class="card-head" style="margin-bottom:10px;">
         <div><div class="kicker">Also on this day</div><h2 style="font-size:16px;">Not on the grid</h2>
-        <div class="sub">Cancelled rows, and anything outside the nets' operating hours.</div></div>
+        <div class="sub">Cancelled, and anything outside opening hours.</div></div>
       </div>
       <div class="req-tray" id="otherTray"></div>
     </div>
@@ -391,9 +393,9 @@
     </div>
   </div>
 
-  <script src="assets/js/core.js?v=4"></script>
-  <script src="assets/js/cloud.js?v=4"></script>
-  <script src="assets/js/dev-data.js?v=4"></script>
+  <script src="assets/js/core.js?v=7"></script>
+  <script src="assets/js/cloud.js?v=7"></script>
+  <script src="assets/js/dev-data.js?v=7"></script>
   <script>
     /* ============================================================
        THE OPERATOR BOOKING BOARD

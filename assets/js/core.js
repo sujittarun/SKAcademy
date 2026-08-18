@@ -375,9 +375,22 @@
     if (document.querySelector(".lt-devbar")) return;
     var b = document.createElement("div");
     b.className = "lt-devbar";
-    b.innerHTML = "SAMPLE DATA — sign-in is not wired yet, so nothing here is from the live academy and nothing you enter is saved.";
+    b.textContent = "SAMPLE DATA — nothing here is from the live academy, and nothing you enter is saved.";
     document.body.prepend(b);
     document.body.classList.add("has-devbar");
+
+    /* MEASURE the banner instead of guessing its height. The text wraps to
+       two or three lines on a phone, so a fixed 52px offset left the
+       floating nav sitting ON TOP of the page heading — which is what it
+       was doing on every coach and manager screen. Re-measured on resize
+       and on orientation change, because that is when the wrap changes. */
+    function sizeDevbar() {
+      var h = b.getBoundingClientRect().height || 34;
+      document.documentElement.style.setProperty("--devbar-h", Math.round(h) + "px");
+    }
+    sizeDevbar();
+    window.addEventListener("resize", sizeDevbar);
+    window.addEventListener("orientationchange", sizeDevbar);
   };
 
   /* ---------- Emblem ink filter (light theme) ---------- */

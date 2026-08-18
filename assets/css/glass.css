@@ -33,10 +33,10 @@
   --emerald-400: #34d399;
   /* CSK yellow ramp. --gold-500 is the anchor; everything else is tuned
      around it so the existing gradients keep their light-to-dark shape. */
-  --gold-600: #d9ad00;
-  --gold-500: #f7cb15;
-  --gold-400: #ffd83d;
-  --gold-300: #fff0a8;
+  --gold-600: #cea200;
+  --gold-500: #f2c220;
+  --gold-400: #ffd85c;
+  --gold-300: #ffeeb4;
   --optic-400: #7fb3ff;   /* CSK blue accent */
   --optic-300: #a9ccff;
   --red-400: #ff6b6b;
@@ -232,13 +232,19 @@ body {
   transform: translateZ(0);
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
+  /* CSK is yellow ON BLUE. The inherited field was indigo/violet, and a
+     saturated yellow on violet vibrates — near-complementary, both high
+     chroma, neither giving way. That was the clash: not the yellow by
+     itself, but the hue it was sitting on. Violet is gone; every glow is
+     now either CSK blue or the accent itself, so the yellow reads as
+     gold on navy instead of a chip stuck on a purple field. */
   background:
-    radial-gradient(46% 42% at 12% 10%, rgba(91, 108, 255, 0.4), transparent 68%),
-    radial-gradient(40% 36% at 86% 14%, rgba(247, 203, 21, 0.3), transparent 66%),
-    radial-gradient(48% 44% at 82% 84%, rgba(124, 77, 255, 0.32), transparent 70%),
-    radial-gradient(34% 30% at 16% 86%, rgba(247, 203, 21, 0.12), transparent 66%),
-    radial-gradient(30% 28% at 52% 50%, rgba(154, 168, 255, 0.12), transparent 70%),
-    linear-gradient(165deg, #0b0a18 0%, #070710 52%, #100d1e 100%);
+    radial-gradient(46% 42% at 12% 10%, rgba(23, 78, 150, 0.46), transparent 68%),
+    radial-gradient(40% 36% at 86% 14%, rgba(242, 194, 32, 0.24), transparent 66%),
+    radial-gradient(48% 44% at 82% 84%, rgba(12, 52, 105, 0.44), transparent 70%),
+    radial-gradient(34% 30% at 16% 86%, rgba(242, 194, 32, 0.10), transparent 66%),
+    radial-gradient(30% 28% at 52% 50%, rgba(48, 108, 190, 0.14), transparent 70%),
+    linear-gradient(165deg, #061626 0%, #03101d 52%, #082038 100%);
 }
 /* Light = "clear glass" over a cool luminous field: the base stays airy
    near-white (never warm/sandy — eye comfort), but the indigo/amber glows
@@ -246,22 +252,22 @@ body {
    contrast is what makes light mode read as liquid glass, not flat white. */
 :root[data-theme="light"] .lt-bg {
   background:
-    radial-gradient(52% 48% at 8% 18%, rgba(112, 132, 255, 0.6), transparent 68%),
-    radial-gradient(46% 42% at 88% 10%, rgba(255, 160, 74, 0.55), transparent 66%),
-    radial-gradient(50% 46% at 84% 82%, rgba(150, 126, 255, 0.48), transparent 70%),
-    radial-gradient(42% 38% at 14% 88%, rgba(255, 178, 100, 0.38), transparent 66%),
-    radial-gradient(38% 34% at 54% 46%, rgba(168, 180, 255, 0.42), transparent 70%),
-    radial-gradient(32% 30% at 36% 66%, rgba(255, 196, 130, 0.3), transparent 66%),
-    linear-gradient(165deg, #edeff8 0%, #e8eaf4 45%, #e2e5ef 100%);
+    radial-gradient(52% 48% at 8% 18%, rgba(120, 165, 235, 0.58), transparent 68%),
+    radial-gradient(46% 42% at 88% 10%, rgba(250, 208, 96, 0.52), transparent 66%),
+    radial-gradient(50% 46% at 84% 82%, rgba(88, 140, 210, 0.46), transparent 70%),
+    radial-gradient(42% 38% at 14% 88%, rgba(252, 219, 130, 0.36), transparent 66%),
+    radial-gradient(38% 34% at 54% 46%, rgba(150, 190, 240, 0.40), transparent 70%),
+    radial-gradient(32% 30% at 36% 66%, rgba(253, 226, 158, 0.28), transparent 66%),
+    linear-gradient(165deg, #eef3fa 0%, #e9eff7 45%, #e3ebf4 100%);
 }
 .lt-bg::before {
   content: "";
   position: absolute;
   inset: -25%;
   background:
-    radial-gradient(34% 30% at 30% 32%, rgba(122, 138, 255, 0.28), transparent 66%),
-    radial-gradient(30% 26% at 70% 62%, rgba(255, 216, 61, 0.28), transparent 64%),
-    radial-gradient(24% 22% at 48% 78%, rgba(154, 168, 255, 0.16), transparent 66%);
+    radial-gradient(34% 30% at 30% 32%, rgba(38, 100, 180, 0.30), transparent 66%),
+    radial-gradient(30% 26% at 70% 62%, rgba(255, 216, 92, 0.22), transparent 64%),
+    radial-gradient(24% 22% at 48% 78%, rgba(60, 125, 205, 0.16), transparent 66%);
   /* ambient drift, tuned below perception: one direction change per ~40s
      and a gentle range, so the background never reads as "shifting" */
   animation: lt-drift 80s ease-in-out infinite alternate;
@@ -307,7 +313,7 @@ a { color: var(--tx-green); text-decoration: none; }
 a:hover { color: var(--tx-gold); }
 img { max-width: 100%; display: block; }
 button { font-family: inherit; }
-::selection { background: rgba(247, 203, 21, 0.4); }
+::selection { background: rgba(242, 194, 32, 0.4); }
 
 /* ---------- Layout ---------- */
 .lt-page {
@@ -496,7 +502,7 @@ button { font-family: inherit; }
 .nav-tab.active {
   color: #231d00;
   background: var(--gold-grad);
-  box-shadow: 0 6px 18px rgba(247, 203, 21, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  box-shadow: 0 6px 18px rgba(242, 194, 32, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .nav-actions { display: flex; align-items: center; gap: var(--gap-2); margin-left: auto; }
@@ -553,7 +559,7 @@ button { font-family: inherit; }
   text-decoration: none;
 }
 .dock-tab svg { width: 21px; height: 21px; }
-.dock-tab.active { color: var(--tx-gold); background: rgba(247, 203, 21, 0.14); }
+.dock-tab.active { color: var(--tx-gold); background: rgba(242, 194, 32, 0.14); }
 .dock-tab:hover { color: var(--ink-hi); }
 
 /* ---------- Buttons ---------- */
@@ -583,7 +589,7 @@ button { font-family: inherit; }
   overflow: hidden;
   color: #231d00;
   background: var(--gold-grad);
-  box-shadow: 0 10px 26px rgba(247, 203, 21, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+  box-shadow: 0 10px 26px rgba(242, 194, 32, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
 }
 .btn-primary::after {
   content: "";
@@ -594,7 +600,7 @@ button { font-family: inherit; }
   pointer-events: none;
 }
 .btn-primary:hover::after { transform: translateX(130%); transition: transform 0.7s ease; }
-.btn-primary:hover { box-shadow: 0 14px 34px rgba(247, 203, 21, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.6); transform: translateY(-1px); }
+.btn-primary:hover { box-shadow: 0 14px 34px rgba(242, 194, 32, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.6); transform: translateY(-1px); }
 @media (prefers-reduced-motion: reduce) { .btn-primary::after { display: none; } }
 
 .btn-glass {
@@ -648,9 +654,9 @@ textarea { resize: vertical; min-height: 64px; }
 input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 input:hover, select:hover, textarea:hover { border-color: var(--input-border-hover); }
 input:focus, select:focus, textarea:focus {
-  border-color: rgba(255, 216, 61, 0.75);
+  border-color: rgba(255, 216, 92, 0.75);
   background: var(--input-bg-focus);
-  box-shadow: 0 0 0 3px rgba(247, 203, 21, 0.2), var(--input-shadow);
+  box-shadow: 0 0 0 3px rgba(242, 194, 32, 0.2), var(--input-shadow);
 }
 
 select {
@@ -695,7 +701,7 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.4; }
 .choice input:checked + .dot {
   border-color: var(--gold-500);
   background: var(--gold-grad);
-  box-shadow: 0 2px 10px rgba(247, 203, 21, 0.4);
+  box-shadow: 0 2px 10px rgba(242, 194, 32, 0.4);
 }
 .choice input:checked + .dot::after {
   content: "";
@@ -708,8 +714,8 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.4; }
 }
 .choice input:checked ~ span { color: var(--ink-hi); }
 .choice:has(input:checked) {
-  border-color: rgba(255, 216, 61, 0.55);
-  background: rgba(247, 203, 21, 0.12);
+  border-color: rgba(255, 216, 92, 0.55);
+  background: rgba(242, 194, 32, 0.12);
 }
 
 .form-msg { font-size: 13.5px; color: var(--tx-gold); min-height: 18px; }
@@ -730,10 +736,10 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.4; }
   color: var(--ink-mid);
   white-space: nowrap;
 }
-.pill.gold { color: var(--tx-gold); border-color: rgba(247, 203, 21, 0.45); background: rgba(247, 203, 21, 0.14); }
+.pill.gold { color: var(--tx-gold); border-color: rgba(242, 194, 32, 0.45); background: rgba(242, 194, 32, 0.14); }
 .pill.green { color: var(--tx-green); border-color: rgba(52, 211, 153, 0.35); background: rgba(52, 211, 153, 0.12); }
 .pill.red { color: var(--tx-red); border-color: rgba(220, 80, 86, 0.4); background: rgba(255, 107, 107, 0.12); }
-.pill.optic { color: var(--tx-optic); border-color: rgba(154, 168, 255, 0.35); background: rgba(154, 168, 255, 0.1); }
+.pill.optic { color: var(--tx-optic); border-color: rgba(127, 179, 255, 0.35); background: rgba(127, 179, 255, 0.1); }
 
 /* ---------- Filter dropdown ----------
    DESIGN RULE: 1–2 mutually-exclusive choices may use chips / a tab toggle.
@@ -906,7 +912,7 @@ body.lt-noscroll { overflow: hidden; }
   color: #231d00;
   background: var(--gold-grad);
   border-color: transparent;
-  box-shadow: 0 6px 16px rgba(247, 203, 21, 0.3);
+  box-shadow: 0 6px 16px rgba(242, 194, 32, 0.3);
 }
 /* compact filter pills — smaller + flatter than action chips, for filter rows */
 .chip-row.filters { gap: 6px; }
@@ -1088,9 +1094,9 @@ html.lt-js .lt-page { animation: lt-page-in 0.55s var(--ease-spring) both; }
 .slot .sl-rate { font-size: 12px; color: var(--ink-low); }
 .slot .sl-rate .peak { color: var(--tx-gold); font-weight: 700; }
 .slot.sel {
-  border-color: rgba(255, 216, 61, 0.7);
-  background: rgba(247, 203, 21, 0.16);
-  box-shadow: 0 8px 22px rgba(247, 203, 21, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 216, 92, 0.7);
+  background: rgba(242, 194, 32, 0.16);
+  box-shadow: 0 8px 22px rgba(242, 194, 32, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 .slot.sel::after { content: "✓"; position: absolute; top: 9px; right: 12px; color: var(--tx-gold); font-weight: 800; font-size: 14px; }
 .slot.sel .sl-time { color: var(--tx-gold); }
@@ -1138,7 +1144,7 @@ html.lt-js .lt-page { animation: lt-page-in 0.55s var(--ease-spring) both; }
   backdrop-filter: blur(8px);
 }
 .court-card .cc-name { position: absolute; left: 16px; bottom: 10px; font-family: var(--font-display); font-weight: 800; font-size: 18px; color: #fff; line-height: 1.15; }
-.court-card .cc-name small { display: block; font-family: var(--font-body); font-weight: 600; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 216, 61, 0.95); margin-top: 2px; }
+.court-card .cc-name small { display: block; font-family: var(--font-body); font-weight: 600; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 216, 92, 0.95); margin-top: 2px; }
 .court-card .cc-body { padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 9px; }
 .court-card .cc-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 11.5px; color: var(--ink-mid); }
 .court-card .cc-meta b { color: var(--tx-gold); font-weight: 700; }
@@ -1153,11 +1159,11 @@ html.lt-js .lt-page { animation: lt-page-in 0.55s var(--ease-spring) both; }
 }
 :root[data-theme="light"] .tl .seg { background: rgba(28, 32, 44, 0.13); }
 .tl .seg.past { opacity: 0.22; }
-.tl .seg.booked { background: var(--gold-grad); box-shadow: 0 2px 8px rgba(247, 203, 21, 0.5); }
+.tl .seg.booked { background: var(--gold-grad); box-shadow: 0 2px 8px rgba(242, 194, 32, 0.5); }
 .tl .seg.pending {
   position: relative; overflow: hidden;
-  background: repeating-linear-gradient(45deg, rgba(154, 168, 255, 0.55) 0 4px, rgba(154, 168, 255, 0.12) 4px 8px);
-  outline: 1px dashed rgba(154, 168, 255, 0.7); outline-offset: -1px;
+  background: repeating-linear-gradient(45deg, rgba(127, 179, 255, 0.55) 0 4px, rgba(127, 179, 255, 0.12) 4px 8px);
+  outline: 1px dashed rgba(127, 179, 255, 0.7); outline-offset: -1px;
 }
 .tl .seg.pending::after {
   content: ""; position: absolute; inset: 0;
@@ -1167,12 +1173,12 @@ html.lt-js .lt-page { animation: lt-page-in 0.55s var(--ease-spring) both; }
 }
 @keyframes lt-seg-sweep { 45% { transform: translateX(-120%); } 80%, 100% { transform: translateX(120%); } }
 .tl .seg.now {
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 2px 8px rgba(247, 203, 21, 0.5);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 2px 8px rgba(242, 194, 32, 0.5);
   animation: lt-grow-bar 0.6s var(--ease-spring) both, lt-now-pulse 2.2s ease-in-out infinite 0.6s;
 }
 @keyframes lt-now-pulse {
-  0%, 100% { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 0 0 0 rgba(154, 168, 255, 0.55); }
-  50% { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95), 0 0 14px 3px rgba(154, 168, 255, 0.55); }
+  0%, 100% { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 0 0 0 rgba(127, 179, 255, 0.55); }
+  50% { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95), 0 0 14px 3px rgba(127, 179, 255, 0.55); }
 }
 .court-card:hover .tl .seg.booked { filter: brightness(1.15); }
 @media (prefers-reduced-motion: reduce) { .tl .seg, .tl .seg.pending::after, .tl .seg.now { animation: none; } }
@@ -1192,7 +1198,7 @@ html.lt-js .lt-page { animation: lt-page-in 0.55s var(--ease-spring) both; }
 .court-modal .cm-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 30%, rgba(7, 7, 16, 0.85)); }
 .court-modal .cm-hero .cm-title { position: absolute; left: 20px; bottom: 14px; z-index: 1; }
 .court-modal .cm-hero .cm-title h2 { color: #fff; font-size: 22px; }
-.court-modal .cm-hero .cm-title .sub { color: rgba(255, 216, 61, 0.95); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.court-modal .cm-hero .cm-title .sub { color: rgba(255, 216, 92, 0.95); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .court-modal .cm-hero .cm-close { position: absolute; top: 12px; right: 12px; z-index: 1; color: #fff; background: rgba(7, 7, 16, 0.45); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .court-modal .cm-body { padding: var(--gap-3) var(--gap-4) var(--gap-4); flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 
@@ -1212,14 +1218,14 @@ html.lt-js .lt-page { animation: lt-page-in 0.55s var(--ease-spring) both; }
 .sched-row .sr-bar i { position: absolute; inset: 0; border-radius: 6px; transform-origin: left; animation: lt-fill-bar 0.7s var(--ease-spring) both; }
 @keyframes lt-fill-bar { from { transform: scaleX(0); } }
 .sched-row.free .sr-bar i { display: none; }
-.sched-row.booked .sr-bar i { background: var(--gold-grad); box-shadow: 0 2px 8px rgba(247, 203, 21, 0.4); }
-.sched-row.pending .sr-bar i { background: repeating-linear-gradient(45deg, rgba(154, 168, 255, 0.6) 0 5px, rgba(154, 168, 255, 0.15) 5px 10px); }
+.sched-row.booked .sr-bar i { background: var(--gold-grad); box-shadow: 0 2px 8px rgba(242, 194, 32, 0.4); }
+.sched-row.pending .sr-bar i { background: repeating-linear-gradient(45deg, rgba(127, 179, 255, 0.6) 0 5px, rgba(127, 179, 255, 0.15) 5px 10px); }
 .sched-row .sr-who { flex: 1 1 auto; min-width: 0; text-align: right; font-size: 12.5px; font-weight: 650; color: var(--ink-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sched-row .sr-who small { text-align: right; }
 .sched-row .sr-who small { display: block; font-weight: 500; font-size: 10.5px; color: var(--ink-low); }
 .sched-row.free .sr-who { color: var(--ink-faint); font-weight: 500; }
 .sched-row.past { opacity: 0.45; }
-.sched-row.now { border-color: rgba(255, 216, 61, 0.6); background: rgba(247, 203, 21, 0.1); }
+.sched-row.now { border-color: rgba(255, 216, 92, 0.6); background: rgba(242, 194, 32, 0.1); }
 
 /* ---------- Wizard stepper (membership / trial form) ---------- */
 .adm-stepper { display: flex; align-items: center; gap: 6px; margin-bottom: var(--gap-4); }
@@ -1239,7 +1245,7 @@ html.lt-js .lt-page { animation: lt-page-in 0.55s var(--ease-spring) both; }
   color: #231d00;
   background: var(--gold-grad);
   border-color: transparent;
-  box-shadow: 0 6px 16px rgba(247, 203, 21, 0.4);
+  box-shadow: 0 6px 16px rgba(242, 194, 32, 0.4);
   transform: scale(1.08);
 }
 .adm-stepper .step.active .lbl { color: var(--ink-hi); }
@@ -1386,10 +1392,18 @@ html.lt-js .lt-page { animation: lt-page-in 0.55s var(--ease-spring) both; }
    nav on every staff page — which is what every manager and coach screen
    looked like until this rule existed. The banner wraps to two or three
    lines on a phone, so the offset is generous. */
-body.has-devbar .lt-nav { top: 52px; }
-body.has-devbar .lt-main { padding-top: 8px; }
-@media (max-width: 640px) {
-  body.has-devbar .lt-nav { top: 64px; }
+/* --devbar-h is measured and set by core.js, because the banner wraps to
+   two or three lines on a phone and a fixed guess put the floating nav on
+   top of the page heading. The fallback keeps this sane if JS has not run
+   yet. */
+body.has-devbar .lt-nav { top: calc(var(--devbar-h, 34px) + 10px); }
+/* ADD the banner height to the page's existing top padding — do not
+   replace it. `.lt-page` already reserves calc(--nav-h + --gap-4) for the
+   fixed nav, and `body.has-devbar .lt-main` outranks `.lt-page` on
+   specificity, so setting padding-top here silently discarded that
+   reservation and the nav landed on the page heading. */
+body.has-devbar .lt-page {
+  padding-top: calc(var(--nav-h) + var(--gap-4) + var(--devbar-h, 34px));
 }
 
 /* ---------- Toast kinds ----------
@@ -1423,4 +1437,21 @@ body.has-devbar .lt-main { padding-top: 8px; }
   .rate-card .lt-table.tight th,
   .rate-card .lt-table.tight td { padding-left: 10px; padding-right: 10px; }
   .rate-card .lt-table.tight td.money { white-space: nowrap; }  /* ₹25,000 never breaks */
+}
+
+/* ---------- Register tiles on a phone ----------
+   Measured on a 383px viewport: the tile is 320px and the two
+   Present/Absent buttons were taking 154px of it, leaving the NAME 82px.
+   "Krishnamurthy" needs about 100px, so it broke mid-word — "Aarav
+   Krishnamur / thy" — which is worse on a register than truncation,
+   because the register exists to identify a child.
+
+   Stacking fixes both problems at once: the name gets the full width, and
+   the buttons get bigger, which is what you want for a coach standing on
+   a field tapping one-handed in sunlight. */
+@media (max-width: 480px) {
+  .att-tile { flex-wrap: wrap; row-gap: 8px; }
+  .att-tile .who { flex: 1 1 auto; min-width: 0; }
+  .att-tile .att-acts { flex: 1 1 100%; }
+  .att-tile .att-acts .att-btn { flex: 1 1 0; min-width: 0; }
 }

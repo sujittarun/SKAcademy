@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=4" />
+<link rel="stylesheet" href="assets/css/glass.css?v=7" />
 <style>
   /* Page-local layout only. Glass, pills, tables, stat cards, empty states
      and the .att-grid / .att-tile base all come from glass.css.
@@ -173,9 +173,19 @@
        the ellipsis rule has to come off with it. */
     .att-tile .nm, .std-row .std-name {
       white-space: normal; overflow: visible; text-overflow: clip;
-      word-break: break-word; overflow-wrap: anywhere;
+      /* Wrap at the SPACE, not inside the word. `overflow-wrap: anywhere`
+         rendered "Aarav Krishnamur / thy" and "Tharun Vaidyanath / an",
+         which is harder to read on a register than the ellipsis it was
+         introduced to avoid. break-word only splits a word that cannot
+         fit on a line of its own, so a normal first/last name simply
+         wraps between the two. */
+      overflow-wrap: break-word;
+      hyphens: none;
     }
-    .att-btn { min-width: 64px; }
+    /* Let the two buttons give ground before the name does — the name is
+       what the register is read for. */
+    .att-btn { min-width: 58px; flex: 0 1 auto; }
+    .att-tile .who { min-width: 0; flex: 1 1 auto; }
     .cal { gap: 4px; }
     .cal .cell { min-height: 46px; border-radius: 10px; }
     .cal .cell .d { font-size: 12px; }
@@ -278,9 +288,9 @@
 
   </main>
 
-  <script src="assets/js/core.js?v=4"></script>
-  <script src="assets/js/cloud.js?v=4"></script>
-  <script src="assets/js/dev-data.js?v=4"></script>
+  <script src="assets/js/core.js?v=7"></script>
+  <script src="assets/js/cloud.js?v=7"></script>
+  <script src="assets/js/dev-data.js?v=7"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */

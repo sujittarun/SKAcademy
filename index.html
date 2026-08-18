@@ -17,30 +17,25 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=4" />
+<link rel="stylesheet" href="assets/css/glass.css?v=7" />
 <style>
   /* ============================================================
-     PUBLIC LANDING — page-local styles only.
-     Everything structural (glass, buttons, pills, tables, reveal,
-     nav, toast) comes from glass.css. What is here is the landing
-     composition the design system does not ship: hero, fact strip,
-     section rhythm, offer/why cards, rate strip, footer.
+     PUBLIC LANDING — deliberately one screen.
+     The client asked for a front door, not a brochure: a name, two
+     buttons and where the place is. Anything longer than that was
+     removed on purpose (rates table, offer cards, "why us", stat
+     tiles, contact chips) — do not add it back without asking.
 
-     NO BRAND ARTWORK. The client is a CSK franchisee with their own
-     licensed assets; nothing in this file reproduces a crest, a logo
-     or a wordmark. The CSK family look is carried entirely by the
-     re-skinned tokens — deep navy field, yellow accent — and by type.
+     NO RUPEE FIGURE ON THIS PAGE, and no JS that fetches one. The
+     booking page quotes what a date costs, from the database.
      ============================================================ */
 
-  [hidden] { display: none !important; }
-
   .lt-main {
-    max-width: var(--page-max);
+    max-width: 900px;
     margin: 0 auto;
-    padding: 0 var(--gap-4) var(--gap-5);
+    padding: calc(var(--nav-h) + 40px) var(--gap-4) var(--gap-5);
   }
 
-  /* skip link — the nav is fixed, so keyboard users land past it */
   .skip {
     position: absolute; left: -9999px; top: 0; z-index: 200;
     padding: 10px 16px; border-radius: var(--r-pill);
@@ -48,66 +43,8 @@
   }
   .skip:focus { left: 12px; top: 12px; }
 
-  /* ---------- Hero ----------
-     Full-bleed out of the page column, like the demo's — but built from
-     gradients and line art, not a photograph. assets/img is empty in this
-     repo, and an <img> to a file that does not exist is a broken-image
-     icon at the top of a client's landing page. */
-  .hero {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-height: min(740px, 88vh);
-    /* 10px overscan past both viewport edges: sub-pixel rounding of the
-       50%−50vw breakout can leave a hairline gap at some zoom levels;
-       body overflow-x:hidden swallows the excess. */
-    margin: 0 calc(50% - 50vw - 10px);
-    padding: calc(var(--nav-h) + 62px) calc(max(6vw, 50vw - 596px) + 10px) 76px;
-    overflow: hidden;
-    isolation: isolate;
-  }
-  .hero > * { position: relative; z-index: 1; }
-  .hero::before {
-    content: "";
-    position: absolute; inset: 0; z-index: -1;
-    background:
-      radial-gradient(72% 62% at 10% 20%, rgba(27, 65, 115, 0.62), transparent 72%),
-      radial-gradient(46% 44% at 88% 10%, rgba(247, 203, 21, 0.18), transparent 70%),
-      linear-gradient(180deg, rgba(4, 16, 31, 0.5), rgba(4, 16, 31, 0) 62%);
-  }
-  :root[data-theme="light"] .hero::before {
-    background:
-      radial-gradient(72% 62% at 10% 20%, rgba(255, 255, 255, 0.62), transparent 72%),
-      radial-gradient(46% 44% at 88% 10%, rgba(247, 203, 21, 0.22), transparent 70%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent 62%);
-  }
-  /* feather the hero into the page background at the bottom */
-  .hero::after {
-    content: "";
-    position: absolute; left: 0; right: 0; bottom: -1px; height: 140px; z-index: 0;
-    pointer-events: none;
-    background: linear-gradient(180deg, transparent, var(--forest-950));
-  }
-  :root[data-theme="light"] .hero::after { background: linear-gradient(180deg, transparent, #f2f3f7); }
-
-  /* cricket line art: a pitch in perspective, stumps, and a ball on an arc */
-  .hero-scene {
-    position: absolute; inset: 0; z-index: -1;
-    width: 100%; height: 100%;
-    color: rgba(255, 255, 255, 0.55);
-    opacity: 0.3;
-    pointer-events: none;
-  }
-  :root[data-theme="light"] .hero-scene { color: #2b3a5c; opacity: 0.24; }
-  .hero-scene path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
-  .hero-scene .hs-arc { stroke-dasharray: 4 12; stroke-width: 2.5; opacity: 0.75; }
-  .hero-scene .hs-crease { stroke-width: 1.6; opacity: 0.7; }
-  .hero-scene .hs-ball-body { fill: var(--gold-400); stroke: none; }
-  .hero-scene .hs-seam { stroke: rgba(35, 29, 0, 0.75); stroke-width: 1.6; fill: none; }
-  @media (prefers-reduced-motion: reduce) { .hero-scene .hs-ball { display: none; } }
-
-  .hero-copy { max-width: 700px; }
+  /* ---------- Hero: name, place, one line ---------- */
+  .hero { padding: clamp(18px, 5vh, 44px) 0 clamp(26px, 5vh, 40px); }
   .hero-kicker {
     display: inline-flex; align-items: center; gap: 9px;
     color: var(--tx-gold); font-size: 11px; font-weight: 800;
@@ -118,10 +55,8 @@
     background: var(--gold-500); box-shadow: 0 0 14px rgba(247, 203, 21, 0.7);
   }
   .hero h1 {
-    font-size: clamp(44px, 8vw, 84px);
-    line-height: 0.94;
-    font-weight: 800;
-    letter-spacing: -0.045em;
+    font-size: clamp(40px, 7vw, 68px);
+    line-height: 0.96; font-weight: 800; letter-spacing: -0.04em;
     margin-top: var(--gap-3);
   }
   .hero h1 .grad {
@@ -133,160 +68,67 @@
      Same reasoning as --tx-gold in the light token block. */
   :root[data-theme="light"] .hero h1 .grad { background: linear-gradient(115deg, #8a6a00, #5f4a00); }
   .gold-rule {
-    height: 4px; width: 132px; border-radius: 99px; margin-top: var(--gap-3);
+    height: 4px; width: 120px; border-radius: 99px; margin-top: var(--gap-3);
     background: var(--gold-grad); box-shadow: 0 4px 16px rgba(247, 203, 21, 0.4);
   }
-  .hero .lede {
-    color: var(--ink-mid);
-    font-size: clamp(15px, 1.7vw, 18px);
-    max-width: 56ch;
+  .hero .lede { color: var(--ink-mid); font-size: clamp(15px, 1.7vw, 17.5px); max-width: 46ch; margin-top: var(--gap-3); }
+  .hero .quiet { color: var(--ink-low); font-size: 13px; margin-top: 8px; }
+
+  /* ---------- The two actions — the point of the page ---------- */
+  .acts { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-3); }
+  .act {
+    display: flex; align-items: center; gap: 14px;
+    padding: clamp(20px, 3vw, 26px) var(--gap-4);
+    border-radius: var(--r-xl);
+    font-family: var(--font-display);
+    font-size: clamp(17px, 1.9vw, 20px); font-weight: 700; letter-spacing: -0.015em;
+    text-decoration: none;
+    transition: transform 0.35s var(--ease-spring), box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+  .act:hover { transform: translateY(-3px); }
+  .act .ico { width: 44px; height: 44px; flex: none; border-radius: 14px; display: grid; place-items: center; }
+  .act .ico svg { width: 22px; height: 22px; }
+  .act .arw { width: 20px; height: 20px; flex: none; margin-left: auto; opacity: 0.75; }
+  .act-gold {
+    color: #231d00; background: var(--gold-grad);
+    box-shadow: 0 14px 34px rgba(242, 194, 32, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  }
+  /* glass.css turns every <a> gold on hover; these are buttons, not links */
+  .act-gold:hover { color: #231d00; box-shadow: 0 18px 42px rgba(242, 194, 32, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.6); }
+  .act-gold .ico { background: rgba(35, 29, 0, 0.14); color: #231d00; }
+  .act-glass, .act-glass:hover { color: var(--ink-hi); }
+  .act-glass:hover { border-color: var(--glass-border-hover); }
+  .act-glass .ico { background: var(--gold-grad); color: #231d00; }
+
+  /* ---------- Where we are ---------- */
+  .where {
     margin-top: var(--gap-3);
+    padding: var(--gap-4);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--gap-3); flex-wrap: wrap;
   }
-  .hero-cta { display: flex; gap: var(--gap-2); flex-wrap: wrap; margin-top: var(--gap-4); }
-
-  /* one-tap contact — a venue's number must never be a footer-only affair */
-  .hero-contact { display: flex; gap: 10px; flex-wrap: wrap; margin-top: var(--gap-3); }
-  .hero-contact .qc {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 8px 14px; border-radius: 99px;
-    font-size: 12.5px; font-weight: 650; color: var(--ink-hi);
-    background: var(--chip-bg); border: 1px solid var(--chip-border);
-  }
-  .hero-contact .qc svg { width: 14px; height: 14px; color: var(--tx-gold); flex: none; }
-  /* anchor-only: the not-yet-published contact chips are plain spans and
-     must not light up under the cursor as though they were links */
-  .hero-contact a.qc:hover { color: var(--tx-gold); border-color: var(--input-border-hover); }
-
-  /* ---------- Fact strip ---------- */
-  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--gap-3); }
-  .fact { text-align: center; padding: var(--gap-3); }
-  .fact .v {
-    font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 3vw, 36px);
-    background: var(--stat-grad);
-    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-  }
-  .fact .l { font-size: 12px; color: var(--ink-low); margin-top: 2px; }
-
-  /* ---------- Section rhythm ---------- */
-  /* the nav is fixed, so an in-page anchor lands under it without this */
-  .sec { padding: clamp(44px, 7vh, 84px) 0; scroll-margin-top: calc(var(--nav-h) + 18px); }
-  .sec-h { text-align: center; max-width: 62ch; margin: 0 auto var(--gap-4); }
-  .sec-h h2 { font-size: clamp(26px, 3.4vw, 38px); font-weight: 800; letter-spacing: -0.02em; }
-  .sec-h p { color: var(--ink-mid); font-size: 15.5px; margin-top: 8px; }
-
-  /* ---------- What we offer ---------- */
-  .prog { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--gap-3); }
-  .prog-c { padding: var(--gap-4); display: flex; flex-direction: column; gap: 10px; }
-  .prog-c .ic {
-    width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center;
-    color: #231d00; background: var(--gold-grad); box-shadow: 0 10px 22px rgba(247, 203, 21, 0.32);
-  }
-  .prog-c .ic svg { width: 24px; height: 24px; }
-  .prog-c .lvl { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tx-optic); }
-  .prog-c h3 { font-size: 17.5px; font-weight: 700; }
-  .prog-c p { font-size: 13.5px; color: var(--ink-mid); flex: 1; }
-  .prog-c .rate {
-    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
-    padding-top: 10px; border-top: 1px dashed var(--line);
-  }
-  /* no .amt here on purpose: an offer card points at the rates table, it
-     never prints a figure of its own. See section 3. */
-  .prog-c .rate .per { font-size: 12.5px; color: var(--ink-low); }
-  .prog-c .btn { align-self: flex-start; margin-top: 4px; }
-
-  /* ---------- Ground rates ---------- */
-  .rate-card { padding: var(--gap-4); }
-  .rate-card .card-head h2 { font-size: 19px; }
-  .rate-foot { margin-top: var(--gap-3); font-size: 13px; color: var(--ink-low); max-width: 68ch; }
-  .rate-live { margin-top: var(--gap-4); padding-top: var(--gap-3); border-top: 1px solid var(--line); }
-  .rl-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: var(--gap-2); }
-  .rl-head .t { font-size: 13px; font-weight: 700; color: var(--ink-hi); }
-  .rl-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; }
-  .rl-day {
-    padding: 11px 12px; border-radius: var(--r-md); text-align: center;
-    border: 1px solid var(--tile-border); background: var(--tile-bg);
-  }
-  .rl-dow { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tx-gold); }
-  .rl-date { font-size: 11.5px; color: var(--ink-low); }
-  .rl-amt { margin-top: 4px; font-size: 15px; color: var(--ink-hi); }
-
-  /* ---------- Why us ---------- */
-  .why { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--gap-3); }
-  .why-c { padding: var(--gap-4); display: flex; flex-direction: column; gap: 8px; }
-  .why-c h3 { font-size: 16px; font-weight: 700; }
-  .why-c p { font-size: 13.5px; color: var(--ink-mid); }
-  .why-c .n {
-    font-family: var(--font-display); font-size: 13px; font-weight: 800;
-    color: var(--tx-gold); letter-spacing: 0.1em;
-  }
-
-  /* ---------- Location ---------- */
-  .visit { display: grid; grid-template-columns: 1.15fr 1fr; gap: var(--gap-3); align-items: stretch; }
-  .visit-c { padding: var(--gap-4); display: flex; flex-direction: column; gap: 12px; }
-  .visit-c .addr { font-size: 15px; color: var(--ink-hi); font-weight: 650; line-height: 1.5; }
-  .visit-c .addr small { display: block; font-weight: 500; font-size: 13px; color: var(--ink-mid); margin-top: 4px; }
-  .visit-c .note { font-size: 13.5px; color: var(--ink-mid); }
-  .visit-c ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; flex: 1; }
-  .visit-c ul li { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; border-bottom: 1px dashed var(--line); padding-bottom: 9px; }
-  .visit-c ul li:last-child { border-bottom: 0; }
-  .visit-c ul span { color: var(--ink-low); }
-  .visit-c ul strong { color: var(--ink-hi); font-weight: 650; text-align: right; }
-  .visit-c .btn { align-self: flex-start; }
-
-  /* ---------- Contact strip ---------- */
-  .cta-card { text-align: center; padding: clamp(34px, 6vh, 60px) var(--gap-4); }
-  .cta-card h2 { font-size: clamp(24px, 3.6vw, 38px); font-weight: 800; letter-spacing: -0.02em; }
-  .cta-card p { color: var(--ink-mid); margin: 10px auto var(--gap-4); max-width: 52ch; }
-  .cta-row { display: flex; gap: var(--gap-2); flex-wrap: wrap; justify-content: center; }
+  .where .addr { font-size: 16px; font-weight: 700; color: var(--ink-hi); }
+  .where .addr small { display: block; font-weight: 500; font-size: 13px; color: var(--ink-mid); margin-top: 2px; }
 
   /* ---------- Footer ---------- */
-  .lp-foot { padding: var(--gap-5) 0 var(--gap-4); border-top: 1px solid var(--line); margin-top: var(--gap-4); }
-  .foot-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: var(--gap-4); }
-  .foot-grid h4 { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tx-gold); margin-bottom: 10px; }
-  .foot-grid p, .foot-grid a { font-size: 13.5px; color: var(--ink-mid); display: block; line-height: 1.7; }
-  .foot-grid a:hover { color: var(--tx-gold); }
-  .foot-brand { font-family: var(--font-display); font-size: 17px; font-weight: 800; color: var(--ink-hi); margin-bottom: 6px; }
-  .foot-base {
-    display: flex; justify-content: space-between; gap: var(--gap-3); flex-wrap: wrap; align-items: center;
-    margin-top: var(--gap-4); padding-top: var(--gap-3); border-top: 1px solid var(--line);
+  .lp-foot {
+    margin-top: var(--gap-5); padding-top: var(--gap-3);
+    border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+    gap: var(--gap-2); flex-wrap: wrap;
     font-size: 12.5px; color: var(--ink-low);
   }
-  .foot-base .staff { color: var(--ink-faint); font-size: 12px; }
-  .foot-base .staff:hover { color: var(--tx-gold); }
+  .lp-foot .staff { color: var(--ink-faint); font-size: 12px; }
+  .lp-foot .staff:hover { color: var(--tx-gold); }
 
-  /* ---------- Responsive: tablet and phone first-class ---------- */
-  @media (max-width: 1099px) {
-    .visit { grid-template-columns: 1fr; }
-    .foot-grid { grid-template-columns: 1fr 1fr; }
-  }
   @media (max-width: 699px) {
-    .lt-main { padding: 0 var(--gap-2) var(--gap-4); }
-    .hero {
-      min-height: 78vh;
-      padding: calc(var(--nav-h) + 44px) 20px 52px;
-      justify-content: flex-end;
-    }
-    .hero h1 { font-size: clamp(40px, 13vw, 62px); }
-    /* a phone viewport is far taller than the 900×520 artwork, and `slice`
-       scales it to cover — which on desktop is a wide pitch and on a phone
-       is a giant triangle behind the copy. Anchor it to the bottom half so
-       it reads as ground under the buttons, not a shape behind the text. */
-    .hero-scene { inset: auto 0 0 0; height: 50%; opacity: 0.16; }
-    .hero-cta .btn { flex: 1 1 100%; }
-    .hero-contact .qc { width: 100%; justify-content: center; }
-    .facts { grid-template-columns: repeat(2, 1fr); }
-    /* offer tiles become one-per-row list cards — three narrow columns of
-       wrapped text read badly at 375px */
-    .prog { grid-template-columns: 1fr; }
-    .prog-c { display: grid; grid-template-columns: 46px 1fr; column-gap: 14px; row-gap: 4px; padding: 16px 18px; }
-    .prog-c .ic { grid-row: 1 / span 2; width: 46px; height: 46px; border-radius: 13px; margin-top: 3px; }
-    .prog-c .lvl, .prog-c h3, .prog-c p, .prog-c .rate, .prog-c .btn { grid-column: 2; }
-    .foot-grid { grid-template-columns: 1fr; gap: var(--gap-3); }
-    .foot-base { justify-content: flex-start; }
+    .lt-main { padding: calc(var(--nav-h) + 28px) var(--gap-3) var(--gap-4); }
+    .acts { grid-template-columns: 1fr; }
+    .where { justify-content: flex-start; }
+    .where .btn { width: 100%; }
   }
   @media (max-width: 429px) {
     .lt-nav { gap: 8px; }
-    .nav-brand { gap: 8px; }
     .nav-cta-long { display: none; }
   }
   @media (min-width: 430px) { .nav-cta-short { display: none; } }
@@ -315,462 +157,69 @@
 
   <main class="lt-main" id="main" tabindex="-1">
 
-    <!-- ---------- 1. Hero ---------- -->
     <header class="hero">
-      <svg class="hero-scene" viewBox="0 0 900 520" preserveAspectRatio="xMidYMax slice"
-           xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true">
-        <!-- pitch, in perspective, running to the far stumps -->
-        <path d="M292 528 L418 236 L482 236 L608 528" />
-        <path class="hs-crease" d="M324 452 H576" />
-        <path class="hs-crease" d="M360 368 H540" />
-        <path class="hs-crease" d="M396 284 H504" />
-        <!-- far stumps -->
-        <path d="M436 236 V202 M450 236 V200 M464 236 V202" />
-        <path d="M433 204 H467" />
-        <!-- ball trajectory -->
-        <path id="skaArc" class="hs-arc" d="M96 470 C 300 96, 640 78, 872 236" />
-        <g class="hs-ball">
-          <circle class="hs-ball-body" r="9" />
-          <path class="hs-seam" d="M-6 -6 A 9 9 0 0 0 -6 6" />
-          <animateMotion dur="7s" repeatCount="indefinite" rotate="auto">
-            <mpath href="#skaArc" xlink:href="#skaArc" />
-          </animateMotion>
-        </g>
-      </svg>
-
-      <div class="hero-copy">
-        <div class="hero-kicker">VAKAMAN FE · Coimbatore</div>
-        <h1>Super Kings<br /><span class="grad">Academy</span></h1>
-        <div class="gold-rule"></div>
-        <p class="lede">
-          Cricket coaching, four practice nets and a full-size main ground — one venue at
-          VAKAMAN FE, Coimbatore. Book a net by the hour, hire the ground for the day, or
-          put your child into a coaching batch.
-        </p>
-        <div class="hero-cta">
-          <a class="btn btn-primary btn-lg" href="booking.html" data-cta="hero-book">Book a net
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </a>
-          <a class="btn btn-glass btn-lg" href="admission.html" data-cta="hero-join">Join the academy</a>
-        </div>
-
-        <!-- ============================================================
-             CONTACT NUMBER — NOT PUBLISHED YET. THIS IS THE ONE PLACE
-             THAT EXPLAINS HOW TO PUBLISH IT.
-
-             The academy's real number is not in this repo, and any
-             plausible-looking Indian mobile number belongs to a real
-             person who would then take this venue's calls. So nothing on
-             this page is dialable: no tel: or wa.me href exists anywhere
-             in this file, and the chips say plainly that the number is
-             not published yet. A working-looking link to a non-number is
-             worse than no link.
-
-             TO PUBLISH THE REAL NUMBER, edit exactly these three spots —
-             every one is marked data-contact, so searching this file for
-             `data-contact` finds all of them and nothing else:
-               1. the "Phone number coming soon" chip immediately below
-               2. the "WhatsApp coming soon" chip immediately below that
-               3. the contact strip in section 6, near the bottom
-             In each, turn the <span> back into an <a>, give it
-             href="tel:+91XXXXXXXXXX" (or href="https://wa.me/91XXXXXXXXXX"
-             target="_blank" rel="noopener" for WhatsApp), and put the
-             number in the visible text as well, so a wrong one is obvious
-             on screen rather than hidden in an attribute. Restore the
-             data-cta attributes at the same time if you want the taps
-             counted.
-
-             The Google Maps link below is real and stays as it is.
-             ============================================================ -->
-        <div class="hero-contact">
-          <span class="qc" data-contact="phone">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-            Phone number coming soon
-          </span>
-          <span class="qc" data-contact="whatsapp">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.297-.497.1-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413"/></svg>
-            WhatsApp coming soon
-          </span>
-          <a class="qc" href="https://maps.app.goo.gl/9qaXVKG1ZbcvoHPW6" target="_blank" rel="noopener" data-cta="hero-directions">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            Directions
-          </a>
-        </div>
-      </div>
+      <div class="hero-kicker">VAKAMAN FE · Coimbatore</div>
+      <h1>Super Kings<br /><span class="grad">Academy</span></h1>
+      <div class="gold-rule"></div>
+      <p class="lede">Cricket coaching, practice nets by the hour and a full-size ground for the day.</p>
+      <p class="quiet">4 practice nets · 1 main ground</p>
     </header>
 
-    <!-- fact strip. Only things that are actually true of this venue —
-         no "500+ students", no star rating, no numbers nobody has counted. -->
-    <div class="facts">
-      <div class="glass glass-hover fact reveal"><div class="v num" data-countup="4">0</div><div class="l">Practice nets</div></div>
-      <div class="glass glass-hover fact reveal d1"><div class="v num" data-countup="1">0</div><div class="l">Full-size main ground</div></div>
-      <div class="glass glass-hover fact reveal d2"><div class="v num" data-countup="2">0</div><div class="l">Surfaces — Astro &amp; Matting</div></div>
-      <div class="glass glass-hover fact reveal d3"><div class="v num" data-countup="1">0</div><div class="l">Venue in Coimbatore</div></div>
+    <div class="acts">
+      <a class="act act-gold reveal" href="booking.html" data-cta="hero-book">
+        <span class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v18M20 3v18M4 8h16M4 13h16M4 18h16M9 3v18M15 3v18"/></svg>
+        </span>
+        Book a net or the ground
+        <svg class="arw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+      <a class="act act-glass glass reveal d1" href="admission.html" data-cta="hero-join">
+        <span class="ico">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+        </span>
+        Join the academy
+        <svg class="arw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
     </div>
 
-    <!-- ---------- 2. What we offer ---------- -->
-    <section class="sec" id="facilities">
-      <div class="sec-h reveal">
-        <div class="kicker">What we offer</div>
-        <h2>Three ways to use VAKAMAN FE</h2>
-        <p>Coaching for members, nets by the hour for anyone, and the main ground for a full day.</p>
-      </div>
-      <div class="prog">
-        <article class="glass glass-hover prog-c reveal">
-          <div class="ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v18M20 3v18M4 8h16M4 13h16M4 18h16M9 3v18M15 3v18"/></svg>
-          </div>
-          <div class="lvl">By the hour</div>
-          <h3>Four practice nets</h3>
-          <p>
-            N1 and N2 are Astro, N3 and N4 are Matting. They are booked as one pool at the
-            same rate, so you choose an hour and take whichever net is free.
-          </p>
-          <div class="rate">
-            <span class="per">Hourly rate is in the published rates below · indicative</span>
-          </div>
-          <a class="btn btn-primary btn-sm" href="booking.html" data-cta="offer-nets">Book a net</a>
-        </article>
-
-        <article class="glass glass-hover prog-c reveal d1">
-          <div class="ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9" ry="7.5"/><path d="M10 8.5h4v7h-4z"/></svg>
-          </div>
-          <div class="lvl">Full day only</div>
-          <h3>The main ground</h3>
-          <p>
-            A full-size ground for club matches, tournament days and long practice sessions.
-            It is hired for the whole day rather than by the hour, so nobody else is on it
-            while you are.
-          </p>
-          <div class="rate">
-            <span class="per">Full-day rates are in the published rates below · indicative</span>
-          </div>
-          <a class="btn btn-glass btn-sm" href="#rates" data-cta="offer-ground">Ground rates</a>
-        </article>
-
-        <article class="glass glass-hover prog-c reveal d2">
-          <div class="ic">
-            <!-- the app's own Members glyph (core.js MANAGER_TABS), so the
-                 landing page and the manager screens speak one icon language -->
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-          </div>
-          <div class="lvl">Batches by age group</div>
-          <h3>Cricket coaching</h3>
-          <p>
-            Age-group batches coached at the academy, morning and evening, with the nets and
-            the ground available to members for extra practice.
-          </p>
-          <div class="rate">
-            <span class="per">Batch timings and monthly fees are confirmed by the academy when you enrol.</span>
-          </div>
-          <a class="btn btn-primary btn-sm" href="admission.html" data-cta="offer-coaching">Join the academy</a>
-        </article>
-      </div>
+    <!-- The Google Maps link is the academy's real pin and stays. No phone
+         number is published on this site yet, so none is invented here. -->
+    <section class="glass where reveal d2">
+      <div class="addr">VAKAMAN FE<small>Coimbatore, Tamil Nadu</small></div>
+      <a class="btn btn-glass" href="https://maps.app.goo.gl/9qaXVKG1ZbcvoHPW6" target="_blank" rel="noopener" data-cta="directions">
+        Directions
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      </a>
     </section>
 
-    <!-- ---------- 3. Published rates ----------
-         MONEY IS NOT COMPUTED HERE. The four figures below are the
-         academy's published tariff, rendered as static text and labelled
-         indicative — there is no rate table in JavaScript and nothing on
-         this page adds, multiplies or discounts a rupee.
-
-         THIS TABLE IS THE ONLY PLACE ON THE PAGE THAT PRINTS A RUPEE
-         FIGURE. The offer cards in section 2 used to repeat the net hourly
-         rate and the weekday ground rate, which is two more places for the
-         tariff to go stale in; they now point here instead. Keep it that
-         way — a figure quoted twice is a figure that will disagree with
-         itself.
-
-         The page still makes the REAL read: slot_price() in Postgres is
-         the one thing that knows what a given date costs, so
-         confirmRates() below asks it for the next seven days and shows
-         the actual figures when it can.
-
-         It usually cannot, and that is expected rather than broken:
-         slot_price is revoked from public and anon (AcademyManager
-         migration 2026-08-17c, grants at the foot of the file), and
-         public_slots — the one anon-readable booking source — carries no
-         amount column at all (2026-08-12s). So an anonymous visitor gets
-         the published tariff, and a signed-in staff member previewing the
-         site gets the live strip. A genuine failure (network, server) is
-         reported as "could not load"; a missing session is not. -->
-    <section class="sec" id="rates">
-      <div class="sec-h reveal">
-        <div class="kicker">Rates</div>
-        <h2>Nets by the hour, the ground by the day</h2>
-        <p>Every rupee figure on this page is in the one table below. The main ground is never let by the hour.</p>
-      </div>
-
-      <div class="glass rate-card reveal">
-        <div class="card-head">
-          <div>
-            <h2>Published rates</h2>
-            <div class="sub">Practice nets and the main ground — VAKAMAN FE</div>
-          </div>
-          <span class="pill gold">Indicative</span>
-        </div>
-
-        <div class="table-wrap">
-          <table class="lt-table tight">
-            <thead>
-              <tr><th scope="col">What</th><th scope="col">Rate</th></tr>
-            </thead>
-            <tbody>
-              <tr><td class="t-name">Practice net · per hour, any of the four</td><td class="money">₹500</td></tr>
-              <tr><td class="t-name">Main ground · full day, Monday – Thursday</td><td class="money">₹10,000</td></tr>
-              <tr><td class="t-name">Main ground · full day, Friday</td><td class="money">₹20,000</td></tr>
-              <tr><td class="t-name">Main ground · full day, Saturday &amp; Sunday</td><td class="money">₹25,000</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <p class="rate-foot">
-          These are the academy's published rates and are shown here for guidance. The amount
-          you actually pay is set by the academy's booking system for the exact date you book —
-          this page never works a price out for itself.
-        </p>
-
-        <!-- filled only by a successful read of slot_price() -->
-        <div class="rate-live" id="rateLive" hidden>
-          <div class="rl-head">
-            <span class="pill green">Live</span>
-            <span class="t">Confirmed rates for the next 7 days</span>
-          </div>
-          <div class="rl-days" id="rateDays"></div>
-        </div>
-
-        <!-- and this one only by a genuine failure -->
-        <div id="rateFail"></div>
-      </div>
-    </section>
-
-    <!-- ---------- 4. Why us ---------- -->
-    <section class="sec" id="why">
-      <div class="sec-h reveal">
-        <div class="kicker">The venue</div>
-        <h2>What you get at VAKAMAN FE</h2>
-        <p>Small, honest list. Everything here is simply what is on the ground today.</p>
-      </div>
-      <div class="why">
-        <div class="glass glass-hover why-c reveal">
-          <div class="n">01</div>
-          <h3>Two surfaces, one price</h3>
-          <p>
-            Two Astro nets and two Matting nets. The surface is yours to pick when you arrive —
-            it does not change what the hour costs.
-          </p>
-        </div>
-        <div class="glass glass-hover why-c reveal d1">
-          <div class="n">02</div>
-          <h3>A ground you get to yourself</h3>
-          <p>
-            Full-day hire means the ground is booked to one team for the day. Club matches and
-            tournament days are not squeezed around other bookings.
-          </p>
-        </div>
-        <div class="glass glass-hover why-c reveal d2">
-          <div class="n">03</div>
-          <h3>Coaching and facilities together</h3>
-          <p>
-            Members train in age-group batches at the same venue they can book a net at, so
-            extra practice does not mean travelling somewhere else.
-          </p>
-        </div>
-        <div class="glass glass-hover why-c reveal d3">
-          <div class="n">04</div>
-          <h3>Bookings and fees on record</h3>
-          <p>
-            Every booking and every fee is recorded against your name, and the amount is the
-            one the academy's system set — so what you are told and what is in the books are
-            the same number.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- ---------- 5. Location ---------- -->
-    <section class="sec" id="visit">
-      <div class="sec-h reveal">
-        <div class="kicker">Find us</div>
-        <h2>One venue, in Coimbatore</h2>
-        <p>Everything — coaching, nets and the ground — is at VAKAMAN FE.</p>
-      </div>
-      <div class="visit">
-        <div class="glass visit-c reveal">
-          <div class="addr">
-            VAKAMAN FE
-            <small>Coimbatore, Tamil Nadu</small>
-          </div>
-          <p class="note">
-            Open the map for the pin and turn-by-turn directions. If you cannot find the gate,
-            call the academy and someone will guide you in.
-          </p>
-          <a class="btn btn-primary" href="https://maps.app.goo.gl/9qaXVKG1ZbcvoHPW6" target="_blank" rel="noopener" data-cta="visit-map">
-            Open in Google Maps
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </a>
-        </div>
-        <div class="glass visit-c reveal d1">
-          <ul>
-            <li><span>Venue</span><strong>VAKAMAN FE</strong></li>
-            <li><span>City</span><strong>Coimbatore, Tamil Nadu</strong></li>
-            <li><span>Practice nets</span><strong>4 · N1 &amp; N2 Astro, N3 &amp; N4 Matting</strong></li>
-            <li><span>Main ground</span><strong>1 · full-day hire</strong></li>
-            <li><span>Coaching</span><strong>Age-group cricket batches</strong></li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <!-- ---------- 6. Contact strip ---------- -->
-    <section class="sec" id="contact">
-      <div class="glass cta-card reveal">
-        <div class="kicker">Talk to the academy</div>
-        <h2>Book a net, or ask about a batch.</h2>
-        <p>
-          The front desk can take a booking, answer a question about batches, or quote you the
-          ground rate for a specific date.
-        </p>
-        <!-- The third and last spot carrying the contact number. It is not
-             published yet, so these are chips and not buttons. The full
-             instructions live in ONE place: the CONTACT NUMBER block in
-             the hero, section 1. -->
-        <div class="cta-row">
-          <span class="pill" data-contact="phone">Phone number coming soon</span>
-          <span class="pill" data-contact="whatsapp">WhatsApp coming soon</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- ---------- 7. Footer ---------- -->
     <footer class="lp-foot">
-      <div class="foot-grid">
-        <div>
-          <div class="foot-brand">Super Kings Academy</div>
-          <p>
-            Cricket coaching, practice nets and full-day ground hire<br />
-            at VAKAMAN FE, Coimbatore, Tamil Nadu.
-          </p>
-        </div>
-        <div>
-          <h4>Facilities</h4>
-          <a href="#facilities">What we offer</a>
-          <a href="#rates">Published rates</a>
-          <a href="#why">The venue</a>
-          <a href="#visit">Find us</a>
-        </div>
-        <div>
-          <h4>Get started</h4>
-          <a href="booking.html">Book a net</a>
-          <a href="admission.html">Join the academy</a>
-          <a href="#contact">Contact the academy</a>
-          <a href="https://maps.app.goo.gl/9qaXVKG1ZbcvoHPW6" target="_blank" rel="noopener">Directions</a>
-        </div>
-      </div>
-      <div class="foot-base">
-        <span>© <span id="year">2026</span> Super Kings Academy · VAKAMAN FE, Coimbatore</span>
-        <a class="staff" href="login.html">Staff sign in</a>
-      </div>
+      <span>© <span id="year">2026</span> Super Kings Academy · VAKAMAN FE, Coimbatore</span>
+      <a class="staff" href="login.html">Staff sign in</a>
     </footer>
   </main>
 
-  <script src="assets/js/core.js?v=4"></script>
-  <script src="assets/js/cloud.js?v=4"></script>
-  <script src="assets/js/dev-data.js?v=4"></script>
+  <script src="assets/js/core.js?v=7"></script>
+  <script src="assets/js/cloud.js?v=7"></script>
+  <script src="assets/js/dev-data.js?v=7"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
     (function () {
       "use strict";
 
-      /* ---------- copyright year ----------
-         Rendered from the clock so the footer does not quietly go stale. */
+      /* footer year from the clock, so it does not quietly go stale */
       var yr = LT.$("#year");
       if (yr) yr.textContent = String(new Date().getFullYear());
 
-      /* ---------- CTA telemetry ----------
-         Counts only: which button, never who pressed it. The operator
+      /* CTA telemetry — counts only, never who pressed it. The operator
          console reads a tenant's status from the newest events row, and a
          landing page that sends nothing reads as "Onboarding" forever.
          cloud.js already fires the page_view on load. */
       document.addEventListener("click", function (e) {
         if (!e.target || !e.target.closest || !window.LT_CLOUD) return;
         var el = e.target.closest("[data-cta]");
-        if (!el) return;
-        LT_CLOUD.track("cta", { cta: el.getAttribute("data-cta") });
+        if (el) LT_CLOUD.track("cta", { cta: el.getAttribute("data-cta") });
       });
-
-      /* ---------- Ground rates, from the database ----------
-         The ONE read this page makes. slot_price() is the only thing on
-         the platform that knows what a date costs; nothing here derives,
-         adjusts or rounds a figure. Seven independent calls go out in
-         parallel, because the round-trip to Tokyo is ~180 ms and doing
-         them one after another would cost 1.3 s for no reason. */
-      var DAYS = 7;
-
-      function upcomingDates() {
-        var out = [];
-        for (var i = 0; i < DAYS; i++) {
-          var d = new Date();
-          d.setDate(d.getDate() + i);
-          out.push(LT.isoDate(d));      // LOCAL date — never toISOString()
-        }
-        return out;
-      }
-
-      function dayCard(iso, amount) {
-        return '<div class="rl-day">' +
-                 '<div class="rl-dow">' + LT.esc(LT.dayName(iso).slice(0, 3)) + "</div>" +
-                 '<div class="rl-date">' + LT.esc(LT.shortDate(iso)) + "</div>" +
-                 '<div class="rl-amt money">' + LT.esc(LT.fmtINR(amount)) + "</div>" +
-               "</div>";
-      }
-
-      function renderRates(dates, prices) {
-        var host = LT.$("#rateDays");
-        if (!host) return;
-        var html = "", i;
-        for (i = 0; i < dates.length; i++) {
-          /* A null price would mean the server answered without a figure.
-             Show nothing rather than a blank rupee sign. */
-          if (prices[i] == null) continue;
-          html += dayCard(dates[i], prices[i]);
-        }
-        if (!html) return;
-        host.innerHTML = html;
-        LT.$("#rateLive").hidden = false;
-      }
-
-      function loadRates() {
-        if (!window.LT_CLOUD) return;
-        var dates = upcomingDates();
-
-        /* hour 0 is what a full-day ground booking is stored as — the
-           unique index on (tenant, date, hour, court) is what stops the
-           ground being sold twice for one date. */
-        var calls = dates.map(function (iso) {
-          return LT_CLOUD.slotPrice("ground", iso, 0);
-        });
-
-        Promise.all(calls)
-          .then(function (prices) { renderRates(dates, prices); })
-          .catch(function (err) {
-            /* No session is the NORMAL case for a visitor: slot_price is
-               revoked from public and anon by design, so the published
-               tariff above simply stays on screen — labelled indicative,
-               claiming nothing it has not been told. That is not a
-               failure and must not be dressed up as one.
-
-               Anything else IS a failure and says so, in its own box,
-               without touching the tariff. An empty academy and a broken
-               one must never look alike. */
-            if (err && err.noSession) return;
-            LT.fail(LT.$("#rateFail"), err);
-          });
-      }
-
-      loadRates();
     })();
   </script>
 </body>
