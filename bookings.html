@@ -1755,16 +1755,27 @@
 
         if ((el = t.closest("[data-decline]"))) {
           var did = el.getAttribute("data-decline");
-          var why = window.prompt(
-            "Decline this request?\n\nThe slot goes back to free. Tell them why if you can:", "");
-          if (why === null) return;
-          el.disabled = true;
-          LT_CLOUD.cancelBooking(did, why || "Declined").then(function () {
-            LT.toast("Declined");
-            load(); loadPending();
-          }).catch(function (err) {
-            el.disabled = false;
-            LT.toast((err && err.message) || "Could not decline.");
+          /* The reason sheet, not window.prompt — which throws in this
+             app's own browser and is suppressed on iOS, so this button did
+             nothing at all on a phone. Same sheet the cancel path uses. */
+          var dbtn = el;
+          openReason({
+            kicker: "Decline request",
+            title: "Decline this request?",
+            sub: "The slot goes back to free. Tell them why if you can — it is sent with the cancellation.",
+            confirmLabel: "Decline",
+            danger: true,
+            chips: ["Already booked", "Not available", "Ground closed", "Could not reach them"],
+            onConfirm: function (why) {
+              dbtn.disabled = true;
+              LT_CLOUD.cancelBooking(did, why || "Declined").then(function () {
+                LT.toast("Declined");
+                load(); loadPending(); loadMonth();
+              }).catch(function (err) {
+                dbtn.disabled = false;
+                LT.toast((err && err.message) || "Could not decline.");
+              });
+            }
           });
           return;
         }

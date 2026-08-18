@@ -848,9 +848,17 @@
         var pending = state.rows.filter(function (r) { return !r.attendance_status; });
         if (!pending.length) return;
         var b = batchById(state.batchId);
-        if (!window.confirm("Mark " + pending.length + " unmarked student" + (pending.length === 1 ? "" : "s") +
-            " present in " + ((b && b.name) || "this batch") + " for " + LT.shortDate(state.date) + "?")) return;
-
+        /* LT.ask, not window.confirm — confirm() returns false without
+           showing anything in several browsers this runs in, so on a phone
+           this button silently did nothing. */
+        LT.ask({
+          kicker: "Attendance",
+          title: "Mark " + pending.length + " student" + (pending.length === 1 ? "" : "s") + " present?",
+          sub: "Everyone not yet marked in " + ((b && b.name) || "this batch") +
+               " for " + LT.shortDate(state.date) + ". Each one saves on its own.",
+          confirmLabel: "Mark present"
+        }).then(function (ok) {
+          if (ok === null) return;
         restBtn.disabled = true;
         restBtn.textContent = "Saving…";
         var saved = 0, stopped = null;
@@ -873,6 +881,7 @@
             LT.toast(saved + " marked present.");
           }
           loadAll();
+        });
         });
       });
 

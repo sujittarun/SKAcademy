@@ -338,6 +338,94 @@
   };
 
   /* ---------- Manager shell ---------- */
+  /* ---------- LT.ask — an in-app confirm, and an in-app prompt ----------
+     window.confirm and window.prompt are NOT available everywhere this app
+     runs. Measured in the app's own browser on 2026-08-18:
+
+         window.prompt(...)   ->  throws "prompt() is not supported."
+         window.confirm(...)  ->  returns false, no dialog shown
+
+     A throw stops the handler; a false reads as "the operator said no". So
+     every action gated on one of them does nothing, and three of the five
+     did it SILENTLY — no toast, no error, the row just sits there. On a
+     phone that was: decline a booking, approve an admission, decline an
+     admission, and mark the rest of a register present.
+
+     bookings.html already knew ("window.prompt is suppressed on iOS") and
+     built a reason sheet for its cancel path. This is that sheet, moved
+     into the design system so a page cannot forget it exists.
+
+     Resolves with a STRING when confirmed (the note, "" when there is no
+     note field) and with NULL when dismissed — so it drops into a
+     `if (x === null) return;` prompt site unchanged, and a confirm site
+     reads it as truthy/falsy. */
+  LT.ask = function (opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      var back = document.createElement("div");
+      back.className = "lt-modal-backdrop";
+      back.style.zIndex = "200";
+      back.innerHTML =
+        '<div class="glass lt-modal" role="dialog" aria-modal="true" style="width:min(430px,100%);">' +
+          '<div class="modal-head">' +
+            "<div>" +
+              (opts.kicker ? '<div class="kicker">' + LT.esc(opts.kicker) + "</div>" : "") +
+              '<h2 style="font-size:19px;">' + LT.esc(opts.title || "Are you sure?") + "</h2>" +
+            "</div>" +
+            '<button class="btn btn-icon btn-ghost" data-x aria-label="Close">✕</button>' +
+          "</div>" +
+          (opts.sub ? '<p style="color:var(--ink-mid);font-size:13.5px;margin-bottom:14px;">' +
+                      LT.esc(opts.sub) + "</p>" : "") +
+          (opts.note
+            ? '<input type="text" data-note maxlength="80" placeholder="' +
+              LT.esc(opts.notePlaceholder || "Add a note (optional)") +
+              '" style="margin-bottom:16px;" />'
+            : "") +
+          '<div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">' +
+            '<button class="btn btn-glass" data-no>' + LT.esc(opts.cancelLabel || "Cancel") + "</button>" +
+            '<button class="btn ' + (opts.danger ? "" : "btn-primary") + '" data-yes' +
+              (opts.danger
+                ? ' style="background:linear-gradient(135deg,#e5484d,#c2383f);color:#fff;"'
+                : "") + ">" +
+              LT.esc(opts.confirmLabel || "Confirm") + "</button>" +
+          "</div>" +
+        "</div>";
+      document.body.appendChild(back);
+
+      var noteEl = back.querySelector("[data-note]");
+      var done = false;
+      function finish(val) {
+        if (done) return;
+        done = true;
+        back.classList.remove("open");
+        document.removeEventListener("keydown", onKey);
+        /* Let the close transition run before the node goes, or the sheet
+           vanishes instead of leaving. */
+        setTimeout(function () { if (back.parentNode) back.parentNode.removeChild(back); }, 220);
+        resolve(val);
+      }
+      function onKey(e) {
+        if (e.key === "Escape") finish(null);
+        else if (e.key === "Enter" && !e.shiftKey) finish(noteEl ? String(noteEl.value || "").trim() : "");
+      }
+      back.addEventListener("click", function (e) {
+        if (e.target === back || e.target.closest("[data-x]") || e.target.closest("[data-no]")) return finish(null);
+        if (e.target.closest("[data-yes]")) return finish(noteEl ? String(noteEl.value || "").trim() : "");
+      });
+      document.addEventListener("keydown", onKey);
+
+      /* Two frames: one to land in the DOM, one for the transition to have
+         a "from" to animate out of. */
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          back.classList.add("open");
+          var f = noteEl || back.querySelector("[data-yes]");
+          if (f) { try { f.focus(); } catch (e) {} }
+        });
+      });
+    });
+  };
+
   LT.managerShell = function (activeHref, opts) {
     opts = opts || {};
     var s = LT.auth.session();

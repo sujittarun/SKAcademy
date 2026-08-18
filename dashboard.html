@@ -893,11 +893,19 @@
            enrolment and the fee rule. Say so before it happens, and warn
            when nobody recorded consent for a child. */
         var warn = arow.consent_accepted === true ? "" :
-          "\n\nNOTE: no consent is recorded on this application.";
-        if (!window.confirm("Approve " + (arow.name || "this application") +
-              "?\n\nThis creates the member and their enrolment. It cannot be undone from here." + warn)) return;
+          " No consent is recorded on this application.";
+        /* LT.ask, not window.confirm — confirm() returns false without ever
+           showing a dialog in several browsers this app runs in, which read
+           as "the operator said no" and made Approve do nothing at all. */
+        LT.ask({
+          kicker: "Admissions",
+          title: "Approve " + (arow.name || "this application") + "?",
+          sub: "This creates the member and their enrolment. It cannot be undone from here." + warn,
+          confirmLabel: "Approve"
+        }).then(function (ok) {
+          if (ok === null) return;
         ap.disabled = true; ap.textContent = "Approving…";
-        LT_CLOUD.approveApplication(Number(aid), admWho()).then(function (r) {
+        return LT_CLOUD.approveApplication(Number(aid), admWho()).then(function (r) {
           var fee = r && r.fee;
           /* "unset" is the ABSENCE of a fee rule, not a fee of zero. Never
              print a 0 here as though it were a price. */
@@ -913,6 +921,7 @@
           ap.disabled = false; ap.textContent = "Approve";
           LT.toast(err.message || "Could not approve", "error");
         });
+        });
         return;
       }
 
@@ -921,16 +930,24 @@
         var did = dc.getAttribute("data-adm-decline");
         var drow = admFind(did);
         if (!drow) return;
-        var reason = window.prompt("Decline " + (drow.name || "this application") +
-          "?\n\nIt is marked declined, not deleted — the enquiry is still on record.\n\nReason (optional):", "");
-        if (reason === null) return;
-        dc.disabled = true; dc.textContent = "…";
-        LT_CLOUD.rejectApplication(Number(did), admWho(), reason || null).then(function () {
-          LT.toast("Declined", "ok");
-          return admReload();
-        }).catch(function (err) {
-          dc.disabled = false; dc.textContent = "Decline";
-          LT.toast(err.message || "Could not decline", "error");
+        LT.ask({
+          kicker: "Admissions",
+          title: "Decline " + (drow.name || "this application") + "?",
+          sub: "It is marked declined, not deleted — the enquiry stays on record.",
+          note: true,
+          notePlaceholder: "Reason (optional)",
+          confirmLabel: "Decline",
+          danger: true
+        }).then(function (reason) {
+          if (reason === null) return;
+          dc.disabled = true; dc.textContent = "…";
+          return LT_CLOUD.rejectApplication(Number(did), admWho(), reason || null).then(function () {
+            LT.toast("Declined", "ok");
+            return admReload();
+          }).catch(function (err) {
+            dc.disabled = false; dc.textContent = "Decline";
+            LT.toast(err.message || "Could not decline", "error");
+          });
         });
         return;
       }
