@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=3" />
+<link rel="stylesheet" href="assets/css/glass.css?v=4" />
 <style>
   /* Page-local LAYOUT only. Everything that carries the brand — glass,
      buttons, fields, pills, .slot, .form-msg, .lt-empty — comes from
@@ -355,15 +355,15 @@
     <button type="button" class="btn btn-primary btn-sm" id="mbGo">Continue</button>
   </div>
 
-  <script src="assets/js/core.js?v=3"></script>
-  <script src="assets/js/cloud.js?v=3"></script>
+  <script src="assets/js/core.js?v=4"></script>
+  <script src="assets/js/cloud.js?v=4"></script>
   <!-- dev-data.js is loaded for shell consistency with every other page and
        is DELIBERATELY NOT USED here. On a staff screen, sample rows behind
        the striped banner are a preview; on a public page they would be a
        customer being shown invented availability, with no banner and no way
        to tell. A failed availability read renders "could not load" instead —
        an empty academy and a broken one must never look alike. -->
-  <script src="assets/js/dev-data.js?v=3"></script>
+  <script src="assets/js/dev-data.js?v=4"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */

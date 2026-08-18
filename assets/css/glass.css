@@ -1406,3 +1406,21 @@ body.has-devbar .lt-main { padding-top: 8px; }
   border-color: rgba(52, 211, 153, 0.6);
 }
 .lt-toast[data-kind="ok"]::before { content: "✓ "; }
+
+/* ---------- Published rates, on a phone ----------
+   .lt-table.tight sets white-space:nowrap on every cell, which is right
+   for the operator's dense tables (a wrapped booking row is unreadable)
+   but wrong here: the rate names are long sentences, so at 375px the
+   table measured 393px inside a 305px container and the visitor had to
+   scroll SIDEWAYS to see the price — on the one table whose entire
+   purpose is the price. The page never overflowed, so nothing looked
+   broken; the number was just off-screen.
+
+   Scoped to .rate-card on purpose. Do not lift the nowrap globally. */
+@media (max-width: 620px) {
+  .rate-card .lt-table.tight td.t-name,
+  .rate-card .lt-table.tight th { white-space: normal; line-height: 1.35; }
+  .rate-card .lt-table.tight th,
+  .rate-card .lt-table.tight td { padding-left: 10px; padding-right: 10px; }
+  .rate-card .lt-table.tight td.money { white-space: nowrap; }  /* ₹25,000 never breaks */
+}
