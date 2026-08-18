@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=15" />
+<link rel="stylesheet" href="assets/css/glass.css?v=16" />
 <style>
   /* Page-local LAYOUT only. Glass, buttons, fields, pills, .slot,
      .form-msg and .lt-empty all come from glass.css. */
@@ -351,15 +351,15 @@
     </div>
   </main>
 
-  <script src="assets/js/core.js?v=15"></script>
-  <script src="assets/js/cloud.js?v=15"></script>
+  <script src="assets/js/core.js?v=16"></script>
+  <script src="assets/js/cloud.js?v=16"></script>
   <!-- dev-data.js loads for shell consistency and is DELIBERATELY NOT USED
        here. Sample rows behind the striped banner are a preview on a staff
        screen; on a public page they would be a customer shown invented
        availability with no way to tell. A failed read says "could not
        load" instead — an empty academy and a broken one must not look
        alike. -->
-  <script src="assets/js/dev-data.js?v=15"></script>
+  <script src="assets/js/dev-data.js?v=16"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */

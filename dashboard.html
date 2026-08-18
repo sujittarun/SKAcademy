@@ -13,7 +13,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=15" />
+<link rel="stylesheet" href="assets/css/glass.css?v=16" />
 <style>
   /* 2x2 KPIs on phones — the same tweak the demo dashboard carries, so all
      four numbers are readable without scrolling on a counter phone. */
@@ -224,9 +224,9 @@
 
   </main>
 
-  <script src="assets/js/core.js?v=15"></script>
-  <script src="assets/js/cloud.js?v=15"></script>
-  <script src="assets/js/dev-data.js?v=15"></script>
+  <script src="assets/js/core.js?v=16"></script>
+  <script src="assets/js/cloud.js?v=16"></script>
+  <script src="assets/js/dev-data.js?v=16"></script>
   <script>
   /* ============================================================
      MANAGER DASHBOARD — "what is happening today", nothing else.
@@ -264,13 +264,21 @@
     if (!LT.auth.require({ staffOnly: true })) return;   // redirecting
     LT.managerShell("dashboard.html");
 
-    /* Facility shape — not money. Four nets, one pool, bookable by the
-       hour from 6 AM to 11 PM; the ground is one court, full day only.
+    /* Facility shape — not money. Four nets across TWO facilities since
+       2026-08-18c: astro A1 A2 and matting M1 M2, bookable by the hour
+       from 6 AM to 11 PM; the ground is one court, full day only.
        FIRST_HOUR/LAST_HOUR are the same inclusive window the bookings
        board draws (HOUR_OPEN/HOUR_LAST) and the public booking page
        offers (HOUR_FROM/HOUR_TO) — if they disagree, two screens quote
-       different utilisation for the same day. */
-    var NETS = ["N1", "N2", "N3", "N4"];
+       different utilisation for the same day.
+
+       These used to read ["N1".."N4"] and filter on sport 'nets'. That
+       facility was split in two and neither line was updated, so this
+       tile reported "0 / 68 court-hours, 0% used" on a day with three net
+       bookings on the board beside it. It did not error; it just counted
+       nothing, because nothing matches a sport that no longer exists. */
+    var NET_SPORTS = ["astro", "matting"];
+    var NETS = ["A1", "A2", "M1", "M2"];
     var FIRST_HOUR = 6;                       // slot 6–7 AM
     var LAST_HOUR = 22;                       // slot 10–11 PM
     var HOURS_PER_COURT = LAST_HOUR - FIRST_HOUR + 1;
@@ -387,7 +395,10 @@
           owed ? "down" : "up");
 
       state.today = all;
-      state.nets = sportIs(all, "nets");
+      /* Both net facilities, not one that no longer exists. */
+      state.nets = all.filter(function (b) {
+        return NET_SPORTS.indexOf(String(b.sport || "").toLowerCase()) >= 0;
+      });
       renderGround();
       renderNets();
     }
