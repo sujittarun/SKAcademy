@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=9" />
+<link rel="stylesheet" href="assets/css/glass.css?v=10" />
 <style>
   /* ------------------------------------------------------------
      Page-local components only. Anything reusable belongs in
@@ -436,9 +436,9 @@
     </div>
   </div>
 
-  <script src="assets/js/core.js?v=9"></script>
-  <script src="assets/js/cloud.js?v=9"></script>
-  <script src="assets/js/dev-data.js?v=9"></script>
+  <script src="assets/js/core.js?v=10"></script>
+  <script src="assets/js/cloud.js?v=10"></script>
+  <script src="assets/js/dev-data.js?v=10"></script>
   <script>
     /* ============================================================
        THE OPERATOR BOOKING BOARD
@@ -822,7 +822,10 @@
           host.innerHTML =
             '<div class="gd-row">' +
             '<div><div class="gd-who">Free all day</div>' +
-            '<div class="gd-sub">' + esc(LT.courtLabel(groundCourts[0] || "G1")) + " · full-day rental</div></div>" +
+            /* The card heading already says "Main Ground"; repeating the
+               court label here said it twice, and said "G1" whenever the
+               label map had not loaded. */
+            '<div class="gd-sub">Full-day rental</div></div>' +
             '<div class="gd-acts">' +
             '<button class="btn btn-primary btn-sm" type="button" data-addground="1">Book the ground</button>' +
             '<button class="btn btn-glass btn-sm" type="button" data-blockground="1">Block the day</button>' +

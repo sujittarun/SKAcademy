@@ -12,7 +12,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=9" />
+<link rel="stylesheet" href="assets/css/glass.css?v=10" />
 <style>
   /* ---------- the five headline figures ----------
      Five, not four, so .lt-grid.cols-4 does not fit. No cols-* class is
@@ -294,9 +294,9 @@
     </div>
   </div>
 
-  <script src="assets/js/core.js?v=9"></script>
-  <script src="assets/js/cloud.js?v=9"></script>
-  <script src="assets/js/dev-data.js?v=9"></script>
+  <script src="assets/js/core.js?v=10"></script>
+  <script src="assets/js/cloud.js?v=10"></script>
+  <script src="assets/js/dev-data.js?v=10"></script>
   <script>
   /* ============================================================
      FINANCE — what came in, what went out, what is still owed.
@@ -307,10 +307,14 @@
         server row already carried, or a sum of those amounts. Summing is
         reporting; deriving a price is not, and there is no rate table, no
         fee chain, no reminder ladder and no UPI rotation in this file.
-        The nets are ₹500/hour and the ground is ₹10,000 / ₹20,000 /
-        ₹25,000 — and none of those five numbers appears below, because
-        the day the client changes one, this screen must not be a place
-        anybody has to remember to edit.
+        Astro is ₹500/hour, matting ₹400, and the ground ₹10,000 /
+        ₹20,000 / ₹25,000 by weekday — and none of those numbers appears
+        below, because the day the client changes one, this screen must
+        not be a place anybody has to remember to edit. (This comment
+        already went stale once, when the single ₹500 nets facility was
+        split in two — which is the argument for the rule, not against
+        it: a stale COMMENT misleads a reader, a stale CONSTANT
+        misinvoices a customer.)
 
      2. RENTAL MONEY LIVES ON THE BOOKING, NOT IN payments. There is
         deliberately no payments row per booking: bookings.amount with
@@ -367,8 +371,8 @@
     /* Facility vocabulary — labels, not money. */
     var STREAMS = [
       { key: "fees",   label: "Coaching fees", sub: "Members",        cls: "st-fees" },
-      { key: "nets",   label: "Practice nets", sub: "N1 – N4",        cls: "st-nets" },
-      { key: "ground", label: "Main ground",   sub: "G1 · full day",  cls: "st-ground" }
+      { key: "nets",   label: "Practice nets", sub: "Astro & Matting", cls: "st-nets" },
+      { key: "ground", label: "Main ground",   sub: "Full day",       cls: "st-ground" }
     ];
 
     var EXPENSE_CATS = [
@@ -634,6 +638,13 @@
     function bySport(rows, sport) {
       return rows.filter(function (r) { return sportOf(r) === sport; });
     }
+    /* One place that knows which facilities are nets. Adding a third
+       surface later is an edit here, not a hunt through the file. */
+    var NET_SPORTS = ["astro", "matting"];
+    function isNet(sport) { return NET_SPORTS.indexOf(sport) !== -1; }
+    function netRentals(rows) {
+      return rows.filter(function (r) { return isNet(sportOf(r)); });
+    }
     function slotLabel(r) {
       /* The ground is sold full-day only and sits at hour 0. Running it
          through hourLabel() would print "12 AM – 1 AM" for a booking that
@@ -828,7 +839,15 @@
       if (S.rentErr) broken.push("rentals");
       else if (S.rent) {
         var paid = paidRentals();
-        known.nets = sum(bySport(paid, "nets"), function (r) { return r.amount; });
+        /* The nets are TWO facilities since 2026-08-18c — astro and
+           matting, priced apart. This line used to read bySport(paid,
+           "nets"), a sport that no longer exists, so every net rental
+           summed to zero and the Finance page reported the academy had
+           earned nothing from them. It did not error; it just quietly
+           lost the money. Reported as one business line because "how much
+           did the nets take" is the question a manager asks; which
+           surface each booking was on is in the list below. */
+        known.nets = sum(netRentals(paid), function (r) { return r.amount; });
         known.ground = sum(bySport(paid, "ground"), function (r) { return r.amount; });
       }
 
@@ -918,7 +937,7 @@
 
       if (S.rent && !S.rentErr) {
         paidRentals().forEach(function (r) {
-          var ground = sportOf(r) === "ground";
+          var ground = sportOf(r) === "ground";   /* everything else is a net — see isNet() */
           out.push({
             stream: ground ? "ground" : "nets",
             when: isoOf(r.date),

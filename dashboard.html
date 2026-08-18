@@ -13,7 +13,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=9" />
+<link rel="stylesheet" href="assets/css/glass.css?v=10" />
 <style>
   /* 2x2 KPIs on phones — the same tweak the demo dashboard carries, so all
      four numbers are readable without scrolling on a counter phone. */
@@ -109,7 +109,10 @@
            line in a list. -->
       <div class="glass glass-card reveal d1">
         <div class="card-head">
-          <div><div class="kicker">Main ground</div><h2>G1 · full day</h2></div>
+          <!-- No court code here. "G1" is derived by the database as
+                 upper(left(sport,1))||i and is meaningless to anyone
+                 reading a screen — there is exactly one ground. -->
+            <div><div class="kicker">Main ground</div><h2>Full day</h2></div>
           <span class="pill" id="groundPill">—</span>
         </div>
         <div id="groundBody"><div class="lt-skel"></div><div class="lt-skel"></div></div>
@@ -167,9 +170,9 @@
 
   </main>
 
-  <script src="assets/js/core.js?v=9"></script>
-  <script src="assets/js/cloud.js?v=9"></script>
-  <script src="assets/js/dev-data.js?v=9"></script>
+  <script src="assets/js/core.js?v=10"></script>
+  <script src="assets/js/cloud.js?v=10"></script>
+  <script src="assets/js/dev-data.js?v=10"></script>
   <script>
   /* ============================================================
      MANAGER DASHBOARD — "what is happening today", nothing else.
@@ -393,7 +396,11 @@
           "</div>" +
           '<div class="ground-who">' + LT.esc(raw) + "</div>" +
           '<div class="faint" style="font-size:12.5px;">' +
-            LT.esc(LT.courtLabel(b.court || "G1")) + " · Full day" +
+            /* No court code. LT.courtLabel falls back to the raw id when
+               the label map has not hydrated, which would print "G1" — a
+               string that means nothing to anyone, for the only ground
+               there is. The tile heading already names it. */
+            "Full day" +
             (b.source ? " · " + LT.esc(b.source) : "") +
           "</div>" +
           '<div class="faint" style="font-size:12.5px;margin-top:2px;">' +
