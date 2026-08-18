@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=14" />
+<link rel="stylesheet" href="assets/css/glass.css?v=15" />
 <style>
   /* Page-local layout only. Glass, pills, tables, chips, modals, empty
      states and the money/skeleton helpers all come from glass.css. */
@@ -299,9 +299,9 @@
     </div>
   </div>
 
-  <script src="assets/js/core.js?v=14"></script>
-  <script src="assets/js/cloud.js?v=14"></script>
-  <script src="assets/js/dev-data.js?v=14"></script>
+  <script src="assets/js/core.js?v=15"></script>
+  <script src="assets/js/cloud.js?v=15"></script>
+  <script src="assets/js/dev-data.js?v=15"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -763,7 +763,28 @@
       function loadEnrolments() {
         state.enrol = {};
         state.enrolLoaded = false;
+
+        /* SEED FROM THE MEMBERS READ FIRST. cloud.js now embeds each
+           member's enrolment (and its batch) straight from the database,
+           so the batch is known whether or not a register exists.
+
+           The per-batch attendance_roster() calls below still run and
+           still enrich this — but they answer "who is in today's session",
+           so on a day the batch does not meet they answer nothing, and
+           every member in it used to show no batch at all. Seeding first
+           means the roster is right before those land, and stays right if
+           they return empty. */
+        (state.members || []).forEach(function (m) {
+          if (!m || m.enrollment_id == null) return;
+          state.enrol[String(m.id)] = {
+            enrollment_id: m.enrollment_id,
+            batch_id: m.batch_id,
+            batch_name: m.batch || null
+          };
+        });
+
         var pending = state.batches.length;
+        if (!pending) { state.enrolLoaded = true; renderRows(); return; }
 
         state.batches.forEach(function (b) {
           LT_CLOUD.attendanceRoster(b.id, TODAY)

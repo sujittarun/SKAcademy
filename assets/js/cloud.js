@@ -286,7 +286,15 @@
     if (!pick && list.length) pick = list[list.length - 1];
     m.enrollment_id = pick ? pick.id : null;
     m.centre_id     = pick ? pick.centre_id : null;
-    m.batch         = pick ? pick.batch_id : null;
+    /* The roster displays a batch NAME and filters on the id, so carry
+       both. It used to derive the batch by calling attendance_roster()
+       once per batch — which only answers for a date that has a session,
+       so on a non-class day every member showed no batch at all. The
+       enrolment knows this without a register existing. */
+    m.batch_id      = pick ? pick.batch_id : null;
+    m.batch         = pick && pick.batches ? pick.batches.name : null;
+    m.batch_time    = pick && pick.batches && pick.batches.start_time
+                        ? String(pick.batches.start_time).slice(0, 5) : null;
     m.renews_on     = pick ? pick.renewal_on : null;
     /* members.program is the roster's "sport"; fall back to the
        enrolment's when the application never carried one. */
@@ -520,6 +528,25 @@
       });
     },
 
+    /* EVERY pending request, whatever date it is for.
+
+       The board's request tray used to be filled from bookingsOn(date),
+       so a request only appeared if the operator happened to be looking
+       at the day it was for. A request made on Tuesday for Saturday was
+       invisible on Tuesday — which is how a confirmation gets missed, and
+       the customer hears nothing.
+
+       Oldest first: the person who has waited longest is the one to
+       answer next. Past dates are included deliberately — a request that
+       was never answered before its date passed is not resolved, it is a
+       failure, and hiding it would hide the failure too. */
+    pendingBookings: function () {
+      return get("/bookings?tenant_id=eq." + TENANT +
+                 "&status=eq.pending" +
+                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,created_at" +
+                 "&order=created_at.asc");
+    },
+
     /* Operator view of a day. Includes hour 0, which is where a full-day
        ground booking lives — the demo's board renders 6..22 only and would
        drop it entirely. */
@@ -657,7 +684,7 @@
       return get("/members?tenant_id=eq." + TENANT +
                  "&select=id,name,phone,status,created_at,joined,parent_name,parent_phone,dob," +
                  "sport:program," +
-                 "enrollments(id,centre_id,batch_id,sport,status,renewal_on,plan_months)" +
+                 "enrollments(id,centre_id,batch_id,sport,status,renewal_on,plan_months,batches(name,start_time,end_time))" +
                  "&order=name.asc")
         .then(function (rows) { return (rows || []).map(flattenMember); });
     },

@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=14" />
+<link rel="stylesheet" href="assets/css/glass.css?v=15" />
 <style>
   /* ------------------------------------------------------------
      Page-local components only. Anything reusable belongs in
@@ -182,6 +182,65 @@
     .nt-hour { font-size: 11px; }
     .nt-hour small { font-size: 10px; }
   }
+
+  /* ---------- request tray ----------
+     Every pending request, whatever day it is for. The date is the first
+     thing on the row because "which day is this for" is the question the
+     operator is answering. */
+  .rq-day {
+    flex: none; min-width: 74px; font-size: 12px; font-weight: 800;
+    color: var(--tx-gold); letter-spacing: .02em;
+  }
+  .rq-day.rq-late { color: var(--tx-red); }
+  .rq-late-note { font-size: 11.5px; font-weight: 700; color: var(--tx-red); }
+  @media (max-width: 640px) {
+    .req-row { flex-wrap: wrap; row-gap: 6px; }
+    .rq-day { min-width: 0; }
+    .req-row .btn { flex: 1 1 auto; }
+  }
+
+  /* ---------- month at a glance ----------
+     Seven columns, Monday first. Deliberately small: it answers "which
+     days are taken" at a glance, and the day board answers everything
+     else. */
+  .mc-head, .mc-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .mc-head { margin-bottom: 4px; }
+  .mc-head span {
+    text-align: center; font-size: 10.5px; font-weight: 800;
+    letter-spacing: .06em; text-transform: uppercase; color: var(--ink-low);
+  }
+  .mc-cell {
+    min-height: 54px; padding: 5px 4px; display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-start; gap: 3px;
+    border: 1px solid var(--tile-border); border-radius: var(--r-sm);
+    background: var(--tile-bg); color: var(--ink-mid);
+    font: inherit; cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .mc-cell:hover { border-color: var(--input-border-hover); }
+  .mc-blank { border: none; background: none; cursor: default; min-height: 0; }
+  .mc-past { opacity: .5; }
+  .mc-today { border-color: var(--gold-400); }
+  .mc-sel { background: rgba(242, 194, 32, .14); border-color: var(--gold-400); }
+  .mc-d { font-size: 13px; font-weight: 700; color: var(--ink-hi); font-variant-numeric: tabular-nums; }
+  .mc-marks { display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; }
+  .mc-g, .mc-n, .mc-p {
+    font-size: 9.5px; font-weight: 800; line-height: 1;
+    padding: 2px 4px; border-radius: 4px;
+  }
+  /* The ground is the big-ticket item, so it gets the loudest mark. */
+  .mc-g { background: var(--gold-grad); color: #231d00; }
+  .mc-n { background: rgba(127, 179, 255, .22); color: var(--tx-optic); }
+  .mc-p { background: rgba(220, 80, 86, .22); color: var(--tx-red); }
+  .mc-key {
+    display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px;
+    font-size: 11.5px; color: var(--ink-low);
+  }
+  .mc-key i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; }
+  .mc-key .k-g { background: var(--gold-500); }
+  .mc-key .k-n { background: var(--optic-400); }
+  .mc-key .k-p { background: var(--red-400); }
+  @media (max-width: 520px) { .mc-cell { min-height: 46px; } .mc-d { font-size: 12px; } }
 </style>
 </head>
 <body>
@@ -238,9 +297,28 @@
     <!-- ---------- website requests with no court yet ---------- -->
     <div class="glass glass-card tight hide reveal" id="reqCard">
       <div class="card-head" style="margin-bottom:10px;">
-        <div><div class="kicker">New requests</div><h2 style="font-size:16px;">Waiting for a court</h2></div>
+        <div><div class="kicker">New requests</div><h2 style="font-size:16px;" id="reqHead">Waiting for a court</h2><div class="sub">From the website and the phone, for any day — not just the one on screen.</div></div>
       </div>
       <div class="req-tray" id="reqTray"></div>
+    </div>
+
+    <!-- ---------- the month ----------
+         The ground is sold by the DAY, so a day view is the wrong lens for
+         it: "when is the ground next free" cannot be answered by looking at
+         one day at a time. This is that view — and it doubles as the
+         forward look the board never had, because a booking taken today for
+         next Friday was previously visible only by navigating to next
+         Friday. -->
+    <div class="glass glass-card reveal" id="monthCard">
+      <div class="card-head" style="margin-bottom:10px;">
+        <div><div class="kicker">The month</div><h2 style="font-size:16px;" id="monthName">—</h2>
+          <div class="sub">Ground days and how busy the nets are. Tap a day to open it.</div></div>
+        <span class="day-nav">
+          <button class="btn btn-icon btn-glass" id="prevMonth" type="button" aria-label="Previous month">‹</button>
+          <button class="btn btn-icon btn-glass" id="nextMonth" type="button" aria-label="Next month">›</button>
+        </span>
+      </div>
+      <div id="monthBody"><div class="lt-skel"></div><div class="lt-skel"></div></div>
     </div>
 
     <!-- ---------- the ground: full day only ---------- -->
@@ -436,9 +514,9 @@
     </div>
   </div>
 
-  <script src="assets/js/core.js?v=14"></script>
-  <script src="assets/js/cloud.js?v=14"></script>
-  <script src="assets/js/dev-data.js?v=14"></script>
+  <script src="assets/js/core.js?v=15"></script>
+  <script src="assets/js/cloud.js?v=15"></script>
+  <script src="assets/js/dev-data.js?v=15"></script>
   <script>
     /* ============================================================
        THE OPERATOR BOOKING BOARD
@@ -534,7 +612,10 @@
 
       var state = {
         date: LT.today(),
-        rows: null,        // server rows, or null while loading / failed
+        rows: null,        // server rows for the day on screen, or null
+        pending: null,     // EVERY pending request, whatever date — see loadPending()
+        month: null,       // first day of the month on the calendar
+        monthRows: null,   // that month's bookings, or null while loading
         sample: false      // true when DEV fixtures are on screen
       };
 
@@ -683,7 +764,6 @@
         LT.skeleton(byId("gdBody"), 1);
         byId("netsBody").className = "";
         LT.skeleton(byId("netsBody"), 6);
-        byId("reqCard").classList.add("hide");
         byId("otherCard").classList.add("hide");
       }
 
@@ -697,7 +777,6 @@
         LT.fail(byId("gdBody"), err);
         byId("netsBody").className = "";
         LT.fail(byId("netsBody"), err);
-        byId("reqCard").classList.add("hide");
         byId("otherCard").classList.add("hide");
       }
 
@@ -742,7 +821,6 @@
         var rows = state.rows;
         var g = classify(rows);
         paintSummary(g);
-        paintRequests(g.requests);
         paintGround(g.ground);
         paintNets(g.cells);
         paintOther(g.other);
@@ -799,21 +877,179 @@
           : "no full-day booking";
       }
 
-      function paintRequests(list) {
-        var card = byId("reqCard"), host = byId("reqTray");
+      /* THE REQUEST TRAY IS NOT ABOUT THE DAY ON SCREEN.
+
+         It used to be filled from the day's rows, so a request only
+         appeared if the operator happened to already be looking at the
+         date it was for. A Tuesday request for Saturday was invisible on
+         Tuesday, and the customer heard nothing until someone opened
+         Saturday. That is how a confirmation gets missed.
+
+         It now lists every pending request there is, each showing WHICH
+         DAY it is for, oldest first — the person who has waited longest
+         is the one to answer next. */
+      function paintRequests() {
+        var card = byId("reqCard"), host = byId("reqTray"), head = byId("reqHead");
+        var list = state.pending;
+
+        if (list === null) {                 // still loading, or the read failed
+          card.classList.add("hide");
+          return;
+        }
         card.classList.toggle("hide", list.length === 0);
         if (!list.length) return;
+
+        if (head) {
+          head.textContent = list.length === 1
+            ? "1 request waiting for a court"
+            : list.length + " requests waiting for a court";
+        }
+
+        var today = LT.today();
         host.innerHTML = list.map(function (b) {
+          var when = String(b.date || "");
+          /* A request whose date has already passed was never answered.
+             Say so rather than letting it look like any other row. */
+          var late = when && when < today;
+          var day = when === today ? "Today"
+                  : (when ? LT.dayName(when).slice(0, 3) + " " + LT.shortDate(when) : "—");
           return '<div class="req-row">' +
+            '<span class="rq-day' + (late ? " rq-late" : "") + '">' + esc(day) + "</span>" +
             '<span class="rq-who">' + esc(b.name) + "</span>" +
             '<span class="rq-what">' + esc(slotWhen(b)) + " · " + esc(facilityName(b)) +
             (b.phone ? " · " + esc(b.phone) : "") + "</span>" +
+            (late ? '<span class="rq-late-note">that day has passed</span>' : "") +
             '<span class="grow"></span>' +
             '<span class="rq-amt">' + LT.fmtINR(amountOf(b)) + "</span>" +
-            '<button class="btn btn-glass btn-sm" type="button" data-open="' + esc(b.id) + '">Open</button>' +
+            '<button class="btn btn-glass btn-sm" type="button" data-goto="' + esc(when) + '">Open day</button>' +
+            '<button class="btn btn-glass btn-sm" type="button" data-decline="' + esc(b.id) + '">Decline</button>' +
             '<button class="btn btn-primary btn-sm" type="button" data-confirm="' + esc(b.id) + '">Confirm &amp; assign</button>' +
             "</div>";
         }).join("");
+      }
+
+      /* Loaded independently of the day board, and re-read after every
+         confirm or cancel — confirming assigns a court server-side, so
+         guessing the new state here would drift from what happened. */
+      /* ---------- the month ----------
+         Answers the two questions a day board cannot: "when is the ground
+         next free" and "what is coming that I have not looked at yet".
+
+         Every figure is a COUNT of server rows. Nothing here prices
+         anything — the day board and the quote do that. */
+      function monthStart(iso) {
+        var d = new Date(iso + "T00:00:00");
+        return LT.isoDate(new Date(d.getFullYear(), d.getMonth(), 1));
+      }
+      function addMonths(iso, n) {
+        var d = new Date(iso + "T00:00:00");
+        return LT.isoDate(new Date(d.getFullYear(), d.getMonth() + n, 1));
+      }
+      function monthEnd(iso) {
+        var d = new Date(iso + "T00:00:00");
+        return LT.isoDate(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+      }
+
+      function loadMonth() {
+        if (!state.month) state.month = monthStart(state.date);
+        var from = state.month, to = monthEnd(state.month), want = from;
+        state.monthRows = null;
+        paintMonth();
+        return LT_CLOUD.bookingsBetween(from, to).then(function (rows) {
+          if (state.month !== want) return;          // a newer month won
+          state.monthRows = rows || [];
+          paintMonth();
+        }).catch(function (err) {
+          if (state.month !== want) return;
+          if (LT_CLOUD.DEV && window.SKA_DEV) {
+            state.monthRows = (SKA_DEV.bookings || []).filter(function (b) {
+              return b.date >= from && b.date <= to;     // ISO strings sort as dates
+            });
+          } else {
+            /* Latched, so a failed read cannot loop — and it says so
+               rather than drawing an empty month, which would read as
+               "nothing booked". */
+            state.monthRows = [];
+            LT.fail(byId("monthBody"), err);
+            return;
+          }
+          paintMonth();
+        });
+      }
+
+      function paintMonth() {
+        var host = byId("monthBody"), title = byId("monthName");
+        var first = state.month || monthStart(state.date);
+        var d0 = new Date(first + "T00:00:00");
+        if (title) {
+          title.textContent = ["January","February","March","April","May","June","July",
+            "August","September","October","November","December"][d0.getMonth()] +
+            " " + d0.getFullYear();
+        }
+        if (state.monthRows === null) { LT.skeleton(host, 3); return; }
+
+        /* Bucket by day: the ground booking (there can be only one, the
+           unique index sees to that) and how many net hours are taken. */
+        var byDay = {};
+        state.monthRows.forEach(function (b) {
+          if (isCancelled(b)) return;
+          var k = String(b.date);
+          if (!byDay[k]) byDay[k] = { ground: null, nets: 0, pending: 0 };
+          if (isPending(b)) byDay[k].pending += 1;
+          if (isGround(b)) byDay[k].ground = b;
+          else byDay[k].nets += 1;
+        });
+
+        var last = new Date(d0.getFullYear(), d0.getMonth() + 1, 0).getDate();
+        /* Monday-first, which is how a week is read here. */
+        var lead = (d0.getDay() + 6) % 7;
+        var today = LT.today();
+        var cells = "";
+        var i;
+        for (i = 0; i < lead; i++) cells += '<div class="mc-cell mc-blank"></div>';
+        for (i = 1; i <= last; i++) {
+          var iso = LT.isoDate(new Date(d0.getFullYear(), d0.getMonth(), i));
+          var info = byDay[iso] || { ground: null, nets: 0, pending: 0 };
+          var cls = "mc-cell";
+          if (iso === today) cls += " mc-today";
+          if (iso === state.date) cls += " mc-sel";
+          if (iso < today) cls += " mc-past";
+          var marks = "";
+          if (info.ground) {
+            marks += '<span class="mc-g" title="' + esc(info.ground.name || "Ground booked") + '">Ground</span>';
+          }
+          if (info.nets) marks += '<span class="mc-n">' + info.nets + "</span>";
+          if (info.pending) marks += '<span class="mc-p" title="waiting to be confirmed">' + info.pending + "!</span>";
+          cells += '<button type="button" class="' + cls + '" data-goto="' + iso + '">' +
+            '<span class="mc-d">' + i + "</span>" +
+            '<span class="mc-marks">' + marks + "</span>" +
+          "</button>";
+        }
+
+        host.innerHTML =
+          '<div class="mc-head">' +
+            ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+              .map(function (w) { return "<span>" + w + "</span>"; }).join("") +
+          "</div>" +
+          '<div class="mc-grid">' + cells + "</div>" +
+          '<div class="mc-key">' +
+            '<span><i class="k-g"></i> ground booked</span>' +
+            '<span><i class="k-n"></i> net hours</span>' +
+            '<span><i class="k-p"></i> waiting</span>' +
+          "</div>";
+      }
+
+      function loadPending() {
+        return LT_CLOUD.pendingBookings()
+          .then(function (rows) { state.pending = rows || []; paintRequests(); })
+          .catch(function () {
+            if (LT_CLOUD.DEV) {
+              state.pending = (SKA_DEV.bookings || []).filter(isPending);
+            } else {
+              state.pending = [];        // latched: a failed read must not loop
+            }
+            paintRequests();
+          });
       }
 
       function paintGround(list) {
@@ -1457,6 +1693,8 @@
           closeDetail();
           LT.toast("Cancelled — the slot is free again");
           load();
+          loadPending();
+          loadMonth();
         }).catch(function (err) {
           LT.toast((err && err.message) || "Could not cancel.");
         });
@@ -1495,6 +1733,42 @@
 
         if ((el = t.closest("[data-collect]"))) { openCollect(el.getAttribute("data-collect")); return; }
 
+        /* Jump the board to the day a request is for. The tray spans every
+           date, so "Open day" has to move the board rather than assume it
+           is already there. */
+        if ((el = t.closest("[data-goto]"))) {
+          var gd = el.getAttribute("data-goto");
+          if (gd) {
+            state.date = gd;
+            byId("bkDate").value = gd;
+            load();
+            /* Follow the day into another month, so the calendar never
+               highlights a date it is not showing. */
+            if (monthStart(gd) !== state.month) { state.month = monthStart(gd); loadMonth(); }
+            else paintMonth();
+          }
+          return;
+        }
+
+        if ((el = t.closest("#prevMonth"))) { state.month = addMonths(state.month || monthStart(state.date), -1); loadMonth(); return; }
+        if ((el = t.closest("#nextMonth"))) { state.month = addMonths(state.month || monthStart(state.date),  1); loadMonth(); return; }
+
+        if ((el = t.closest("[data-decline]"))) {
+          var did = el.getAttribute("data-decline");
+          var why = window.prompt(
+            "Decline this request?\n\nThe slot goes back to free. Tell them why if you can:", "");
+          if (why === null) return;
+          el.disabled = true;
+          LT_CLOUD.cancelBooking(did, why || "Declined").then(function () {
+            LT.toast("Declined");
+            load(); loadPending();
+          }).catch(function (err) {
+            el.disabled = false;
+            LT.toast((err && err.message) || "Could not decline.");
+          });
+          return;
+        }
+
         if ((el = t.closest("[data-confirm]"))) {
           var cid = el.getAttribute("data-confirm");
           el.disabled = true;
@@ -1503,6 +1777,7 @@
             closeDetail();
             LT.toast("Confirmed" + (r.court ? " · " + LT.courtLabel(r.court) : ""));
             load();
+            loadPending();          // it has left the queue
           }).catch(function (err) {
             el.disabled = false;
             LT.toast((err && err.message) || "Could not confirm.");
@@ -1592,11 +1867,13 @@
         dateInput.value = state.date;
         load();
       });
-      byId("refreshBtn").addEventListener("click", function () { load(); });
+      byId("refreshBtn").addEventListener("click", function () { load(); loadPending(); loadMonth(); });
 
       /* ---------- go ---------- */
       hydrateConfig();
       load();
+      loadPending();
+      loadMonth();
     })();
   </script>
 </body>
