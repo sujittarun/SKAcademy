@@ -592,6 +592,31 @@
       });
     },
 
+    /* Correct an application BEFORE approving it. Approving is one-way:
+       it writes a member, an enrolment and a fee rule from this row, so a
+       typo becomes the academy's permanent record of a family.
+
+       Every field is optional — null means "leave it alone" — so a caller
+       can send one correction without resending, and accidentally
+       blanking, everything else. Refused once approved. */
+    updateApplication: function (id, o) {
+      if (DEV) return devBlocked("the change");
+      o = o || {};
+      return rpc("update_application", {
+        p_tenant: TENANT, p_application: id,
+        p_name: o.name || null,
+        p_phone: o.phone || null,
+        p_parent_name: o.parentName || null,
+        p_parent_phone: o.parentPhone || null,
+        p_dob: o.dob || null,
+        p_gender: o.gender || null,
+        p_sport: o.sport || null,
+        p_centre: o.centre || null,
+        p_batch: o.batch || null,
+        p_by: o.by || null
+      });
+    },
+
     /* ---------- members / roster ---------- */
     members: function () {
       return get("/members?tenant_id=eq." + TENANT +

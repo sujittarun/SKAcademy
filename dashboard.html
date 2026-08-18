@@ -13,7 +13,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=11" />
+<link rel="stylesheet" href="assets/css/glass.css?v=12" />
 <style>
   /* 2x2 KPIs on phones — the same tweak the demo dashboard carries, so all
      four numbers are readable without scrolling on a counter phone. */
@@ -50,11 +50,36 @@
 
   /* Admissions tile: the count on the left, the newest one or two names on
      the right. One row on a desktop, stacked on a phone. */
-  .adm-split { display: grid; grid-template-columns: 200px 1fr; gap: var(--gap-3); align-items: center; }
-  @media (max-width: 780px) { .adm-split { grid-template-columns: 1fr; gap: 4px; } }
 
   .stat-line { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .ground-who { font-family: var(--font-display); font-size: 17px; font-weight: 650; color: var(--ink-hi); margin-top: 6px; line-height: 1.25; }
+
+  /* ---------- admissions, handled inline ----------
+     There is no Admissions tab: applications arrive a few times a week, so
+     a permanent tab would be empty most of the time and a sixth one
+     crowds the dock on a phone. The work happens on the screen already
+     open. */
+  .adm-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 11px 0; border-bottom: 1px solid var(--line);
+  }
+  .adm-row:last-of-type { border-bottom: none; }
+  .adm-main { flex: 1 1 190px; min-width: 0; }
+  .adm-who { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+  .adm-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .adm-edit { flex: 1 1 100%; }
+  .adm-edit-grid {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px; padding: 12px 0 10px;
+  }
+  .adm-edit-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-bottom: 6px; }
+  .adm-edit-acts .faint { flex: 1 1 200px; }
+  @media (max-width: 560px) {
+    .adm-edit-grid { grid-template-columns: 1fr; }
+    /* The actions get their own line rather than squeezing the name. */
+    .adm-acts { flex: 1 1 100%; }
+    .adm-acts .btn { flex: 1 1 auto; }
+  }
 </style>
 </head>
 <body>
@@ -115,7 +140,6 @@
         <div><div class="kicker">Admissions</div><h2>New applications</h2></div>
         <div class="flex">
           <span class="pill" id="admPill">—</span>
-          <a class="btn btn-primary btn-sm" href="admissions.html">Open admissions</a>
         </div>
       </div>
       <div id="admBody"><div class="lt-skel"></div><div class="lt-skel"></div></div>
@@ -191,7 +215,6 @@
           </div>
           <div class="qa-row">
             <a class="btn btn-primary btn-sm btn-block" href="bookings.html">Add booking</a>
-            <a class="btn btn-glass btn-sm btn-block" href="admissions.html">Admissions</a>
             <a class="btn btn-glass btn-sm btn-block" href="attendance.html">Take register</a>
             <a class="btn btn-glass btn-sm btn-block" href="players.html">Add member</a>
           </div>
@@ -201,9 +224,9 @@
 
   </main>
 
-  <script src="assets/js/core.js?v=11"></script>
-  <script src="assets/js/cloud.js?v=11"></script>
-  <script src="assets/js/dev-data.js?v=11"></script>
+  <script src="assets/js/core.js?v=12"></script>
+  <script src="assets/js/cloud.js?v=12"></script>
+  <script src="assets/js/dev-data.js?v=12"></script>
   <script>
   /* ============================================================
      MANAGER DASHBOARD — "what is happening today", nothing else.
@@ -577,8 +600,9 @@
       rows = rows || [];
       var host = $("#admBody");
       var pill = $("#admPill");
+      admRows = rows || [];
 
-      if (!rows.length) {
+      if (!admRows.length) {
         /* Calm, not an alarm. Nothing waiting is the normal state of an
            inbox and must not look like a problem. */
         pill.className = "pill";
@@ -593,49 +617,88 @@
       }
 
       pill.className = "pill gold";
-      pill.textContent = rows.length + " waiting";
-
-      /* applications() comes back created_at.desc, so these are the newest.
-         Name, when it arrived, and what they asked for — no phone number:
-         this is a front-desk screen anyone walking past can read, and the
-         number is one tap away on Admissions for whoever is calling back. */
-      var newest = rows.slice(0, 2).map(function (a) {
-        var who = String(pick(a, ["name", "student_name", "child_name"]) || "New applicant");
-        var meta = [];
-        var when = arrived(a.created_at);
-        if (when) meta.push("Applied " + when);
-        var prog = pick(a, ["program", "sport"]);
-        if (prog) meta.push(LT.esc(String(prog)));
-        var age = pick(a, ["age"]);
-        if (age) meta.push(LT.esc(String(age)) + " yrs");
-
-        return '<div class="feed-item">' +
-          '<span class="fi-ic" style="font-size:12px;font-weight:800;">' +
-            LT.esc(LT.initials(who)) + "</span>" +
-          '<div class="grow">' +
-            '<div class="fi-body"><strong>' + LT.esc(who) + "</strong></div>" +
-            '<div class="fi-time">' + meta.join(" · ") + "</div>" +
-          "</div>" +
-        "</div>";
-      }).join("");
+      pill.textContent = admRows.length + (admRows.length === 1 ? " waiting" : " waiting");
 
       host.innerHTML =
-        '<div class="adm-split">' +
-          "<div>" +
-            '<div class="stat-line">' +
-              '<span class="money money-lg">' + rows.length + "</span>" +
-              '<span class="faint">' + (rows.length === 1 ? "family waiting" : "families waiting") + "</span>" +
-            "</div>" +
-            '<div class="faint" style="font-size:12px;margin-top:4px;">' +
-              "Nobody joins the roll until an application is approved." +
-            "</div>" +
-          "</div>" +
-          '<div class="feed">' + newest + "</div>" +
+        '<div class="faint" style="font-size:12px;margin-bottom:10px;">' +
+          "Nobody joins the roll until an application is approved." +
         "</div>" +
-        (rows.length > 2
-          ? '<div class="faint" style="font-size:12px;padding-top:10px;">and ' + (rows.length - 2) +
-            ' more — <a href="admissions.html">open Admissions</a>.</div>'
-          : "");
+        admRows.map(admRow).join("");
+    }
+
+    /* ---------- one application, with its actions ----------
+       These used to live on a separate Admissions tab. A tab that is empty
+       most of the week is a tab nobody opens, and the dashboard is the
+       screen already in front of whoever would act on this. */
+    function admRow(a) {
+      var who  = String(a.name || "New applicant");
+      var meta = [];
+      var when = arrived(a.created_at);
+      if (when) meta.push("Applied " + when);
+      if (a.age) meta.push(LT.esc(String(a.age)) + " yrs");
+      if (a.parent_name) meta.push(LT.esc(String(a.parent_name)));
+
+      /* Three states, not two: refused and never-recorded are different
+         facts about a family. */
+      var consent = a.consent_accepted === true;
+      var refused = a.consent_accepted === false;
+      var badge = consent
+        ? '<span class="pill green" style="font-size:10.5px;">Consent given</span>'
+        : '<span class="pill red" style="font-size:10.5px;">' +
+          (refused ? "Consent refused" : "No consent") + "</span>";
+
+      var phone = LT.phone10(a.parent_phone || a.phone || "");
+      var call  = phone
+        ? '<a class="btn btn-glass btn-sm" href="tel:+91' + LT.esc(phone) + '">Call</a>' +
+          '<a class="btn btn-glass btn-sm" href="' +
+            LT.esc(LT.waLink(phone, "Hello from Super Kings Academy, VAKAMAN FE.")) +
+            '" target="_blank" rel="noopener">WhatsApp</a>'
+        : "";
+
+      return '<div class="adm-row" data-adm="' + LT.esc(String(a.id)) + '">' +
+        '<div class="adm-main">' +
+          '<div class="adm-who"><strong>' + LT.esc(who) + "</strong> " + badge + "</div>" +
+          '<div class="fi-time">' + meta.join(" · ") + "</div>" +
+        "</div>" +
+        '<div class="adm-acts">' +
+          call +
+          '<button class="btn btn-glass btn-sm" type="button" data-adm-edit="' + LT.esc(String(a.id)) + '">Edit</button>' +
+          '<button class="btn btn-glass btn-sm" type="button" data-adm-decline="' + LT.esc(String(a.id)) + '">Decline</button>' +
+          '<button class="btn btn-primary btn-sm" type="button" data-adm-approve="' + LT.esc(String(a.id)) + '">Approve</button>' +
+        "</div>" +
+        '<div class="adm-edit" id="admEdit' + LT.esc(String(a.id)) + '" hidden></div>' +
+      "</div>";
+    }
+
+    /* The edit form. Only the fields approve_application actually consumes
+       — correcting anything else would be editing a record of what the
+       family submitted. Batch is here because it is what resolve_fee()
+       reads, so it decides what they are charged. */
+    function admEditForm(a) {
+      var opts = '<option value="">No batch yet</option>' +
+        admBatches.map(function (b) {
+          return '<option value="' + LT.esc(String(b.id)) + '"' +
+            (String(b.id) === String(a.batch_id) ? " selected" : "") + ">" +
+            LT.esc(b.name || ("Batch " + b.id)) + "</option>";
+        }).join("");
+      function f(label, id, val, type) {
+        return '<label class="field"><span>' + label + "</span>" +
+          '<input type="' + (type || "text") + '" id="' + id + LT.esc(String(a.id)) +
+          '" value="' + LT.esc(val == null ? "" : String(val)) + '" /></label>';
+      }
+      return '<div class="adm-edit-grid">' +
+          f("Player name", "aeName", a.name) +
+          f("Player mobile", "aePhone", a.phone, "tel") +
+          f("Parent name", "aeParent", a.parent_name) +
+          f("Parent mobile", "aeParentPhone", a.parent_phone, "tel") +
+          f("Date of birth", "aeDob", a.dob, "date") +
+          '<label class="field"><span>Batch</span><select id="aeBatch' + LT.esc(String(a.id)) + '">' + opts + "</select></label>" +
+        "</div>" +
+        '<div class="adm-edit-acts">' +
+          '<span class="faint" style="font-size:11.5px;">Corrections are saved to the application. Approving is what creates the member.</span>' +
+          '<button class="btn btn-glass btn-sm" type="button" data-adm-cancel="' + LT.esc(String(a.id)) + '">Cancel</button>' +
+          '<button class="btn btn-primary btn-sm" type="button" data-adm-save="' + LT.esc(String(a.id)) + '">Save</button>' +
+        "</div>";
     }
 
     /* A failed read says so, and says nothing else. It must never render a
@@ -732,12 +795,148 @@
        Tokyo does not, so the only optimisation that matters here is
        overlapping the round trips.
        ============================================================ */
+    /* ---------- admissions state ----------
+       admRows is what the tile last rendered; every write RE-READS rather
+       than patching it, because approve does more than this screen knows
+       (member + enrolment + fee rule + timeline). */
+    var admRows = [];
+    var admBatches = [];
+
+    function admReload() {
+      return LT_CLOUD.applications("pending")
+        .then(renderAdmissions)
+        .catch(function (err) {
+          if (LT_CLOUD.DEV) { devAdmissionsPanel(); return; }
+          admissionsFailed(err);
+        });
+    }
+
+    function admFind(id) {
+      for (var i = 0; i < admRows.length; i++) {
+        if (String(admRows[i].id) === String(id)) return admRows[i];
+      }
+      return null;
+    }
+    function admWho() {
+      var se = LT.auth.session();
+      return (se && se.email) || null;
+    }
+    function admVal(prefix, id) {
+      var el = document.getElementById(prefix + id);
+      return el ? String(el.value || "").trim() : "";
+    }
+
+    document.addEventListener("click", function (e) {
+      var t = e.target;
+
+      var ed = t.closest && t.closest("[data-adm-edit]");
+      if (ed) {
+        var eid = ed.getAttribute("data-adm-edit");
+        var box = document.getElementById("admEdit" + eid);
+        var row = admFind(eid);
+        if (!box || !row) return;
+        box.innerHTML = admEditForm(row);
+        box.hidden = false;
+        ed.disabled = true;
+        return;
+      }
+
+      var cn = t.closest && t.closest("[data-adm-cancel]");
+      if (cn) {
+        var cid = cn.getAttribute("data-adm-cancel");
+        var cbox = document.getElementById("admEdit" + cid);
+        if (cbox) { cbox.hidden = true; cbox.innerHTML = ""; }
+        var eb = document.querySelector('[data-adm-edit="' + cid + '"]');
+        if (eb) eb.disabled = false;
+        return;
+      }
+
+      var sv = t.closest && t.closest("[data-adm-save]");
+      if (sv) {
+        var sid = sv.getAttribute("data-adm-save");
+        sv.disabled = true; sv.textContent = "Saving…";
+        LT_CLOUD.updateApplication(Number(sid), {
+          name: admVal("aeName", sid),
+          phone: admVal("aePhone", sid),
+          parentName: admVal("aeParent", sid),
+          parentPhone: admVal("aeParentPhone", sid),
+          dob: admVal("aeDob", sid) || null,
+          batch: admVal("aeBatch", sid) ? Number(admVal("aeBatch", sid)) : null,
+          by: admWho()
+        }).then(function () {
+          LT.toast("Saved", "ok");
+          return admReload();
+        }).catch(function (err) {
+          sv.disabled = false; sv.textContent = "Save";
+          LT.toast(err.message || "Could not save", "error");
+        });
+        return;
+      }
+
+      var ap = t.closest && t.closest("[data-adm-approve]");
+      if (ap) {
+        var aid = ap.getAttribute("data-adm-approve");
+        var arow = admFind(aid);
+        if (!arow) return;
+        /* Approving is a one-way door — it creates the member, the
+           enrolment and the fee rule. Say so before it happens, and warn
+           when nobody recorded consent for a child. */
+        var warn = arow.consent_accepted === true ? "" :
+          "\n\nNOTE: no consent is recorded on this application.";
+        if (!window.confirm("Approve " + (arow.name || "this application") +
+              "?\n\nThis creates the member and their enrolment. It cannot be undone from here." + warn)) return;
+        ap.disabled = true; ap.textContent = "Approving…";
+        LT_CLOUD.approveApplication(Number(aid), admWho()).then(function (r) {
+          var fee = r && r.fee;
+          /* "unset" is the ABSENCE of a fee rule, not a fee of zero. Never
+             print a 0 here as though it were a price. */
+          var msg = (arow.name || "Member") + " added.";
+          if (!fee || String(fee.source) === "unset" || fee.amount == null) {
+            msg += " No fee is configured yet, so nothing will be charged or chased.";
+          } else {
+            msg += " Fee " + LT.fmtINR(fee.amount) + ".";
+          }
+          LT.toast(msg, "ok", 6000);
+          return admReload();
+        }).catch(function (err) {
+          ap.disabled = false; ap.textContent = "Approve";
+          LT.toast(err.message || "Could not approve", "error");
+        });
+        return;
+      }
+
+      var dc = t.closest && t.closest("[data-adm-decline]");
+      if (dc) {
+        var did = dc.getAttribute("data-adm-decline");
+        var drow = admFind(did);
+        if (!drow) return;
+        var reason = window.prompt("Decline " + (drow.name || "this application") +
+          "?\n\nIt is marked declined, not deleted — the enquiry is still on record.\n\nReason (optional):", "");
+        if (reason === null) return;
+        dc.disabled = true; dc.textContent = "…";
+        LT_CLOUD.rejectApplication(Number(did), admWho(), reason || null).then(function () {
+          LT.toast("Declined", "ok");
+          return admReload();
+        }).catch(function (err) {
+          dc.disabled = false; dc.textContent = "Decline";
+          LT.toast(err.message || "Could not decline", "error");
+        });
+        return;
+      }
+    });
+
     var todayReq   = LT_CLOUD.bookingsOn(TODAY);
     var monthReq   = LT_CLOUD.bookingsBetween(MONTH_START, TODAY);
     var membersReq = LT_CLOUD.members();
     var dueReq     = LT_CLOUD.reminderQueue();
     var admReq     = LT_CLOUD.applications("pending");
     var labelsReq  = LT_CLOUD.tenantConfig();
+
+    /* Batch list for the edit form's dropdown. Fails quietly: without it
+       the dropdown offers "No batch yet" only, which is honest — it never
+       invents a batch that might not exist. */
+    LT_CLOUD.batches().then(function (b) { admBatches = b || []; })
+      .catch(function () { admBatches = []; });
 
     /* Court labels (Astro / Matting) come from tenants.config so the app
        and the SQL cannot disagree about which net is which. Cosmetic, and
