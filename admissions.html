@@ -1,0 +1,1045 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Admissions · Super Kings Academy</title>
+<meta name="description" content="The admissions inbox for Super Kings Academy at VAKAMAN FE — every enquiry the public form has filed, whether the parent gave consent, and the one place an application becomes a member." />
+<script>
+  /* blocking: applies the persisted theme before first paint, else the
+     page renders dark and flashes. Raw string, not JSON. */
+  try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
+  document.documentElement.className += " lt-js";
+</script>
+<link rel="stylesheet" href="assets/css/glass.css?v=11" />
+<style>
+  /* Page-local layout only. Glass, pills, chips, buttons, modals, empty
+     states and the skeleton helpers all come from glass.css. */
+
+  /* STATUS FILTER.
+     glass.css states a design rule — 3+ mutually-exclusive filter options
+     use .lt-filter, "never a long wrapping row of chip buttons". This row
+     is deliberately not that: it is an inbox segmented control carrying a
+     COUNT per state, which is the number the front desk is actually here
+     for ("how many are waiting"), and a <select> cannot show four counts
+     at once. The rule's real target is wrapping, so this row never wraps —
+     it scrolls sideways on a narrow phone and stays one line. */
+  .ap-chips {
+    flex-wrap: nowrap; overflow-x: auto; max-width: 100%;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .ap-chips::-webkit-scrollbar { display: none; }
+  .ap-chips .chip { flex: none; }
+  .ap-chips .chip .n {
+    display: inline-block; margin-left: 6px; font-variant-numeric: tabular-nums;
+    opacity: .68; font-weight: 700;
+  }
+
+  .ap-bar { display: flex; align-items: center; gap: var(--gap-2); flex-wrap: wrap; }
+
+  /* One application = one card. A table would need six columns and the
+     consent state would end up as a column nobody reads at 375px. */
+  .ap-list { display: flex; flex-direction: column; gap: var(--gap-3); }
+  .ap-card { padding: var(--gap-3) var(--gap-4); }
+
+  .ap-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .ap-who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .ap-av {
+    width: 44px; height: 44px; flex: none; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 15px; font-weight: 800; color: #231d00; background: var(--gold-grad);
+  }
+  .ap-id { min-width: 0; }
+  .ap-name { font-size: 20px; font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
+  .ap-meta { font-size: 12.5px; color: var(--ink-low); margin-top: 3px; }
+  .ap-meta b { color: var(--ink-mid); font-weight: 650; }
+
+  /* CONSENT.
+     The academy takes minors, so whether a parent agreed is the one thing
+     that must be legible before anything else on the row — not a field
+     buried six lines down. Green means the database holds a consent flag;
+     amber means it does not, and amber is not an accusation, it is an
+     absence. Both carry a text label, never colour alone. */
+  .ap-consent {
+    display: inline-flex; align-items: center; gap: 7px; margin-top: 12px;
+    padding: 6px 13px; border-radius: var(--r-pill);
+    font-size: 12px; font-weight: 700; letter-spacing: .02em; border: 1px solid;
+  }
+  .ap-consent svg { width: 14px; height: 14px; flex: none; }
+  .ap-consent.ok   { color: var(--tx-green); border-color: rgba(52, 211, 153, .4); background: rgba(52, 211, 153, .12); }
+  .ap-consent.warn { color: var(--tx-gold);  border-color: rgba(242, 194, 32, .5); background: rgba(242, 194, 32, .14); }
+  .ap-consent-note { font-size: 11.5px; color: var(--ink-mid); line-height: 1.55; margin-top: 7px; max-width: 66ch; }
+
+  .ap-facts { display: flex; flex-direction: column; margin-top: 12px; }
+  .ap-facts .f {
+    display: flex; justify-content: space-between; gap: 14px;
+    padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px;
+  }
+  .ap-facts .f:last-child { border-bottom: none; }
+  .ap-facts .k { color: var(--ink-low); flex: none; }
+  .ap-facts .v { color: var(--ink-hi); font-weight: 650; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+  .ap-facts .v.faint { font-weight: 500; color: var(--ink-low); }
+  .ap-facts .v a { white-space: nowrap; }
+  .ap-wa { display: inline-block; margin-left: 8px; vertical-align: -3px; color: var(--ink-mid); }
+  .ap-wa:hover { color: var(--tx-gold); }
+  .ap-wa svg { width: 15px; height: 15px; display: block; }
+
+  .ap-acts { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  /* Sized to the words, not to the card. Stretching two buttons across a
+     1,100px row makes "Approve" look like a page-wide primary action; it
+     is a decision about one child, taken at a desk. */
+  .ap-acts .btn { flex: 0 0 auto; min-width: 172px; }
+
+  /* A failed write leaves a line ON the row it failed for and stays there.
+     A toast is gone in three seconds; "was this saved?" is not a question
+     an operator should have to answer from memory. */
+  .ap-msg { margin-top: 12px; font-size: 12.5px; line-height: 1.55; border-radius: var(--r-md); padding: 10px 13px; }
+  .ap-msg.err  { color: var(--tx-red);   border: 1px solid rgba(220, 80, 86, .4);  background: rgba(255, 107, 107, .1); }
+  .ap-msg.done { color: var(--ink-mid);  border: 1px solid var(--tile-border);     background: var(--tile-bg); }
+  .ap-msg b { color: var(--ink-hi); font-weight: 700; }
+
+  .ap-foot { font-size: 12px; line-height: 1.6; max-width: 92ch; }
+  .ap-foot b { color: var(--ink-mid); font-weight: 650; }
+
+  /* Sheets. window.prompt is suppressed on iOS and reads to the operator
+     as "nothing happened", so the reason is asked for in-app. */
+  .sh-sub { font-size: 13px; color: var(--ink-mid); line-height: 1.6; margin: 0 0 14px; }
+  .sh-sub b { color: var(--ink-hi); font-weight: 700; }
+  .sh-warn {
+    font-size: 12.5px; line-height: 1.55; margin: 0 0 14px; padding: 10px 13px;
+    border-radius: var(--r-md); color: var(--tx-gold);
+    border: 1px solid rgba(242, 194, 32, .45); background: rgba(242, 194, 32, .12);
+  }
+  .sh-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .sh-chip {
+    cursor: pointer; font-size: 12.5px; font-weight: 600; padding: 7px 13px; border-radius: 99px;
+    border: 1px solid var(--line); background: var(--tile-bg); color: var(--ink-mid); transition: all .15s ease;
+  }
+  .sh-chip.sel { border-color: var(--gold-500); background: rgba(247, 203, 21, .14); color: var(--ink-hi); }
+  .sh-acts { display: flex; gap: 10px; }
+  .sh-acts .btn { flex: 1; }
+  #shConfirm.danger { background: linear-gradient(115deg, #ff8a8a, #e24b4a); color: #fff; border-color: transparent; }
+
+  /* The receipt. What the SERVER said happened — never what this page
+     hoped would happen. */
+  .rc-facts { display: flex; flex-direction: column; margin-bottom: 14px; }
+  .rc-facts .f { display: flex; justify-content: space-between; gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .rc-facts .f:last-child { border-bottom: none; }
+  .rc-facts .k { color: var(--ink-low); }
+  .rc-facts .v { color: var(--ink-hi); font-weight: 650; text-align: right; font-variant-numeric: tabular-nums; }
+
+  .fee-box { border: 1px solid rgba(247, 203, 21, .32); background: rgba(247, 203, 21, .07); border-radius: var(--r-md); padding: 13px 15px; }
+  .fee-box .fee-amt { font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink-hi); font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .fee-box .fee-src { font-size: 11.5px; color: var(--ink-low); margin-top: 4px; line-height: 1.55; }
+  .fee-box .fee-src b { color: var(--tx-gold); font-weight: 700; }
+  /* No fee rule exists yet. This box must never read as a price of zero,
+     so it drops the accent entirely and says it in words. */
+  .fee-box.unset { border-color: var(--tile-border); background: var(--tile-bg); }
+  .fee-box.unset .fee-amt { font-size: 16px; }
+
+  @media (max-width: 699px) {
+    .ap-card { padding: var(--gap-3); }
+    .ap-head { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .ap-name { font-size: 18px; }
+    .ap-facts .f { flex-direction: column; gap: 2px; }
+    .ap-facts .v { text-align: left; }
+    .ap-acts .btn { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="lt-bg" aria-hidden="true"></div>
+
+  <main class="lt-main lt-page">
+
+    <div class="card-head" style="margin-bottom:0;">
+      <div>
+        <div class="kicker">Admissions</div>
+        <h2>Applications</h2>
+        <div class="sub" id="countLine">Reading the admissions inbox…</div>
+      </div>
+      <div class="flex wrap">
+        <a class="btn btn-glass btn-sm" href="admission.html">Open the public form</a>
+        <button type="button" class="btn btn-glass btn-sm" id="reloadBtn">Refresh</button>
+      </div>
+    </div>
+
+    <div class="glass glass-card tight reveal">
+      <div class="ap-bar">
+        <div class="chip-row filters ap-chips" id="chips" role="group" aria-label="Filter applications by status"></div>
+        <span class="grow"></span>
+        <span class="pill gold" id="shownPill" role="status" aria-live="polite">—</span>
+      </div>
+    </div>
+
+    <div class="ap-list reveal d1" id="list"></div>
+
+    <div class="ap-foot faint" id="foot">
+      <b>An application is not a member.</b> It is an enquiry a family filed
+      on the public form. Approving one is what creates the member, the
+      enrolment and the fee rule — in a single call to the database — and
+      stamps the new member back onto the application. Until then the
+      Members tab is correctly empty: nobody has been admitted.
+      <b>Declining does not delete anything</b>; the enquiry stays, because
+      "did we ever reply to that family" is a real question and because the
+      per-phone limit on the public form counts these rows.
+      An application whose status is neither pending, approved nor declined
+      appears under <b>All</b> only.
+    </div>
+
+  </main>
+
+  <!-- ============================================================
+       CONFIRM / REASON SHEET
+       Approve uses it without chips; decline uses it with them.
+       ============================================================ -->
+  <div class="lt-modal-backdrop" id="shBackdrop">
+    <div class="glass lt-modal" style="width:min(460px,100%);">
+      <div class="modal-head">
+        <div><div class="kicker" id="shKicker"></div><h2 id="shTitle" style="font-size:19px;"></h2></div>
+        <button class="btn btn-icon btn-ghost" id="shClose" type="button" aria-label="Close">✕</button>
+      </div>
+      <p class="sh-sub" id="shSub"></p>
+      <div class="sh-warn hide" id="shWarn"></div>
+      <div class="sh-chips hide" id="shChips"></div>
+      <input type="text" id="shNote" class="hide" placeholder="Add a note (optional)" maxlength="80" style="margin-bottom:16px;" />
+      <div class="sh-acts">
+        <button class="btn btn-glass" id="shCancel" type="button">Not now</button>
+        <button class="btn btn-primary" id="shConfirm" type="button"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       RECEIPT — what approve_application() actually returned.
+       Every value in here came back from the server. Nothing on this
+       panel is computed, and no amount is invented when none was sent.
+       ============================================================ -->
+  <div class="lt-modal-backdrop" id="rcBackdrop" style="z-index:96;">
+    <div class="glass lt-modal" style="width:min(460px,100%);">
+      <div class="modal-head">
+        <div><div class="kicker">Approved</div><h2 id="rcTitle" style="font-size:19px;"></h2></div>
+        <button class="btn btn-icon btn-ghost" id="rcClose" type="button" aria-label="Close">✕</button>
+      </div>
+      <div id="rcBody"></div>
+      <button class="btn btn-primary btn-block" id="rcDone" type="button" style="margin-top:16px;">Done</button>
+    </div>
+  </div>
+
+  <script src="assets/js/core.js?v=11"></script>
+  <script src="assets/js/cloud.js?v=11"></script>
+  <script src="assets/js/dev-data.js?v=11"></script>
+  <script>
+    /* page script last. core.js MUST NOT be in <head> — its ink-filter
+       IIFE returns early if document.body is missing and never retries. */
+    (function () {
+      "use strict";
+
+      /* ============================================================
+         THE ADMISSIONS INBOX
+
+         WHY THIS PAGE EXISTS
+
+         The public form has worked since day one: submit_application()
+         writes a row to `applications` with status 'pending'. Nothing in
+         this app ever READ that table. So a real family filled the form
+         in, the row landed in Postgres, and it appeared on no screen in
+         the academy — an inbox with no inbox. This is that screen.
+
+         AN APPLICATION IS NOT A MEMBER
+
+         It is an enquiry. approve_application() is what turns one into a
+         member: it inserts the member, inserts the enrolment, asks
+         resolve_fee() for the fee that applies and stores the joining fee
+         on the enrolment, writes the member timeline, and stamps
+         member_id back onto the application — all in ONE call, inside one
+         transaction. That is why the Members tab is legitimately empty
+         today rather than broken: nobody has been approved yet.
+
+         NO MONEY IS COMPUTED HERE
+
+         Not one rupee on this screen was derived in JavaScript. The only
+         figure this page can show is the `fee` object that
+         approve_application() returned, which is resolve_fee()'s answer
+         run server-side. When its source is 'unset' — which is TRUE for
+         this academy today, because no fee rule exists yet — the receipt
+         says so IN WORDS. It does not print a zero. A zero is a price;
+         'unset' is the absence of one, and the two are not the same thing
+         to a parent being quoted a number.
+
+         WHAT IS RE-READ, AND WHY
+
+         After any write the whole list is re-read rather than the row
+         patched. Approving does more than this screen knows about — a
+         member, an enrolment, a fee rule, a timeline entry and a stamp on
+         the application — and a page that patches one field from a
+         response is a page that will eventually disagree with the
+         database. Re-reading costs one round-trip and cannot drift.
+
+         IN DEV
+
+         There is no ska staff auth user yet, so every read fails with
+         "no session" and every write is refused by cloud.js. Reads fall
+         back to the three clearly-synthetic samples at the foot of this
+         script, always under the striped banner. Writes are NOT faked:
+         the block message from cloud.js is printed on the row it failed
+         for and stays there.
+         ============================================================ */
+
+      if (!LT.auth.require({ staffOnly: true })) return;
+      LT.managerShell("admissions.html");
+
+      var $ = LT.$;
+      var esc = LT.esc;
+      function byId(id) { return document.getElementById(id); }
+
+      /* ---------- vocabulary ----------
+         The database stores 'rejected'. Staff say "declined", because it
+         is a family being turned down, not a form being rejected. The
+         label is the only thing that changes; every query uses the stored
+         value. */
+      var STATUS = {
+        pending:  { label: "Pending",  pill: "gold"  },
+        approved: { label: "Approved", pill: "green" },
+        rejected: { label: "Declined", pill: "red"   }
+      };
+
+      var FILTERS = [
+        ["pending",  "Pending"],
+        ["approved", "Approved"],
+        ["rejected", "Declined"],
+        ["all",      "All"]
+      ];
+
+      /* resolve_fee()'s seven-level chain, in words a front desk uses.
+         Same vocabulary as players.html so one academy does not have two
+         names for the same rule. */
+      var FEE_SOURCE = {
+        custom: "this student's own agreed fee",
+        member: "a rule for this student",
+        batch: "the batch rate",
+        centre_sport: "the venue's cricket rate",
+        sport: "the cricket rate",
+        centre: "the venue rate",
+        "default": "the academy default",
+        unset: "no fee rule matches yet"
+      };
+
+      var DECLINE_REASONS = [
+        "Batch is full",
+        "Age group not offered",
+        "Duplicate enquiry",
+        "Family did not proceed",
+        "Could not reach the family"
+      ];
+
+      var state = {
+        rows: null,          /* array once loaded; null while loading or failed */
+        err: null,
+        loading: true,
+        sample: false,       /* true when the rows on screen are DEV samples */
+        filter: "pending",
+        notes: {},           /* application id -> { text, kind } shown on the row */
+        busy: {}             /* application id -> true while a write is in flight */
+      };
+
+      var WA_ICON =
+        '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.05 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.14 1.6 5.95L.06 24l6.3-1.65a11.9 11.9 0 0 0 5.69 1.45c6.55 0 11.89-5.34 11.9-11.9C23.94 5.34 18.6 0 12.05 0m6.99 16.94c-.3.83-1.5 1.53-2.08 1.62-.53.08-1.2.11-1.94-.12-.45-.14-1.02-.33-1.76-.65-3.1-1.34-5.12-4.46-5.27-4.66-.15-.2-1.26-1.67-1.26-3.19s.8-2.27 1.08-2.58c.28-.31.61-.39.81-.39h.58c.19 0 .44-.07.68.52.25.6.85 2.06.92 2.21.08.15.13.33.03.53-.1.2-.15.32-.3.5-.14.17-.3.38-.44.51-.15.15-.3.3-.13.6.17.29.77 1.27 1.65 2.05 1.14 1.02 2.1 1.33 2.4 1.48.29.15.46.12.63-.07.2-.22.72-.84.91-1.13.2-.3.4-.25.66-.15.28.1 1.74.82 2.04.97.3.15.5.22.57.35.07.12.07.71-.23 1.54"/></svg>';
+      var TICK_ICON =
+        '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+      var WARN_ICON =
+        '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
+
+      /* ---------- dates ----------
+         EVERY timestamp carries its zone. `created_at` is a timestamptz
+         rendered by the database in UTC; the academy reads IST. A family
+         that applies at 02:00 IST does so at 20:30 UTC the PREVIOUS day,
+         so slicing the first ten characters off the UTC string would date
+         a third of the night's enquiries to yesterday. Convert first,
+         then hand the IST calendar date to LT.shortDate. */
+      function istIso(ts) {
+        if (!ts) return "";
+        var d = new Date(ts);
+        if (isNaN(d.getTime())) return "";
+        try {
+          /* en-CA renders YYYY-MM-DD, which is what LT.shortDate wants. */
+          return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        } catch (e) {
+          return String(ts).slice(0, 10);
+        }
+      }
+
+      function arrived(ts) {
+        var iso = istIso(ts);
+        if (!iso) return "—";
+        var label = LT.shortDate(iso);
+        if (iso === LT.today()) label += " (today)";
+        return label;
+      }
+
+      function istClock(ts) {
+        if (!ts) return "";
+        var d = new Date(ts);
+        if (isNaN(d.getTime())) return "";
+        try {
+          return d.toLocaleTimeString("en-IN", {
+            hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata"
+          }) + " IST";
+        } catch (e) {
+          return d.toISOString().slice(11, 16) + " UTC";
+        }
+      }
+
+      function niceDate(iso) {
+        if (!iso) return "—";
+        var d = new Date(String(iso).slice(0, 10) + "T00:00:00");
+        if (isNaN(d.getTime())) return "—";
+        return d.getDate() + " " +
+          ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()] +
+          " " + d.getFullYear();
+      }
+
+      function isNum(v) { return v !== null && v !== undefined && v !== "" && !isNaN(Number(v)); }
+      function plural(n, one, many) { return Number(n) === 1 ? one : many; }
+      function titleish(s) {
+        s = String(s || "").trim();
+        return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+      }
+
+      /* Who is doing this. Written into applications.reviewed_by, so it
+         has to be a person, not a page. */
+      function actor() {
+        var s = LT.auth.session();
+        return (s && s.email) || null;
+      }
+
+      /* ============================================================
+         READ
+         ============================================================ */
+
+      /* ONE read, not four. LT_CLOUD.applications(status) can filter
+         server-side, but a round-trip to Tokyo is ~180 ms and the whole
+         table is tiny — so the four chips would cost four trips and still
+         not know each other's counts. Read everything once, filter here,
+         and the counts come free. */
+      function load() {
+        state.loading = true;
+        state.err = null;
+        render();
+
+        LT_CLOUD.applications()
+          .then(function (rows) {
+            state.rows = rows || [];
+            state.sample = false;
+            state.err = null;
+            state.loading = false;
+            render();
+          })
+          .catch(function (err) {
+            /* DEV ONLY, and only AFTER the real call has failed. A live
+               read that fails still says "could not load": an academy with
+               no applications and a broken screen must never look alike. */
+            if (LT_CLOUD.DEV) {
+              state.rows = devApplications();
+              state.sample = true;
+              state.err = null;
+              state.loading = false;
+              render();
+              return;
+            }
+            state.rows = null;
+            state.err = err;
+            state.loading = false;
+            render();
+          });
+      }
+
+      function visible() {
+        var rows = state.rows || [];
+        if (state.filter === "all") return rows;
+        return rows.filter(function (a) { return String(a.status || "") === state.filter; });
+      }
+
+      function countOf(f) {
+        var rows = state.rows || [];
+        if (f === "all") return rows.length;
+        return rows.filter(function (a) { return String(a.status || "") === f; }).length;
+      }
+
+      /* ============================================================
+         RENDER
+         ============================================================ */
+
+      function render() {
+        renderChips();
+        renderCount();
+        renderList();
+      }
+
+      function renderChips() {
+        var known = !!state.rows;
+        byId("chips").innerHTML = FILTERS.map(function (f) {
+          var n = known ? countOf(f[0]) : null;
+          return '<button type="button" class="chip' + (state.filter === f[0] ? " active" : "") + '"' +
+            ' data-f="' + esc(f[0]) + '" aria-pressed="' + (state.filter === f[0] ? "true" : "false") + '">' +
+            esc(f[1]) + (n === null ? "" : '<span class="n">' + esc(n) + "</span>") + "</button>";
+        }).join("");
+      }
+
+      function renderCount() {
+        var line = byId("countLine"), pill = byId("shownPill");
+        if (state.loading) {
+          line.textContent = "Reading the admissions inbox…";
+          pill.textContent = "—";
+          return;
+        }
+        if (state.err) {
+          line.textContent = "The inbox could not be read.";
+          pill.textContent = "—";
+          return;
+        }
+        var rows = state.rows || [];
+        var waiting = countOf("pending");
+        line.textContent = rows.length === 0
+          ? "Nothing has been submitted yet."
+          : rows.length + " " + plural(rows.length, "application", "applications") + " on file · " +
+            waiting + " " + plural(waiting, "is", "are") + " waiting for a decision" +
+            (state.sample ? " (sample)" : "");
+        pill.textContent = visible().length + " shown";
+      }
+
+      function renderList() {
+        var host = byId("list");
+
+        if (state.loading) { LT.skeleton(host, 3); return; }
+        if (state.err)     { LT.fail(host, state.err); return; }
+
+        var rows = visible();
+        if (!rows.length) {
+          if (!(state.rows || []).length) {
+            LT.empty(host, "No applications yet",
+              "They arrive from the public admission form — a family fills it in, and the enquiry lands here as pending for someone to approve or decline.");
+          } else {
+            var label = "";
+            FILTERS.forEach(function (f) { if (f[0] === state.filter) label = f[1].toLowerCase(); });
+            LT.empty(host, "Nothing " + label,
+              "There are " + (state.rows || []).length + " on file under another status. Try the All filter.");
+          }
+          return;
+        }
+
+        host.innerHTML = rows.map(cardHtml).join("");
+      }
+
+      function cardHtml(a) {
+        var id = String(a.id);
+        var st = STATUS[String(a.status || "")] || null;
+        var pill = st
+          ? '<span class="pill ' + st.pill + '">' + esc(st.label) + "</span>"
+          : '<span class="pill">' + esc(titleish(a.status) || "Unknown") + "</span>";
+
+        /* Age when it is known. Never derived from the date of birth — a
+           number this page worked out and a number the form recorded would
+           eventually disagree, and only one of them is what the parent
+           wrote down. */
+        var bits = [];
+        if (isNum(a.age)) bits.push("Age <b>" + esc(a.age) + "</b>");
+        else if (a.dob) bits.push("Born " + esc(niceDate(a.dob)));
+        if (a.gender) bits.push(esc(titleish(a.gender)));
+        if (a.sport) bits.push(esc(titleish(a.sport)));
+        if (a.program && !a.sport) bits.push(esc(a.program));
+
+        /* THREE states, not two. "Refused" and "never recorded" are
+           different facts about a family, and collapsing them would put
+           the words "either the form did not ask" under someone who
+           actually said no. Not reachable from this app today — the form
+           only ever sends true and will not submit unticked — but it
+           becomes wrong the moment anything writes a false. */
+        var consent = a.consent_accepted === true;
+        var refused = a.consent_accepted === false;
+        var consentHtml =
+          '<div class="ap-consent ' + (consent ? "ok" : "warn") + '">' +
+          (consent ? TICK_ICON : WARN_ICON) +
+          (consent ? "Consent given" : refused ? "Consent refused" : "No consent recorded") +
+          (consent && a.consent_accepted_at ? " · " + esc(arrived(a.consent_accepted_at)) : "") +
+          "</div>" +
+          (consent ? "" : refused ?
+            '<div class="ap-consent-note">This family declined consent. Do not approve without speaking to them first.</div>' :
+            '<div class="ap-consent-note">Nothing on this application says a parent agreed — either the form did not ask, ' +
+            'or the database could not store the answer. This academy takes minors, so confirm with the family before approving.</div>');
+
+        /* ----- facts ----- */
+        var waText = "Hello, this is Super Kings Academy at VAKAMAN FE about " +
+                     (a.name || "your") + "'s admission enquiry.";
+        var facts = [];
+
+        if (a.parent_name || a.parent_phone) {
+          facts.push(["Parent", a.parent_name
+            ? esc(a.parent_name)
+            : '<span class="faint">name not given</span>']);
+        }
+        if (a.parent_phone) facts.push(["Parent phone", phoneCell(a.parent_phone, waText)]);
+        /* The form usually files the same number twice. Show the second one
+           only when it is genuinely a different handset — a duplicated row
+           reads as two contacts and someone rings the wrong one. */
+        if (a.phone && LT.phone10(a.phone) !== LT.phone10(a.parent_phone)) {
+          facts.push([a.parent_phone ? "Other phone" : "Phone", phoneCell(a.phone, waText)]);
+        }
+        if (!a.parent_phone && !a.phone) {
+          facts.push(["Phone", '<span class="faint">none on file</span>']);
+        }
+        if (a.email) facts.push(["Email", '<a href="mailto:' + esc(a.email) + '">' + esc(a.email) + "</a>"]);
+        if (a.slot) facts.push(["Asked for", esc(a.slot)]);
+        if (a.trial_date) facts.push(["Trial", esc(niceDate(a.trial_date))]);
+
+        facts.push(["Arrived", esc(arrived(a.created_at)) +
+          (istClock(a.created_at) ? ' <span class="faint">· ' + esc(istClock(a.created_at)) + "</span>" : "")]);
+
+        if (a.source_channel) facts.push(["Came from", '<span class="faint">' + esc(a.source_channel) + "</span>"]);
+        if (a.member_id) facts.push(["Member", '<span class="num">#' + esc(a.member_id) + "</span>"]);
+        if (a.reviewed_by || a.reviewed_at) {
+          facts.push(["Decided", (a.reviewed_by ? esc(a.reviewed_by) : "") +
+            (a.reviewed_at ? ' <span class="faint">· ' + esc(arrived(a.reviewed_at)) + "</span>" : "")]);
+        }
+        if (a.review_notes) facts.push(["Reason given", esc(a.review_notes)]);
+
+        var factsHtml = '<div class="ap-facts">' + facts.map(function (f) {
+          return '<div class="f"><span class="k">' + esc(f[0]) + '</span><span class="v">' + f[1] + "</span></div>";
+        }).join("") + "</div>";
+
+        /* ----- actions ----- */
+        var acts = "";
+        if (String(a.status || "") === "pending") {
+          var busy = !!state.busy[id];
+          acts = '<div class="ap-acts">' +
+            '<button type="button" class="btn btn-primary" data-act="approve" data-id="' + esc(id) + '"' +
+            (busy ? " disabled" : "") + ">" + (busy ? "Working…" : "Approve") + "</button>" +
+            '<button type="button" class="btn btn-glass" data-act="decline" data-id="' + esc(id) + '"' +
+            (busy ? " disabled" : "") + ">Decline</button>" +
+            "</div>";
+        }
+
+        var note = state.notes[id];
+        var noteHtml = note
+          ? '<div class="ap-msg ' + (note.kind === "err" ? "err" : "done") + '">' + note.html + "</div>"
+          : "";
+
+        return '<article class="glass ap-card" data-card="' + esc(id) + '">' +
+          '<div class="ap-head">' +
+            '<div class="ap-who">' +
+              '<span class="ap-av" aria-hidden="true">' + esc(LT.initials(a.name)) + "</span>" +
+              '<div class="ap-id">' +
+                '<div class="ap-name">' + esc(a.name || "Name not given") + "</div>" +
+                '<div class="ap-meta">' + (bits.length ? bits.join(" · ") : '<span class="faint">no other details given</span>') +
+                  ' <span class="faint">· #' + esc(id) + "</span></div>" +
+              "</div>" +
+            "</div>" + pill +
+          "</div>" +
+          consentHtml + factsHtml + acts + noteHtml +
+          "</article>";
+      }
+
+      function phoneCell(raw, waText) {
+        var p = LT.phone10(raw);
+        if (p.length < 10) return '<span class="faint">' + esc(raw || "none on file") + "</span>";
+        return '<a href="tel:+91' + esc(p) + '">' + esc(p) + "</a>" +
+          '<a class="ap-wa" href="' + esc(LT.waLink(p, waText)) + '" target="_blank" rel="noopener"' +
+          ' aria-label="Message on WhatsApp">' + WA_ICON + "</a>";
+      }
+
+      function rowById(id) {
+        var rows = state.rows || [];
+        for (var i = 0; i < rows.length; i++) if (String(rows[i].id) === String(id)) return rows[i];
+        return null;
+      }
+
+      /* ============================================================
+         THE SHEET — one confirm, with or without reason chips
+         ============================================================ */
+
+      var shBackdrop = byId("shBackdrop"), shState = null;
+
+      function closeSheet() { shBackdrop.classList.remove("open"); shState = null; }
+
+      function openSheet(o) {
+        shState = o;
+        byId("shKicker").textContent = o.kicker || "";
+        byId("shTitle").textContent = o.title || "";
+        byId("shSub").textContent = o.sub || "";
+
+        var warn = byId("shWarn");
+        warn.textContent = o.warn || "";
+        warn.classList.toggle("hide", !o.warn);
+
+        var chips = byId("shChips"), note = byId("shNote");
+        if (o.chips && o.chips.length) {
+          chips.innerHTML = o.chips.map(function (r) {
+            return '<button type="button" class="sh-chip" data-r="' + esc(r) + '">' + esc(r) + "</button>";
+          }).join("");
+          chips.classList.remove("hide");
+          note.value = "";
+          note.classList.remove("hide");
+        } else {
+          chips.innerHTML = "";
+          chips.classList.add("hide");
+          note.value = "";
+          note.classList.add("hide");
+        }
+
+        var c = byId("shConfirm");
+        c.textContent = o.confirmLabel || "Confirm";
+        c.classList.toggle("danger", !!o.danger);
+        shBackdrop.classList.add("open");
+        c.focus();
+      }
+
+      /* Chips are OPTIONAL here — nothing is preselected, and clicking the
+         selected one clears it. A reason nobody chose must not be written
+         into the record as though somebody did. */
+      byId("shChips").addEventListener("click", function (e) {
+        var chip = e.target.closest ? e.target.closest(".sh-chip") : null;
+        if (!chip) return;
+        var was = chip.classList.contains("sel");
+        LT.$$(".sh-chip", this).forEach(function (c) { c.classList.remove("sel"); });
+        if (!was) chip.classList.add("sel");
+      });
+
+      function sheetReason() {
+        var sel = $("#shChips .sh-chip.sel");
+        var base = sel ? sel.getAttribute("data-r") : "";
+        var note = String(byId("shNote").value || "").trim();
+        var joined = note ? (base ? base + " · " + note : note) : base;
+        return joined || null;
+      }
+
+      byId("shClose").addEventListener("click", closeSheet);
+      byId("shCancel").addEventListener("click", closeSheet);
+      shBackdrop.addEventListener("click", function (e) { if (e.target === shBackdrop) closeSheet(); });
+      byId("shConfirm").addEventListener("click", function () {
+        if (!shState) return;
+        var fn = shState.onConfirm, reason = sheetReason();
+        closeSheet();
+        if (fn) fn(reason);
+      });
+
+      /* ============================================================
+         WRITES
+
+         Both are DEV-blocked in cloud.js. When that happens the promise
+         rejects with err.dev set and the message is printed on the row —
+         nothing on screen is allowed to move as though it saved.
+         ============================================================ */
+
+      function setBusy(id, on) {
+        if (on) state.busy[String(id)] = true; else delete state.busy[String(id)];
+        renderList();
+      }
+
+      function noteRow(id, html, kind) {
+        state.notes[String(id)] = { html: html, kind: kind || "done" };
+      }
+
+      function failRow(id, err, what) {
+        noteRow(id, "<b>Not saved.</b> " + esc((err && err.message) || what), "err");
+        setBusy(id, false);
+      }
+
+      /* ---------- approve ---------- */
+
+      function askApprove(a) {
+        var noConsent = a.consent_accepted !== true;
+        openSheet({
+          kicker: "Approve",
+          title: "Approve " + (a.name || "this application") + "?",
+          sub: "This creates the member, the enrolment and the fee rule in one call, and stamps the new member back onto this application. " +
+               "It cannot be undone from this screen — decline before approving, never after.",
+          warn: noConsent
+            ? "No parental consent is recorded on this application. Confirm with the family first; approving files a child as a member of the academy."
+            : "",
+          confirmLabel: "Approve and create the member",
+          onConfirm: function () { doApprove(a); }
+        });
+      }
+
+      function doApprove(a) {
+        var id = String(a.id);
+        delete state.notes[id];
+        setBusy(id, true);
+
+        LT_CLOUD.approveApplication(a.id, actor())
+          .then(function (res) {
+            res = res || {};
+            showReceipt(a, res);
+
+            /* Counts and flags only. No name, no phone number, no amount
+               ever goes into an event. */
+            try {
+              LT_CLOUD.track("application_approved", {
+                already: !!res.already,
+                fee_source: (res.fee && res.fee.source) || "none",
+                had_consent: a.consent_accepted === true
+              });
+            } catch (e) {}
+
+            noteRow(id, res.already
+              ? "<b>Already approved.</b> This application had already become a member; nothing new was created."
+              : "<b>Approved in this session.</b> " + receiptLine(res), "done");
+
+            delete state.busy[id];
+            /* RE-READ, do not patch. Approving wrote a member, an
+               enrolment, a fee rule, a timeline entry and a stamp on this
+               row — five things, of which this page saw two. */
+            load();
+          })
+          .catch(function (err) {
+            failRow(id, err, "The application was not approved.");
+            LT.toast((err && err.message) || "The application was not approved.");
+          });
+      }
+
+      /* ---------- decline ---------- */
+
+      function askDecline(a) {
+        openSheet({
+          kicker: "Decline",
+          title: "Decline " + (a.name || "this application") + "?",
+          sub: "Nothing is deleted. The enquiry stays on file, marked declined, with whatever reason you give here — " +
+               "so the office can still answer “did we ever reply to that family?” later.",
+          chips: DECLINE_REASONS,
+          confirmLabel: "Decline this application",
+          danger: true,
+          onConfirm: function (reason) { doDecline(a, reason); }
+        });
+      }
+
+      function doDecline(a, reason) {
+        var id = String(a.id);
+        delete state.notes[id];
+        setBusy(id, true);
+
+        LT_CLOUD.rejectApplication(a.id, actor(), reason)
+          .then(function (res) {
+            res = res || {};
+            try {
+              LT_CLOUD.track("application_declined", {
+                already: !!res.already,
+                had_reason: !!reason
+              });
+            } catch (e) {}
+
+            noteRow(id, res.already
+              ? "<b>Already declined.</b> Someone had cleared this one before you."
+              : "<b>Declined.</b> The enquiry is kept, not deleted." +
+                (reason ? " Reason recorded: " + esc(reason) : " No reason was recorded."), "done");
+
+            delete state.busy[id];
+            LT.toast(res.already ? "Already declined" : "Declined — kept on file, under the Declined filter");
+            load();
+          })
+          .catch(function (err) {
+            failRow(id, err, "The decision was not saved.");
+            LT.toast((err && err.message) || "The decision was not saved.");
+          });
+      }
+
+      /* ============================================================
+         THE RECEIPT
+
+         approve_application() returns
+           { member_id, enrollment_id, fee, already }
+         and `fee` is resolve_fee()'s answer for ONE month:
+           { amount, monthly, source, rule_id, admission_fee }
+
+         When it was already approved the response carries member_id and
+         `already: true` and NOTHING ELSE — no enrolment, no fee — because
+         nothing new happened. Rendering a blank fee block in that case
+         would invent a fact.
+         ============================================================ */
+
+      function feeHtml(fee) {
+        if (!fee) {
+          return '<div class="fee-box unset"><div class="fee-amt">No fee was quoted</div>' +
+            '<div class="fee-src">The approval did not return a fee. Open the member to ask the fee chain directly.</div></div>';
+        }
+
+        /* 'unset' means NO FEE RULE MATCHES — which is the true state of
+           this academy today. It is not a price of zero. Printing ₹0 here
+           would be a number the academy never agreed to, on the one screen
+           where a member is created. */
+        if (String(fee.source) === "unset" || !isNum(fee.amount)) {
+          return '<div class="fee-box unset"><div class="fee-amt">No fee is configured</div>' +
+            '<div class="fee-src">The member and the enrolment exist, but no fee rule matches this academy yet, ' +
+            'so <b>nothing will be charged and no reminder will chase them</b>. Add a fee rule for the student, ' +
+            'the batch or the academy and every screen — and every reminder — quotes it from that moment. ' +
+            'This is not a fee of zero; it is the absence of one.</div></div>';
+        }
+
+        var src = FEE_SOURCE[String(fee.source)] || String(fee.source);
+        var adm = isNum(fee.admission_fee) && Number(fee.admission_fee) > 0
+          ? " A joining fee of <b>" + esc(LT.fmtINR(fee.admission_fee)) + "</b> was stored on the enrolment."
+          : "";
+        return '<div class="fee-box"><div class="fee-amt">' + esc(LT.fmtINR(fee.amount)) + "</div>" +
+          '<div class="fee-src">for 1 month · from <b>' + esc(src) + "</b>." + adm +
+          " Every figure here came back from the database." + "</div></div>";
+      }
+
+      /* The one-line version, for the note left on the row. */
+      function receiptLine(res) {
+        var out = res.member_id ? "Member <b>#" + esc(res.member_id) + "</b> created" : "The member was created";
+        if (res.enrollment_id) out += ", enrolment <b>#" + esc(res.enrollment_id) + "</b>";
+        var fee = res.fee;
+        if (!fee || String(fee.source) === "unset" || !isNum(fee.amount)) {
+          out += ". No fee is configured yet, so nothing will be charged or chased.";
+        } else {
+          out += ". Fee <b>" + esc(LT.fmtINR(fee.amount)) + "</b> a month, from " +
+                 esc(FEE_SOURCE[String(fee.source)] || fee.source) + ".";
+        }
+        return out;
+      }
+
+      var rcBackdrop = byId("rcBackdrop");
+      function closeReceipt() { rcBackdrop.classList.remove("open"); }
+
+      function showReceipt(a, res) {
+        byId("rcTitle").textContent = res.already
+          ? (a.name || "This application") + " was already a member"
+          : (a.name || "The applicant") + " is a member now";
+
+        var facts = [];
+        if (res.member_id)     facts.push(["Member", "#" + res.member_id]);
+        if (res.enrollment_id) facts.push(["Enrolment", "#" + res.enrollment_id]);
+        facts.push(["Application", "#" + a.id]);
+
+        var factsHtml = '<div class="rc-facts">' + facts.map(function (f) {
+          return '<div class="f"><span class="k">' + esc(f[0]) + '</span><span class="v num">' + esc(f[1]) + "</span></div>";
+        }).join("") + "</div>";
+
+        byId("rcBody").innerHTML = res.already
+          ? '<p class="sh-sub">This application had already been approved, so nothing new was created. ' +
+            'The member below is the one it became.</p>' + factsHtml
+          : '<p class="sh-sub">The member, the enrolment and the fee rule were created in one call, ' +
+            'and this application now points at the member. It has left the Pending list — ' +
+            'it is under <b>Approved</b> from here.</p>' + factsHtml + feeHtml(res.fee);
+
+        rcBackdrop.classList.add("open");
+        byId("rcDone").focus();
+      }
+
+      byId("rcClose").addEventListener("click", closeReceipt);
+      byId("rcDone").addEventListener("click", closeReceipt);
+      rcBackdrop.addEventListener("click", function (e) { if (e.target === rcBackdrop) closeReceipt(); });
+
+      /* ============================================================
+         EVENTS
+         ============================================================ */
+
+      byId("chips").addEventListener("click", function (e) {
+        var chip = e.target.closest ? e.target.closest(".chip") : null;
+        if (!chip) return;
+        state.filter = chip.getAttribute("data-f") || "pending";
+        render();
+      });
+
+      byId("list").addEventListener("click", function (e) {
+        var btn = e.target.closest ? e.target.closest("[data-act]") : null;
+        if (!btn || btn.disabled) return;
+        var a = rowById(btn.getAttribute("data-id"));
+        if (!a) return;
+        if (btn.getAttribute("data-act") === "approve") askApprove(a);
+        else askDecline(a);
+      });
+
+      byId("reloadBtn").addEventListener("click", function () {
+        state.notes = {};
+        load();
+      });
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        if (rcBackdrop.classList.contains("open")) { closeReceipt(); return; }
+        if (shBackdrop.classList.contains("open")) { closeSheet(); }
+      });
+
+      /* ============================================================
+         DEV SAMPLE APPLICATIONS
+
+         Reached only when the real read has already failed AND
+         LT_CLOUD.DEV is true.
+
+         THE NAMES ARE DELIBERATELY NON-NAMES. dev-data.js carries a set
+         of eighteen invented Tamil names that were checked against every
+         tenant's members and coaches for collisions — but those are
+         MEMBERS, and an applicant who is already on the roster would read
+         as a duplicate. Rather than invent three more human names and
+         audit them, these are plainly labelled samples: no real child can
+         collide with "Sample Applicant Two". Phones are the platform's
+         synthetic 90000 block, so no real handset is reachable.
+
+         The shape matches the live select in cloud.js field for field, so
+         DEV and production go down the same rendering path. Three rows,
+         chosen for what they exercise: consent present, consent absent
+         (which is the state of the real pending row today), and one
+         already approved. A declined row renders through the same code
+         with its reason shown.
+         ============================================================ */
+
+      /* An ISO instant `days` ago. `hourLocal` is the reviewer's own clock,
+         NOT IST — this is sample furniture, and calling it IST when it is
+         not is exactly the label mistake the platform notes warn about.
+         The renderers convert to IST on the way out, same as they do for a
+         real created_at. */
+      function agoIso(days, hourLocal) {
+        var d = new Date();
+        d.setDate(d.getDate() - days);
+        d.setHours(hourLocal == null ? 19 : hourLocal, 42, 0, 0);
+        return d.toISOString();
+      }
+
+      function devApplications() {
+        return [
+          {
+            id: 9001, name: "Sample Applicant One", phone: "9000000401", email: "sample.one@example.com",
+            age: 9, dob: null, gender: "female",
+            parent_name: "Sample Parent One", parent_phone: "9000000401",
+            centre_id: 1, batch_id: 1, sport: "cricket", program: "Cricket coaching",
+            slot: "VAKAMAN FE · Sub-Junior AM", trial_date: null,
+            status: "pending", member_id: null,
+            consent_accepted: true, terms_accepted: true, consent_accepted_at: agoIso(0, 9),
+            review_notes: null, reviewed_at: null, reviewed_by: null,
+            source_channel: "website", created_at: agoIso(0, 9)
+          },
+          {
+            id: 9002, name: "Sample Applicant Two", phone: "9000000402", email: null,
+            age: null, dob: "2013-04-12", gender: "male",
+            parent_name: "Sample Parent Two", parent_phone: "9000000402",
+            centre_id: 1, batch_id: 2, sport: "cricket", program: "Cricket coaching",
+            slot: "VAKAMAN FE · Junior PM", trial_date: null,
+            status: "pending", member_id: null,
+            /* The consent column is NULL here on purpose: it is what the
+               real pending row looks like when the form filed through the
+               older nine-argument signature. Amber, not red — an absence,
+               not a refusal. */
+            consent_accepted: null, terms_accepted: null, consent_accepted_at: null,
+            review_notes: null, reviewed_at: null, reviewed_by: null,
+            source_channel: "website", created_at: agoIso(2, 21)
+          },
+          {
+            id: 9003, name: "Sample Applicant Three", phone: "9000000403", email: null,
+            age: 11, dob: null, gender: "male",
+            parent_name: "Sample Parent Three", parent_phone: "9000000403",
+            centre_id: 1, batch_id: 3, sport: "cricket", program: "Cricket coaching",
+            slot: "VAKAMAN FE · Senior AM", trial_date: null,
+            status: "approved", member_id: 9301,
+            consent_accepted: true, terms_accepted: true, consent_accepted_at: agoIso(6, 11),
+            review_notes: null, reviewed_at: agoIso(5, 12), reviewed_by: "dev@local",
+            source_channel: "walk-in", created_at: agoIso(6, 11)
+          }
+        ];
+      }
+
+      /* ---------- go ---------- */
+      load();
+    })();
+  </script>
+</body>
+</html>

@@ -13,7 +13,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=10" />
+<link rel="stylesheet" href="assets/css/glass.css?v=11" />
 <style>
   /* 2x2 KPIs on phones — the same tweak the demo dashboard carries, so all
      four numbers are readable without scrolling on a counter phone. */
@@ -42,8 +42,16 @@
 
   /* the bottom-right column stacks two cards inside one .dash-bottom cell */
   .dash-side { display: flex; flex-direction: column; gap: var(--gap-3); }
-  .qa-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  /* Two across, not three. The quick-actions card sits in the narrow half
+     of .dash-bottom, so a fourth action (Admissions) on a 3-wide grid
+     would hang alone on a second row; 2x2 fits the column it lives in. */
+  .qa-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   @media (max-width: 560px) { .qa-row { grid-template-columns: 1fr; } }
+
+  /* Admissions tile: the count on the left, the newest one or two names on
+     the right. One row on a desktop, stacked on a phone. */
+  .adm-split { display: grid; grid-template-columns: 200px 1fr; gap: var(--gap-3); align-items: center; }
+  @media (max-width: 780px) { .adm-split { grid-template-columns: 1fr; gap: 4px; } }
 
   .stat-line { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .ground-who { font-family: var(--font-display); font-size: 17px; font-weight: 650; color: var(--ink-hi); margin-top: 6px; line-height: 1.25; }
@@ -89,6 +97,28 @@
         <span class="stat-value" id="kpiDue">—</span>
         <span class="delta" id="kpiDueSub">Loading…</span>
       </div>
+    </div>
+
+    <!-- ---------- new admissions ----------
+         Directly under the four numbers and above the boards, because a
+         family that applied this morning is the thing most worth acting on
+         today — and until this tile existed a submitted application
+         appeared on no screen in the app at all.
+
+         It counts enquiries WAITING FOR A DECISION. An application is not
+         a member until approve_application() makes it one, which is why
+         the Active members number above does not move when this one does.
+         The pill, the count and the names all live inside #admBody's
+         region so that a failed read can replace the whole thing. -->
+    <div class="glass glass-card reveal" id="admCard">
+      <div class="card-head" style="margin-bottom:10px;">
+        <div><div class="kicker">Admissions</div><h2>New applications</h2></div>
+        <div class="flex">
+          <span class="pill" id="admPill">—</span>
+          <a class="btn btn-primary btn-sm" href="admissions.html">Open admissions</a>
+        </div>
+      </div>
+      <div id="admBody"><div class="lt-skel"></div><div class="lt-skel"></div></div>
     </div>
 
     <!-- ---------- nets utilisation + the main ground ---------- -->
@@ -161,6 +191,7 @@
           </div>
           <div class="qa-row">
             <a class="btn btn-primary btn-sm btn-block" href="bookings.html">Add booking</a>
+            <a class="btn btn-glass btn-sm btn-block" href="admissions.html">Admissions</a>
             <a class="btn btn-glass btn-sm btn-block" href="attendance.html">Take register</a>
             <a class="btn btn-glass btn-sm btn-block" href="players.html">Add member</a>
           </div>
@@ -170,9 +201,9 @@
 
   </main>
 
-  <script src="assets/js/core.js?v=10"></script>
-  <script src="assets/js/cloud.js?v=10"></script>
-  <script src="assets/js/dev-data.js?v=10"></script>
+  <script src="assets/js/core.js?v=11"></script>
+  <script src="assets/js/cloud.js?v=11"></script>
+  <script src="assets/js/dev-data.js?v=11"></script>
   <script>
   /* ============================================================
      MANAGER DASHBOARD — "what is happening today", nothing else.
@@ -504,6 +535,120 @@
     }
 
     /* ============================================================
+       NEW ADMISSIONS — applications still waiting for a decision.
+
+       AN APPLICATION IS NOT A MEMBER. approve_application() is what turns
+       one into a member, an enrolment and a fee rule, in a single call on
+       the Admissions screen; until it runs the row is an enquiry and
+       nothing else. So this tile never adds to the members KPI above it,
+       and it never quotes a fee — the fee is resolve_fee()'s answer at
+       approval time, not a number this screen has any business knowing.
+
+       The count, the pill and the names are rendered together and a failed
+       read replaces all three. That is the point: "nobody applied" and "we
+       could not ask" are different facts, and a calm 0 painted over a
+       broken read is exactly how an inbox goes unread for a week — which
+       is the bug this tile exists to end.
+       ============================================================ */
+
+    /* created_at is a timestamptz and arrives carrying its offset
+       (2026-08-18T09:41:22.51+00:00). Date parses that, so everything
+       below is in the BROWSER's zone — IST on every device this runs on —
+       and the conversion happens once, here, at the edge. The raw string
+       is never compared against a local date. */
+    function arrived(ts) {
+      if (!ts) return "";
+      var d = new Date(String(ts));
+      var t = d.getTime();
+      if (!isFinite(t)) return "";
+      var mins = Math.round((Date.now() - t) / 60000);
+      if (mins < 2) return "just now";            // negative is clock skew, not the future
+      if (mins < 60) return mins + " min ago";
+      var iso = LT.isoDate(d);
+      if (iso === TODAY) {
+        var h = Math.floor(mins / 60);
+        return h + (h === 1 ? " hour ago" : " hours ago");
+      }
+      if (iso === LT.isoDate(new Date(Date.now() - 86400000))) return "yesterday";
+      return LT.shortDate(iso);
+    }
+
+    function renderAdmissions(rows) {
+      rows = rows || [];
+      var host = $("#admBody");
+      var pill = $("#admPill");
+
+      if (!rows.length) {
+        /* Calm, not an alarm. Nothing waiting is the normal state of an
+           inbox and must not look like a problem. */
+        pill.className = "pill";
+        pill.textContent = "All clear";
+        host.innerHTML =
+          '<div class="lt-empty" style="padding:16px 12px;">' +
+            '<div class="lt-empty-t">No new applications</div>' +
+            '<div class="lt-empty-s">Enquiries from the admission form arrive here and wait ' +
+            "until someone approves or declines them.</div>" +
+          "</div>";
+        return;
+      }
+
+      pill.className = "pill gold";
+      pill.textContent = rows.length + " waiting";
+
+      /* applications() comes back created_at.desc, so these are the newest.
+         Name, when it arrived, and what they asked for — no phone number:
+         this is a front-desk screen anyone walking past can read, and the
+         number is one tap away on Admissions for whoever is calling back. */
+      var newest = rows.slice(0, 2).map(function (a) {
+        var who = String(pick(a, ["name", "student_name", "child_name"]) || "New applicant");
+        var meta = [];
+        var when = arrived(a.created_at);
+        if (when) meta.push("Applied " + when);
+        var prog = pick(a, ["program", "sport"]);
+        if (prog) meta.push(LT.esc(String(prog)));
+        var age = pick(a, ["age"]);
+        if (age) meta.push(LT.esc(String(age)) + " yrs");
+
+        return '<div class="feed-item">' +
+          '<span class="fi-ic" style="font-size:12px;font-weight:800;">' +
+            LT.esc(LT.initials(who)) + "</span>" +
+          '<div class="grow">' +
+            '<div class="fi-body"><strong>' + LT.esc(who) + "</strong></div>" +
+            '<div class="fi-time">' + meta.join(" · ") + "</div>" +
+          "</div>" +
+        "</div>";
+      }).join("");
+
+      host.innerHTML =
+        '<div class="adm-split">' +
+          "<div>" +
+            '<div class="stat-line">' +
+              '<span class="money money-lg">' + rows.length + "</span>" +
+              '<span class="faint">' + (rows.length === 1 ? "family waiting" : "families waiting") + "</span>" +
+            "</div>" +
+            '<div class="faint" style="font-size:12px;margin-top:4px;">' +
+              "Nobody joins the roll until an application is approved." +
+            "</div>" +
+          "</div>" +
+          '<div class="feed">' + newest + "</div>" +
+        "</div>" +
+        (rows.length > 2
+          ? '<div class="faint" style="font-size:12px;padding-top:10px;">and ' + (rows.length - 2) +
+            ' more — <a href="admissions.html">open Admissions</a>.</div>'
+          : "");
+    }
+
+    /* A failed read says so, and says nothing else. It must never render a
+       zero: an academy nobody applied to and an academy whose database did
+       not answer are different academies. */
+    function admissionsFailed(err) {
+      var pill = $("#admPill");
+      pill.className = "pill";
+      pill.textContent = "—";
+      LT.fail($("#admBody"), err);
+    }
+
+    /* ============================================================
        RENEWALS DUE — reminder_queue() owns this, entirely.
 
        The ladder (−2 heads-up, 0 due, +5 first chase, +7–14 daily, +15
@@ -591,6 +736,7 @@
     var monthReq   = LT_CLOUD.bookingsBetween(MONTH_START, TODAY);
     var membersReq = LT_CLOUD.members();
     var dueReq     = LT_CLOUD.reminderQueue();
+    var admReq     = LT_CLOUD.applications("pending");
     var labelsReq  = LT_CLOUD.tenantConfig();
 
     /* Court labels (Astro / Matting) come from tenants.config so the app
@@ -637,12 +783,37 @@
       statFail("#kpiMembers", "#kpiMembersSub", err);
     });
 
+    admReq.then(renderAdmissions).catch(function (err) {
+      if (LT_CLOUD.DEV) { devAdmissionsPanel(); return; }
+      admissionsFailed(err);
+    });
+
     LT.skeleton($("#dueList"), 4);
     dueReq.then(renderDue).catch(function (err) {
       if (LT_CLOUD.DEV) { devDuePanel(); return; }
       statFail("#kpiDue", "#kpiDueSub", err);
       LT.fail($("#dueList"), err);
     });
+
+    /* ---------- DEV stand-in for the admissions tile ----------
+       dev-data.js carries no sample inbox and this file will not invent
+       one. A made-up child's name on a preview screen is indistinguishable
+       from a real enquiry, and a real enquiry going unnoticed is the whole
+       reason this tile was added. So DEV says what it cannot show, in
+       wording that cannot be mistaken for "all clear". Unreachable the
+       moment a live session answers the read. */
+    function devAdmissionsPanel() {
+      var pill = $("#admPill");
+      pill.className = "pill";
+      pill.textContent = "—";
+      $("#admBody").innerHTML =
+        '<div class="lt-empty" style="padding:16px 12px;">' +
+          '<div class="lt-empty-t">No sample admissions inbox</div>' +
+          '<div class="lt-empty-s">Live, this tile counts applications still marked pending — ' +
+          "what the public admission form writes. Approving one is what creates the member, " +
+          "the enrolment and the fee rule.</div>" +
+        "</div>";
+    }
 
     /* ---------- DEV stand-in for the renewals panel ----------
        There is no sample reminder queue, and this file will not invent

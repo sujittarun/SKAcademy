@@ -552,6 +552,46 @@
       return rpc("submit_application", o, true);
     },
 
+    /* ---------- admissions ----------
+       submitApplication has existed since day one; these three did not,
+       which meant a family could apply and NOBODY could see it. The row
+       landed in `applications` with status 'pending' and no screen in the
+       app read that table — an inbox with no inbox. Found when a real
+       submission did not appear anywhere.
+
+       An application is not a member. approve_application() is what turns
+       one into a member + enrolment; until then it is an enquiry. */
+    applications: function (status) {
+      var q = "/applications?tenant_id=eq." + TENANT +
+              "&select=id,name,phone,email,age,dob,gender,parent_name,parent_phone," +
+              "centre_id,batch_id,sport,program,slot,trial_date,status,member_id," +
+              "consent_accepted,terms_accepted,consent_accepted_at,review_notes," +
+              "reviewed_at,reviewed_by,source_channel,created_at";
+      if (status) q += "&status=eq." + encodeURIComponent(status);
+      return get(q + "&order=created_at.desc");
+    },
+
+    /* Creates the member, the enrolment and the fee rule in one call, and
+       stamps member_id back onto the application. Not reversible from
+       here — reject BEFORE approving, not after. */
+    approveApplication: function (id, by) {
+      if (DEV) return devBlocked("the approval");
+      return rpc("approve_application", {
+        p_tenant: TENANT, p_application: id, p_by: by || null
+      });
+    },
+
+    /* Marks it declined. Does NOT delete: a declined enquiry is still the
+       record of someone who asked, and the per-phone rate limit counts
+       rows, so removing one silently grants another attempt. */
+    rejectApplication: function (id, by, reason) {
+      if (DEV) return devBlocked("the decision");
+      return rpc("reject_application", {
+        p_tenant: TENANT, p_application: id,
+        p_by: by || null, p_reason: reason || null
+      });
+    },
+
     /* ---------- members / roster ---------- */
     members: function () {
       return get("/members?tenant_id=eq." + TENANT +
