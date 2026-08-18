@@ -1257,23 +1257,23 @@
           confirmLabel: "Mark present"
         }).then(function (ok) {
           if (ok === null) return;
-        restBtn.disabled = true;
-        restBtn.textContent = "Saving…";
-        var saved = 0, failed = false;
+          restBtn.disabled = true;
+          restBtn.textContent = "Saving…";
+          var saved = 0, failed = false;
 
-        pending.reduce(function (chain, r) {
-          return chain.then(function () {
-            if (failed) return null;
-            return mark(r.enrollment_id, "present").then(function (ok) {
-              if (ok) saved++; else failed = true;
+          pending.reduce(function (chain, r) {
+            return chain.then(function () {
+              if (failed) return null;
+              return mark(r.enrollment_id, "present").then(function (done) {
+                if (done) saved++; else failed = true;
+              });
             });
+          }, Promise.resolve()).then(function () {
+            if (saved) LT.toast(saved + " marked present.");
+            if (failed && saved) LT.toast("Stopped after " + saved + " — reloading the register.", "error");
+            loadRoster();
+            refreshInsightsSoon();
           });
-        }, Promise.resolve()).then(function () {
-          if (saved) LT.toast(saved + " marked present.");
-          if (failed && saved) LT.toast("Stopped after " + saved + " — reloading the register.", "error");
-          loadRoster();
-          refreshInsightsSoon();
-        });
         });
       });
 

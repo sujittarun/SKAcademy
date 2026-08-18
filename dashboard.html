@@ -904,23 +904,23 @@
           confirmLabel: "Approve"
         }).then(function (ok) {
           if (ok === null) return;
-        ap.disabled = true; ap.textContent = "Approving…";
-        return LT_CLOUD.approveApplication(Number(aid), admWho()).then(function (r) {
-          var fee = r && r.fee;
-          /* "unset" is the ABSENCE of a fee rule, not a fee of zero. Never
-             print a 0 here as though it were a price. */
-          var msg = (arow.name || "Member") + " added.";
-          if (!fee || String(fee.source) === "unset" || fee.amount == null) {
-            msg += " No fee is configured yet, so nothing will be charged or chased.";
-          } else {
-            msg += " Fee " + LT.fmtINR(fee.amount) + ".";
-          }
-          LT.toast(msg, "ok", 6000);
-          return admReload();
-        }).catch(function (err) {
-          ap.disabled = false; ap.textContent = "Approve";
-          LT.toast(err.message || "Could not approve", "error");
-        });
+          ap.disabled = true; ap.textContent = "Approving…";
+          return LT_CLOUD.approveApplication(Number(aid), admWho()).then(function (r) {
+            var fee = r && r.fee;
+            /* "unset" is the ABSENCE of a fee rule, not a fee of zero. Never
+               print a 0 here as though it were a price. */
+            var msg = (arow.name || "Member") + " added.";
+            if (!fee || String(fee.source) === "unset" || fee.amount == null) {
+              msg += " No fee is configured yet, so nothing will be charged or chased.";
+            } else {
+              msg += " Fee " + LT.fmtINR(fee.amount) + ".";
+            }
+            LT.toast(msg, "ok", 6000);
+            return admReload();
+          }).catch(function (err) {
+            ap.disabled = false; ap.textContent = "Approve";
+            LT.toast(err.message || "Could not approve", "error");
+          });
         });
         return;
       }

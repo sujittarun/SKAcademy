@@ -859,29 +859,29 @@
           confirmLabel: "Mark present"
         }).then(function (ok) {
           if (ok === null) return;
-        restBtn.disabled = true;
-        restBtn.textContent = "Saving…";
-        var saved = 0, stopped = null;
+          restBtn.disabled = true;
+          restBtn.textContent = "Saving…";
+          var saved = 0, stopped = null;
 
-        pending.reduce(function (chain, r) {
-          return chain.then(function () {
-            if (stopped) return null;
-            return mark(r.enrollment_id, "present").then(function (err) {
-              if (err) stopped = err; else saved++;
+          pending.reduce(function (chain, r) {
+            return chain.then(function () {
+              if (stopped) return null;
+              return mark(r.enrollment_id, "present").then(function (err) {
+                if (err) stopped = err; else saved++;
+              });
             });
+          }, Promise.resolve()).then(function () {
+            /* One message carrying both halves: how many landed, and why the
+               rest did not. The roster is then re-read, so whatever is on
+               screen afterwards is the database's answer, not this loop's. */
+            if (stopped) {
+              LT.toast((saved ? saved + " saved, then it stopped — " : "") +
+                       (stopped.message || "that did not save."), "error");
+            } else if (saved) {
+              LT.toast(saved + " marked present.");
+            }
+            loadAll();
           });
-        }, Promise.resolve()).then(function () {
-          /* One message carrying both halves: how many landed, and why the
-             rest did not. The roster is then re-read, so whatever is on
-             screen afterwards is the database's answer, not this loop's. */
-          if (stopped) {
-            LT.toast((saved ? saved + " saved, then it stopped — " : "") +
-                     (stopped.message || "that did not save."), "error");
-          } else if (saved) {
-            LT.toast(saved + " marked present.");
-          }
-          loadAll();
-        });
         });
       });
 
