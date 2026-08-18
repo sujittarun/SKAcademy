@@ -268,15 +268,35 @@
     } catch (e) { return "nosession"; }
   }
 
-  function track(kind, props) {
+  function page() {
+    return location.pathname.split("/").pop() || "index.html";
+  }
+
+  /* COLUMN NAMES VERIFIED against the live table, and against what the
+     other five tenants actually send. events is:
+       tenant_id  not null
+       name       not null   <- the event name. NOT "kind".
+       page       a real column, not a props key
+       level      not null, default 'info'
+       session_id
+       props      jsonb, everything else
+       at         not null, default now()
+
+     This was wrong in the first cut — it posted {kind, props:{page}} and
+     PostgREST answered 400 PGRST204 "Could not find the 'kind' column",
+     silently, on every page load. Telemetry failing silently is the worst
+     shape of this bug: the operator console derives a tenant's status
+     from the newest events row, so the academy would have read as
+     "Onboarding" forever while looking perfectly healthy on screen.
+     Caught by watching the live site's network tab, not by reading. */
+  function track(name, props) {
     var body = {
       tenant_id: TENANT,
-      kind: kind || "page_view",
+      name: name || "page_view",
+      page: page(),
+      level: "info",
       session_id: sid(),
-      props: Object.assign({
-        ver: APP_VER,
-        page: location.pathname.split("/").pop() || "index.html"
-      }, props || {})
+      props: Object.assign({ ver: APP_VER }, props || {})
     };
     /* Fire-and-forget, and anon-allowed: the events insert policy accepts
        a registered tenant_id from anon. A telemetry failure must never
@@ -292,9 +312,14 @@
     var key = where + "|" + (err && err.message);
     if (reported[key]) return;                 // once per page load, per message
     reported[key] = 1;
+    /* props keys follow what the other tenants already write —
+       msg / src / kind / ver — so platform_errors(), which groups by
+       message + version, sees one vocabulary across all six academies
+       instead of a sixth private one. */
     track("client_error", {
-      where: where,
-      message: String((err && err.message) || err).slice(0, 200),
+      msg:    String((err && err.message) || err).slice(0, 200),
+      src:    where,
+      kind:   (err && err.status) ? "http" : "crash",
       status: (err && err.status) || 0
     });
   }

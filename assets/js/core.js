@@ -68,7 +68,16 @@
      artwork is reproduced anywhere in this repo. Drop the real file in as
      assets/img/ska-mark.png and this picks it up. */
   var MARK_SRC = "assets/img/ska-mark.png";
-  var markOk = null;
+  /* null  = try the file, fall back to the monogram via onerror
+     false = do not even request it
+
+     Held at FALSE until the client supplies their licensed Super Kings
+     mark, because the file genuinely is not there yet and the <img>
+     fallback fires one 404 per call, per page load. A client opening
+     devtools on their own new site and seeing failed requests is a poor
+     first impression for exactly the reason the fallback exists.
+     Drop assets/img/ska-mark.png in, change this to null, done. */
+  var markOk = false;
   LT.logoSVG = function (size) {
     var w = size || 40;
     if (markOk === false) return monogram(w);

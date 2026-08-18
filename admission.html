@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=2" />
+<link rel="stylesheet" href="assets/css/glass.css?v=3" />
 <style>
   /* Page-local layout only. Everything with a look — .glass, .field,
      .choice, .adm-stepper, .adm-step, .adm-nav, .pill, .btn — comes from
@@ -283,15 +283,15 @@
     </div>
   </main>
 
-  <script src="assets/js/core.js?v=2"></script>
-  <script src="assets/js/cloud.js?v=2"></script>
+  <script src="assets/js/core.js?v=3"></script>
+  <script src="assets/js/cloud.js?v=3"></script>
   <!-- dev-data.js is loaded for shape consistency with the rest of the app.
        Nothing on this page reads it: a public form has no reads to fall back
        on, and its ONE write is real even while LT_CLOUD.DEV is true —
        submit_application is anon-executable by design, so a parent filling
        this in before staff sign-in is wired still reaches Postgres. There is
        no fake success anywhere on this page. -->
-  <script src="assets/js/dev-data.js?v=2"></script>
+  <script src="assets/js/dev-data.js?v=3"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
