@@ -414,12 +414,6 @@
         return String(b.status || "").toLowerCase() === "pending";
       }).length;
 
-      /* The same three numbers the tiles below are about to show, handed to
-         the action list so the two can never disagree. `owed` is summed a
-         few lines down; the list is rendered after it. */
-      todo.pending = pending;
-      todo.unpaid = unpaid.length;
-
       stat("#kpiBookings", all.length);
       sub("#kpiBookingsSub",
           pending ? pending + " awaiting confirmation" : (all.length ? "All confirmed" : "Nothing booked yet"),
@@ -428,8 +422,6 @@
       /* Sums of amounts the server put on the rows. Nothing is priced here. */
       statMoney("#kpiCollected", sum(paid));
       var owed = sum(unpaid);
-      todo.owed = owed;
-      renderTodo();
       sub("#kpiCollectedSub",
           owed ? LT.fmtINR(owed) + " still to collect (" + unpaid.length + ")" : "Everything collected",
           owed ? "down" : "up");
@@ -705,7 +697,7 @@
         rows.push({
           n: todo.pending,
           t: todo.pending === 1 ? "1 booking to confirm" : todo.pending + " bookings to confirm",
-          s: "Requested from the website or the phone, no court assigned yet.",
+          s: "From the website or the phone, for any day — no court assigned yet.",
           href: "bookings.html", label: "Open"
         });
       }
@@ -713,7 +705,8 @@
         rows.push({
           n: todo.unpaid,
           t: LT.fmtINR(todo.owed) + " to collect",
-          s: todo.unpaid + (todo.unpaid === 1 ? " confirmed booking" : " confirmed bookings") + " played and unpaid.",
+          s: todo.unpaid + (todo.unpaid === 1 ? " confirmed booking" : " confirmed bookings") +
+             " this month, played and unpaid.",
           href: "fees.html", label: "Collect"
         });
       }
@@ -979,7 +972,16 @@
     function renderMonth(rows) {
       var all = live(rows);
       var collected = sum(all.filter(isPaid));
-      var owed = sum(all.filter(function (b) { return !isPaid(b); }));
+      var stillOwed = all.filter(function (b) { return !isPaid(b); });
+      var owed = sum(stillOwed);
+      /* The action list's money comes from the MONTH, not from today. It is
+         the Finance screen's "rentals not collected" moved somewhere it
+         gets seen, so it has to count the same bookings Finance counts —
+         a court played on Tuesday and still unpaid on Thursday is money
+         owed, and a today-only figure would call it collected. */
+      todo.unpaid = stillOwed.length;
+      todo.owed = owed;
+      renderTodo();
       statMoney("#kpiMonth", collected);
       $("#kpiMonthSub").textContent =
         "Collected on " + all.length + " booking" + (all.length === 1 ? "" : "s") +
@@ -1155,6 +1157,22 @@
         return;
       }
     });
+
+    /* EVERY PENDING REQUEST, not today's.
+       The count used to come from bookingsOn(TODAY), so a family who
+       booked Saturday left the dashboard saying nothing needed doing while
+       the bookings tray showed a request waiting. That is the same fault
+       the tray itself had and had fixed; the action list inherited it. */
+    LT_CLOUD.pendingBookings()
+      .then(function (rows) { todo.pending = (rows || []).length; renderTodo(); })
+      .catch(function () {
+        if (LT_CLOUD.DEV) {
+          todo.pending = (SKA_DEV.bookings || []).filter(function (b) {
+            return String(b.status || "").toLowerCase() === "pending";
+          }).length;
+          renderTodo();
+        }
+      });
 
     var todayReq   = LT_CLOUD.bookingsOn(TODAY);
     var monthReq   = LT_CLOUD.bookingsBetween(MONTH_START, TODAY);
