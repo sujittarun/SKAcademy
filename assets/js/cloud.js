@@ -109,38 +109,48 @@
     } catch (e) { return false; }
   })();
 
-  /* ---------- session ---------- */
-  /* THE SESSION LIVES IN sessionStorage, NOT localStorage.
+  /* ---------- session ----------
+     WHERE THE SESSION LIVES IS THE USER'S CHOICE, and the default is to
+     stay signed in.
 
-     It therefore survives navigating between screens and reloading, and
-     is gone the moment the tab or the browser closes. That is what was
-     asked for, and it is the right default here: the manager's screen is
-     a shared front-desk device, and a token in localStorage stays signed
-     in on it indefinitely — through the evening, through whoever uses the
-     machine next.
+     It used to be sessionStorage only, on the reasoning that the manager's
+     screen is a shared front-desk device and a token in localStorage stays
+     signed in through the evening and through whoever sits down next.
+     Sound for a counter PC; wrong for the phone this is actually used on.
 
-     Two consequences to know rather than discover:
-       · a second TAB is a second session, so staff sign in again there;
-       · a token still expires on its own hour-long clock and is refreshed
-         in bearer(); closing the tab is a floor on the lifetime, not the
-         whole of it.
+     sessionStorage dies with the TAB, and a phone kills tabs for reasons
+     the user never sees: switching apps, memory pressure, and — the common
+     one — opening the app from a home-screen shortcut, which is a brand
+     new tab every single time. The owner reported being asked to sign in
+     again and again on their own phone, which is exactly this.
 
-     The theme stays in localStorage — a preference is not a credential. */
+     So: "Keep me signed in on this device" on the sign-in page, default
+     ON, localStorage when ticked and sessionStorage when not. The shared
+     counter still has its answer; the phone stops nagging.
+
+     The access token still expires on its own hour-long clock either way,
+     and bearer() refreshes it and saves the result — so a kept session
+     survives indefinitely rather than for an hour.
+
+     The theme stays in localStorage regardless — a preference is not a
+     credential. */
+  function stores() {
+    var out = [];
+    try { out.push(localStorage); } catch (e) {}
+    try { out.push(sessionStorage); } catch (e) {}
+    return out;
+  }
+
   function session() {
-    var s;
-    try { s = JSON.parse(sessionStorage.getItem(SESSION_KEY)); } catch (e) { return null; }
-    /* Adopt a pre-existing localStorage session once, then move it, so a
-       staff member who was already signed in is not kicked out by this
-       change landing mid-shift. */
-    if (!s) {
+    /* Read whichever store has it. localStorage first, because a kept
+       session is the common case once the box has been ticked. */
+    var s = null, i, raw;
+    var all = stores();
+    for (i = 0; i < all.length && !s; i++) {
       try {
-        var old = JSON.parse(localStorage.getItem(SESSION_KEY));
-        localStorage.removeItem(SESSION_KEY);
-        if (old && old.access_token) {
-          sessionStorage.setItem(SESSION_KEY, JSON.stringify(old));
-          s = old;
-        }
-      } catch (e) { /* nothing to adopt */ }
+        raw = all[i].getItem(SESSION_KEY);
+        if (raw) s = JSON.parse(raw);
+      } catch (e) { /* try the next one */ }
     }
     /* EVICT A STALE PREVIEW SESSION. devSignIn() is gated on DEV, so no
        NEW preview session can be minted once DEV is false — but one
@@ -151,18 +161,37 @@
     if (s && s.dev && !DEV) { clearSession(); return null; }
     return s;
   }
-  function saveSession(s) {
-    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch (e) {}
+  /* `keep` is only meaningful at SIGN-IN. A token refresh an hour later
+     must not silently move the session to the other store, so it is
+     written back to wherever it already lives. */
+  function saveSession(s, keep) {
+    var target;
+    if (keep === undefined) {
+      var inLocal = false;
+      try { inLocal = !!localStorage.getItem(SESSION_KEY); } catch (e) {}
+      target = inLocal ? "local" : "session";
+    } else {
+      target = keep ? "local" : "session";
+    }
+    /* Write one, clear the other, so the two can never disagree about who
+       is signed in. */
+    try {
+      if (target === "local") {
+        localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+        sessionStorage.removeItem(SESSION_KEY);
+      } else {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
+        localStorage.removeItem(SESSION_KEY);
+      }
+    } catch (e) {}
   }
+
   function clearSession() {
     try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
-    /* Also clear the old localStorage key. Anyone signed in before this
-       change has a session sitting there that would otherwise outlive
-       every sign-out and every tab close, invisibly. */
     try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
   }
 
-  function tokenRequest(body) {
+  function tokenRequest(body, keep) {
     var grant = body.refresh_token ? "refresh_token" : "password";
     return fetch(AUTH + "/token?grant_type=" + grant, {
       method: "POST",
@@ -191,7 +220,9 @@
         if (s.role !== "operator" && s.tenant !== TENANT) {
           throw new Error("This login belongs to another academy (" + (s.tenant || "none") + "), not Super Kings.");
         }
-        saveSession(s);
+        /* keep is undefined on a refresh, and saveSession then leaves the
+           session where it already is. */
+        saveSession(s, keep);
         return s;
       });
     });
@@ -414,8 +445,12 @@
     isCoach: function () { return API.role() === "coach"; },
     isStaff: function () { var r = API.role(); return r === "staff" || r === "operator"; },
 
-    signIn: function (email, password) {
-      return tokenRequest({ email: email, password: password });
+    /* `keep` decides where the session is stored: true (the default) keeps
+       it on the device through tab closes and phone restarts; false ties
+       it to the tab, for a shared counter machine. */
+    signIn: function (email, password, keep) {
+      return tokenRequest({ email: email, password: password },
+                          keep === undefined ? true : !!keep);
     },
 
     /* DEV only. Seats a local staff-shaped session. No token, no

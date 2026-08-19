@@ -97,11 +97,30 @@
               min-height: 44px; }
   .doc-pick:hover { border-color: var(--input-border-hover); }
   .doc-pick input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-  .doc-prev { display: flex; gap: 10px; align-items: center; min-width: 0; }
-  .doc-prev img { width: 56px; height: 56px; object-fit: cover; border-radius: 12px;
-                  border: 1px solid var(--line); background: var(--tile-bg); }
+  /* The preview is a CARD, not a loose image beside loose text. The first
+     version let a 56px img sit next to its own filename and Remove link
+     with nothing holding them together, so on a narrow screen they
+     overlapped — and when an image failed to decode, the alt text spilled
+     out of the 56px box and over the rest of the row. Both visible in the
+     owner's screenshot.
+
+     alt is now EMPTY on purpose: the filename is right there in text, so
+     the thumbnail is decoration, and a decorative image that fails leaves
+     a tidy placeholder instead of a paragraph of words in a 56px square. */
+  .doc-prev { display: flex; gap: 10px; align-items: center; min-width: 0; flex: 1 1 190px;
+              padding: 6px 10px 6px 6px; border-radius: 14px;
+              border: 1px solid var(--line); background: var(--tile-bg); }
+  .doc-prev .thumb { position: relative; flex: 0 0 auto; width: 46px; height: 46px;
+                     border-radius: 10px; overflow: hidden; background: var(--input-bg);
+                     border: 1px solid var(--line); display: grid; place-items: center; }
+  /* the fallback mark, revealed when there is no image to show */
+  .doc-prev .thumb::after { content: "📄"; font-size: 20px; line-height: 1; }
+  .doc-prev img { position: absolute; inset: 0; width: 100%; height: 100%;
+                  object-fit: cover; display: block; background: var(--tile-bg); }
+  .doc-prev.is-file img { display: none; }
   .doc-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 12px; }
-  .doc-meta span { color: var(--ink-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+  .doc-meta span { color: var(--ink-mid); overflow: hidden; text-overflow: ellipsis;
+                   white-space: nowrap; }
   .doc-meta .lnk { background: none; border: 0; padding: 0; text-align: left;
                    color: var(--tx-red); font-size: 12px; font-weight: 700; cursor: pointer; }
   .doc-err { font-size: 12px; color: var(--tx-red); }
@@ -176,6 +195,37 @@
                 </select>
               </label>
             </div>
+              <!-- ---------- the student's photo ----------
+                   In step 1 because it is a fact about the PLAYER. It sat
+                   under "Parent & batch" first, next to the parent's
+                   Aadhaar, purely because both were documents — which is a
+                   filing-cabinet reason, not a reason for the person
+                   filling the form.
+
+                   Optional, and the form says so: a family without a photo
+                   to hand at 9pm must still be able to finish.
+
+                   The preview is built from the local File with
+                   createObjectURL — no upload needed to see it, and no read
+                   permission either. Anonymous callers can write to the
+                   bucket and deliberately cannot read it back, so the
+                   preview has to be the file in your hand. -->
+              <div class="field full doc-field">
+                <span class="doc-lbl">Student photo <span class="opt">(optional)</span></span>
+                <div class="doc-row">
+                  <label class="doc-pick">
+                    <input type="file" id="photoFile" accept="image/jpeg,image/png,image/webp" />
+                    <span>Choose a photo</span>
+                  </label>
+                  <div class="doc-prev" id="photoPrev" hidden>
+                    <span class="thumb"><img id="photoImg" alt="" /></span>
+                    <div class="doc-meta"><span id="photoName"></span>
+                      <button type="button" class="lnk" data-clear="photo">Remove</button></div>
+                  </div>
+                </div>
+                <div class="doc-err" id="photoErr"></div>
+              </div>
+
             <p class="hint" id="ageHint">A date of birth is better than an age — an age stops being true on the next birthday. Either one is enough.</p>
           </section>
 
@@ -211,33 +261,6 @@
                 <span>Email <span class="opt">(optional)</span></span>
                 <input type="email" id="email" name="email" autocomplete="email" placeholder="you@example.com" />
               </label>
-              <!-- ---------- optional documents ----------
-                   Both are optional and the form says so, because a family
-                   without a scanner at 9pm must still be able to finish.
-                   Nothing here blocks submission.
-
-                   The preview is built from the local File with
-                   createObjectURL — no upload is needed to see it, and no
-                   read permission either, which matters: anonymous callers
-                   can write to the bucket and deliberately cannot read it
-                   back. So the preview is the file in your hand, not a
-                   round trip. -->
-              <div class="field full doc-field">
-                <span class="doc-lbl">Student photo <span class="opt">(optional)</span></span>
-                <div class="doc-row">
-                  <label class="doc-pick">
-                    <input type="file" id="photoFile" accept="image/jpeg,image/png,image/webp" />
-                    <span>Choose a photo</span>
-                  </label>
-                  <div class="doc-prev" id="photoPrev" hidden>
-                    <img id="photoImg" alt="The photo you chose" />
-                    <div class="doc-meta"><span id="photoName"></span>
-                      <button type="button" class="lnk" data-clear="photo">Remove</button></div>
-                  </div>
-                </div>
-                <div class="doc-err" id="photoErr"></div>
-              </div>
-
               <div class="field full doc-field">
                 <span class="doc-lbl">Parent's Aadhaar <span class="opt">(optional)</span></span>
                 <input type="tel" id="aadhaar" name="aadhaar" inputmode="numeric" maxlength="14"
@@ -248,7 +271,7 @@
                     <span>Attach a copy</span>
                   </label>
                   <div class="doc-prev" id="aadhaarPrev" hidden>
-                    <img id="aadhaarImg" alt="The document you chose" />
+                    <span class="thumb"><img id="aadhaarImg" alt="" /></span>
                     <div class="doc-meta"><span id="aadhaarName"></span>
                       <button type="button" class="lnk" data-clear="aadhaar">Remove</button></div>
                   </div>
@@ -819,6 +842,7 @@
         var img = LT.$("#" + kind + "Img");
         docs[kind] = null;
         LT.$("#" + kind + "Prev").hidden = true;
+        LT.$("#" + kind + "Prev").classList.remove("is-file");
         if (img.src) { try { URL.revokeObjectURL(img.src); } catch (e) {} img.removeAttribute("src"); }
         /* The input keeps a rejected file otherwise, so picking the same
            file again would fire no change event and look ignored. */
@@ -852,17 +876,16 @@
         nameEl.title = file.name;
         prev.hidden = false;
 
-        /* A PDF has no thumbnail to show, so it gets a mark rather than a
-           broken image. */
+        /* A PDF has no thumbnail, so the frame's own mark shows through.
+           An image that fails to decode takes the same path rather than
+           rendering as a broken-image icon — a corrupt file is not worth a
+           scary glyph on a form a parent is filling in. */
+        if (img.src) { try { URL.revokeObjectURL(img.src); } catch (e) {} img.removeAttribute("src"); }
         if (file.type === "application/pdf") {
-          img.removeAttribute("src");
-          img.alt = "PDF attached";
-          img.style.display = "none";
-          prev.classList.add("is-pdf");
+          prev.classList.add("is-file");
         } else {
-          img.style.display = "";
-          prev.classList.remove("is-pdf");
-          if (img.src) { try { URL.revokeObjectURL(img.src); } catch (e) {} }
+          prev.classList.remove("is-file");
+          img.onerror = function () { prev.classList.add("is-file"); };
           img.src = URL.createObjectURL(file);
         }
       }

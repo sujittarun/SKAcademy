@@ -125,14 +125,19 @@
      "38 / 63" because present and absent are two halves of one number,
      and the "N of M shown" line moves into the search row. */
   @media (max-width: 699px) {
-    .att-bar { gap: 8px; }
-    .att-bar .left, .att-bar .right { width: auto; flex: 1 1 auto; }
-    .att-bar .left { min-width: 0; }
+    /* The batch and the bulk action share ONE line. They were stacked, and
+       because .right was right-aligned the button stranded itself against
+       the edge with a band of empty glass beside it — which is what the
+       owner circled. Two controls, one row, no dead space. */
+    .att-bar { gap: 8px; flex-wrap: nowrap; align-items: center; }
+    .att-bar .left  { flex: 1 1 auto; min-width: 0; width: auto; }
+    .att-bar .right { flex: 0 0 auto; width: auto; display: flex; align-items: center; gap: 6px; }
     .att-bar select { width: 100%; }
+    /* the days-and-times line describes a batch you just chose by name */
     .att-note { display: none; }
-    .att-bar .right { display: flex; align-items: center; gap: 6px; justify-content: flex-end; flex: 0 0 auto; }
+    /* #attCount already says "57 of 75 marked"; these two say it again */
     .att-bar .right .pill { display: none; }
-    .att-bar .right .btn { padding: 9px 12px; font-size: 12px; }
+    .att-bar .right .btn { padding: 9px 12px; font-size: 12px; white-space: nowrap; }
     .att-find { margin-top: 8px; gap: 6px; }
     .att-find input { flex: 1 1 130px; }
     .att-count { flex: 1 1 100%; margin-top: -2px; }
