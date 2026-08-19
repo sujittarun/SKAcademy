@@ -898,6 +898,13 @@
        register and to the fee chase, and looking perfectly healthy. */
     addStudent: function (o) {
       if (DEV) return devBlocked("the student");
+      /* An empty fee box is null, NEVER 0. The chain reads them as
+         opposites — null defers to the batch rule, 0 is a scholarship that
+         overrides it — and Number("") is 0, so the usual `|| null` would
+         quietly enrol a paying student at nothing. */
+      var fee = o.fee;
+      fee = (fee === "" || fee === null || fee === undefined) ? null : Number(fee);
+      if (fee !== null && !isFinite(fee)) fee = null;
       return rpc("add_student", {
         p_tenant: TENANT,
         p_name: o.name,
@@ -907,7 +914,8 @@
         p_dob: o.dob || null,
         p_joined_on: o.joinedOn || null,
         p_centre: o.centre || null,
-        p_by: o.by || null
+        p_by: o.by || null,
+        p_custom_amount: fee
       });
     },
 
@@ -961,7 +969,10 @@
       return rpc("resolve_fee", {
         p_tenant: TENANT, p_member: o.member || null, p_centre: o.centre || null,
         p_sport: o.sport || null, p_batch: o.batch || null,
-        p_months: o.months || 1, p_custom: o.custom || null
+        p_months: o.months || 1,
+        /* `|| null` here would turn a scholarship's 0 into "no override"
+           and quote the batch fee back for a student who pays nothing. */
+        p_custom: (o.custom === 0 || o.custom) ? o.custom : null
       });
     },
     /* reminder_queue(p_tenant, p_on). Owns the ladder including the +15

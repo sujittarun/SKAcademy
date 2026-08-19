@@ -31,3 +31,6 @@ supabase/migrations/*-import-*.sql
 # Local scratch
 scratch/
 *.local.json
+
+# Editor/agent local settings — never handed to the client
+.claude/

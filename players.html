@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=24" />
+<link rel="stylesheet" href="assets/css/glass.css?v=25" />
 <style>
   /* Page-local layout only. Glass, pills, tables, chips, modals, empty
      states and the money/skeleton helpers all come from glass.css. */
@@ -327,6 +327,20 @@
           <select id="asBatch"></select>
         </label>
         <label class="field">
+          <span>Monthly fee <span class="opt">(optional)</span></span>
+          <!-- Almost always left blank, and that is the right answer. A fee
+               belongs to the BATCH, not to a student: resolve_fee() reads
+               the batch's rule fresh every time it is asked, so changing
+               that one rule changes everyone on it. Type a number here only
+               for the student whose fee is genuinely their own — a sibling
+               discount, a scholarship, a rate agreed years ago. Typing the
+               batch's own figure is read as agreement rather than an
+               override, so they keep following the batch when it moves. -->
+          <input type="tel" id="asFee" inputmode="numeric" data-digits="6"
+                 placeholder="Leave blank to use the batch fee" />
+          <span class="note" id="asFeeHint" style="margin-top:4px;display:block;"></span>
+        </label>
+        <label class="field">
           <span>Parent's name <span class="opt">(optional)</span></span>
           <input type="text" id="asParent" maxlength="80" placeholder="Who the academy speaks to" />
         </label>
@@ -428,9 +442,9 @@
     </div>
   </div>
 
-  <script src="assets/js/core.js?v=24"></script>
-  <script src="assets/js/cloud.js?v=24"></script>
-  <script src="assets/js/dev-data.js?v=24"></script>
+  <script src="assets/js/core.js?v=25"></script>
+  <script src="assets/js/cloud.js?v=25"></script>
+  <script src="assets/js/dev-data.js?v=25"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -1321,7 +1335,7 @@
       function asClose() { asBackdrop.classList.remove("open"); }
 
       function asOpen() {
-        ["asName", "asPhone", "asParent"].forEach(function (id) { byId(id).value = ""; });
+        ["asName", "asPhone", "asParent", "asFee"].forEach(function (id) { byId(id).value = ""; });
         byId("asMsg").textContent = "";
         byId("asMsg").className = "form-msg";
         /* Batches come from the same list the filters use, so the options
@@ -1331,9 +1345,47 @@
           (state.batches || []).map(function (b) {
             return '<option value="' + LT.esc(String(b.id)) + '">' + LT.esc(b.name || ("Batch " + b.id)) + "</option>";
           }).join("");
+        asFeeHint();
         asBackdrop.classList.add("open");
         setTimeout(function () { try { byId("asName").focus(); } catch (e) {} }, 60);
       }
+
+      /* WHAT THIS BATCH CHARGES — asked, never worked out here. The amount
+         is resolve_fee()'s answer for the batch as it stands today, so the
+         hint cannot drift from what the student will actually be billed;
+         the alternative, reading fee_rules and picking one in JavaScript,
+         is the client re-implementing the chain. Centre goes with the
+         batch because a rule that names a centre only matches when that
+         centre is passed. */
+      var asFeeSeq = 0;
+      function asFeeHint() {
+        var hint = byId("asFeeHint");
+        var id = byId("asBatch").value ? Number(byId("asBatch").value) : null;
+        var b = id ? (state.batches || []).filter(function (x) { return x.id === id; })[0] : null;
+        var seq = ++asFeeSeq;
+
+        if (!id) {
+          hint.textContent = "No batch chosen, so no batch fee applies — an amount typed here is all this student will be charged.";
+          return;
+        }
+        hint.textContent = "Checking what that batch charges…";
+        LT_CLOUD.resolveFee({ batch: id, centre: (b && b.centre_id) || null, months: 1 })
+          .then(function (res) {
+            if (seq !== asFeeSeq) return;          /* a later batch won */
+            var f = res || {};
+            if (f.monthly == null || String(f.source) === "unset") {
+              hint.textContent = "That batch has no fee set yet, so nothing will be charged unless you put an amount here.";
+            } else {
+              hint.textContent = "That batch is " + LT.fmtINR(f.monthly) +
+                " a month. Leave this blank and the student follows it — including when it changes.";
+            }
+          })
+          .catch(function () {
+            if (seq !== asFeeSeq) return;
+            hint.textContent = "Leave blank and the student is charged whatever their batch charges.";
+          });
+      }
+      byId("asBatch").addEventListener("change", asFeeHint);
 
       byId("addStudentBtn").addEventListener("click", asOpen);
       byId("asClose").addEventListener("click", asClose);
@@ -1358,6 +1410,12 @@
           msg.className = "form-msg error"; byId("asPhone").focus(); return;
         }
 
+        /* Blank stays blank all the way to the database. "" must not become
+           0 anywhere on the way — 0 is a scholarship, and the chain obeys
+           it over the batch rule. */
+        var feeRaw = (byId("asFee").value || "").replace(/\D/g, "");
+        var fee = feeRaw === "" ? null : Number(feeRaw);
+
         btn.disabled = true;
         msg.textContent = "Adding…";
         LT_CLOUD.addStudent({
@@ -1365,6 +1423,7 @@
           phone: phone || null,
           batch: byId("asBatch").value ? Number(byId("asBatch").value) : null,
           parentName: (byId("asParent").value || "").trim() || null,
+          fee: fee,
           by: (LT.auth.session() || {}).email || null
         }).then(function (res) {
           btn.disabled = false;
@@ -1378,10 +1437,21 @@
           }
           if (!r.ok) { msg.textContent = "That did not save."; msg.className = "form-msg error"; return; }
 
-          var fee = r.fee || {};
-          var money = (!fee || String(fee.source) === "unset" || fee.amount == null)
-            ? "No fee is set for that batch yet, so nothing will be charged or chased."
-            : "Fee " + LT.fmtINR(fee.amount) + ".";
+          /* Say WHICH fee they got and where it came from. The server may
+             have declined to pin an amount that simply matched the batch,
+             and a staff member who typed 2500 and sees only "Fee ₹2,500"
+             would never learn that this student still follows the batch. */
+          var got = r.fee || {};
+          var money;
+          if (!got || String(got.source) === "unset" || got.amount == null) {
+            money = "No fee is set for that batch yet, so nothing will be charged or chased.";
+          } else if (String(got.source) === "custom") {
+            money = "Fee " + LT.fmtINR(got.amount) + ", set for this student.";
+          } else if (r.matched_rule) {
+            money = "Fee " + LT.fmtINR(got.amount) + " — the same as the batch, so they will follow it if it changes.";
+          } else {
+            money = "Fee " + LT.fmtINR(got.amount) + ", from their batch.";
+          }
           /* Say it now, once. A student with no number is fine, but the
              academy should learn it here rather than the first time a
              reminder run quietly skips them. */
@@ -1391,7 +1461,8 @@
           /* Stay open, cleared: an academy loading its roll is adding
              thirty in a row, and closing after each one would make them
              re-open it thirty times. */
-          byId("asName").value = ""; byId("asPhone").value = ""; byId("asParent").value = "";
+          byId("asName").value = ""; byId("asPhone").value = "";
+          byId("asParent").value = ""; byId("asFee").value = "";
           msg.textContent = "";
           try { byId("asName").focus(); } catch (e) {}
           loadAll();
