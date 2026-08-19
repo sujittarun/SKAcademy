@@ -80,6 +80,10 @@
     .adm-acts { flex: 1 1 100%; }
     .adm-acts .btn { flex: 1 1 auto; }
   }
+  /* documents a family attached to their application */
+  .adm-docs { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .adm-thumb { width: 44px; height: 44px; border-radius: 10px; object-fit: cover;
+               border: 1px solid var(--line); background: var(--tile-bg); }
 </style>
 </head>
 <body>
@@ -612,6 +616,36 @@
        at the top of the dashboard the other 27 days is a permanent empty
        shelf. A FAILED read still shows it — an inbox nobody could read
        must not look like an inbox with nothing in it. */
+    /* Signed URLs are minted per render and expire in five minutes, so a
+       screenshot of this page is not a permanent link to a child's photo.
+       A failure leaves the thumbnail blank rather than breaking the row —
+       the application still needs approving either way. */
+    function paintAdmDocs() {
+      LT.$$("[data-doc]").forEach(function (img) {
+        if (img.dataset.done) return;
+        img.dataset.done = "1";
+        LT_CLOUD.signedDocUrl(img.getAttribute("data-doc"), 300)
+          .then(function (u) { if (u) img.src = u; })
+          .catch(function () {});
+      });
+    }
+
+    document.addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest("[data-open-doc]") : null;
+      if (!b) return;
+      b.disabled = true;
+      LT_CLOUD.signedDocUrl(b.getAttribute("data-open-doc"), 300)
+        .then(function (u) {
+          b.disabled = false;
+          if (u) window.open(u, "_blank", "noopener");
+          else LT.toast("Could not open that document.", "error");
+        })
+        .catch(function (err) {
+          b.disabled = false;
+          LT.toast((err && err.message) || "Could not open that document.", "error");
+        });
+    });
+
     function admShow(on) {
       var card = $("#admCard");
       if (card) card.classList.toggle("hide", !on);
@@ -634,6 +668,7 @@
           "Nobody joins the roll until an application is approved." +
         "</div>" +
         admRows.map(admRow).join("");
+      paintAdmDocs();
     }
 
     /* ---------- one application, with its actions ----------
@@ -654,6 +689,16 @@
         : (admWantedBatch(a) ? admWantedBatch(a).name : null);
       if (wants) meta.push("wants " + LT.esc(wants));
 
+      /* Documents the family attached. The bucket is private, so nothing
+         here is a URL — a thumbnail and a link each ask the server for a
+         5-minute signed one when the card renders. An Aadhaar number is
+         shown as its last four digits and never in full: the academy has
+         the document if it needs to check, and a roomful of people can see
+         this screen. */
+      if (a.parent_aadhaar) {
+        meta.push("Aadhaar ••••" + LT.esc(String(a.parent_aadhaar).slice(-4)));
+      }
+
       /* Three states, not two: refused and never-recorded are different
          facts about a family. */
       var consent = a.consent_accepted === true;
@@ -671,10 +716,25 @@
             '" target="_blank" rel="noopener">WhatsApp</a>'
         : "";
 
+      var docs = "";
+      if (a.student_photo_path || a.parent_aadhaar_path) {
+        docs = '<div class="adm-docs">' +
+          (a.student_photo_path
+            ? '<img class="adm-thumb" data-doc="' + LT.esc(a.student_photo_path) +
+              '" alt="Photo of ' + LT.esc(who) + '" title="Photo" />'
+            : "") +
+          (a.parent_aadhaar_path
+            ? '<button type="button" class="btn btn-glass btn-sm" data-open-doc="' +
+              LT.esc(a.parent_aadhaar_path) + '">Aadhaar copy</button>'
+            : "") +
+          "</div>";
+      }
+
       return '<div class="adm-row" data-adm="' + LT.esc(String(a.id)) + '">' +
         '<div class="adm-main">' +
           '<div class="adm-who"><strong>' + LT.esc(who) + "</strong> " + badge + "</div>" +
           '<div class="fi-time">' + meta.join(" · ") + "</div>" +
+          docs +
         "</div>" +
         '<div class="adm-acts">' +
           call +
