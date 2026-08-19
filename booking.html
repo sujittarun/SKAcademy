@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=21" />
+<link rel="stylesheet" href="assets/css/glass.css?v=22" />
 <style>
   /* Page-local LAYOUT only. Glass, buttons, fields, pills, .slot,
      .form-msg and .lt-empty all come from glass.css. */
@@ -377,15 +377,15 @@
     </div>
   </main>
 
-  <script src="assets/js/core.js?v=21"></script>
-  <script src="assets/js/cloud.js?v=21"></script>
+  <script src="assets/js/core.js?v=22"></script>
+  <script src="assets/js/cloud.js?v=22"></script>
   <!-- dev-data.js loads for shell consistency and is DELIBERATELY NOT USED
        here. Sample rows behind the striped banner are a preview on a staff
        screen; on a public page they would be a customer shown invented
        availability with no way to tell. A failed read says "could not
        load" instead — an empty academy and a broken one must not look
        alike. -->
-  <script src="assets/js/dev-data.js?v=21"></script>
+  <script src="assets/js/dev-data.js?v=22"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -1095,27 +1095,37 @@
         });
       }
 
-      /* The ground is an enquiry — see the note at the top. The wanted date
-         rides in p_trial and the facility is named in p_program, so it is
-         unmistakable in the academy's enquiry list. All nine arguments are
-         passed: none has a default, and PostgREST omitting one hard-fails.
+      /* THE GROUND IS A BOOKING REQUEST, exactly like a net.
 
-         NO PAYMENT OPTION ON THIS PATH, deliberately: submit_application
-         creates no booking and returns no amount, so there is no
-         server-blessed figure to ask anyone to pay. */
+         It used to call submit_application(), because request_booking()
+         began with `if p_hour < 6` and a full day is the hour-0 sentinel.
+         The cost of that workaround was high: a person hiring a field for
+         a day landed in the ADMISSIONS inbox with no consent, no date of
+         birth and no parent — because a renter has none — and approving
+         one would have created a member and an enrolment, putting a
+         cricket student who never enrolled onto the roster, into every
+         register and into the fee chase. It also wrote no booking, so the
+         day was never held and two people could ask for the same ground.
+
+         Migration 2026-08-19g taught request_booking about full-day
+         facilities, so the ground now takes the same road as the nets: a
+         PENDING booking that holds the date, priced by the server for that
+         weekday, confirmed from the bookings board.
+
+         The hour sent here is ignored — the server forces 0 from config,
+         because trusting a client to send the sentinel is how the unique
+         index gets bypassed. */
       function submitGround(name, phone) {
         var date = el.date.value;
-        return LT_CLOUD.submitApplication({
-          p_tenant: LT_CLOUD.TENANT, p_name: name, p_phone: phone,
-          p_email: null, p_level: null, p_goal: null,
-          p_program: "Main ground — full day rental", p_slot: "Full day", p_trial: date
+        return LT_CLOUD.requestBooking({
+          sport: GROUND, date: date, hour: 0, name: name, phone: phone
         }).then(function () {
           LT_CLOUD.track("ground_enquiry", { sport: GROUND });
           el.doneTitle.textContent = "Enquiry received";
           el.doneDetail.innerHTML = "Thanks, <strong>" + LT.esc(name) + "</strong> — the main ground on <strong>" +
             LT.esc(longDate(date)) + "</strong>.";
           el.doneLines.innerHTML = "";
-          el.doneHonest.textContent = "This is an enquiry, not a booking. The academy will call you to confirm the date and the amount.";
+          el.doneHonest.textContent = "The date is held for you. The academy will call to confirm it — nothing is payable until they do.";
           showDone();
         }).catch(function (err) {
           var m = String((err && err.message) || "");
