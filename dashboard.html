@@ -94,6 +94,16 @@
   .todo-row .tn { flex: none; font-family: var(--font-display); font-size: 20px;
                   font-weight: 800; color: var(--ink-hi); font-variant-numeric: tabular-nums; }
   .todo-row .btn { flex: none; }
+  .owed-list { margin: 4px 0 2px; border-top: 1px solid var(--line); }
+  .owed-row { display: flex; align-items: center; gap: 10px; padding: 9px 0;
+              border-bottom: 1px solid var(--line); }
+  .owed-row:last-child { border-bottom: 0; }
+  .owed-row .ow { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  .owed-row .on { font-weight: 650; font-size: 13.5px; color: var(--ink-hi);
+                  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .owed-row .os { font-size: 11.5px; color: var(--ink-low); }
+  .owed-row .oa { flex: none; font-weight: 700; color: var(--ink-hi);
+                  font-variant-numeric: tabular-nums; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -255,6 +265,33 @@
     </div>
 
   </main>
+
+  <div class="lt-modal-backdrop" id="clBackdrop">
+    <div class="glass lt-modal">
+      <div class="modal-head">
+        <div><div class="kicker">Collect</div><h2 style="font-size: 20px;">Take payment</h2></div>
+        <button class="btn btn-icon btn-ghost" id="clClose" type="button" aria-label="Close">✕</button>
+      </div>
+      <p class="note" id="clSub" style="margin-bottom: var(--gap-3);"></p>
+      <div class="lt-grid" style="gap: var(--gap-3);">
+        <label class="field">
+          <span>Mode</span>
+          <select id="clMode">
+            <option value="cash">Cash</option>
+            <option value="upi">UPI</option>
+            <option value="card">Card</option>
+            <option value="bank">Bank transfer</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Collected by</span>
+          <input type="text" id="clBy" maxlength="60" placeholder="Who took the money" />
+        </label>
+        <div class="form-msg" id="clMsg"></div>
+        <button class="btn btn-primary btn-block" type="button" id="clSave">Mark collected</button>
+      </div>
+    </div>
+  </div>
 
   <script src="assets/js/core.js?v=16"></script>
   <script src="assets/js/cloud.js?v=16"></script>
@@ -707,6 +744,7 @@
       if (todo.unpaid) {
         rows.push({
           n: todo.unpaid,
+          collect: true,
           t: LT.fmtINR(todo.owed) + " to collect",
           s: todo.unpaid + (todo.unpaid === 1 ? " confirmed booking" : " confirmed bookings") +
              " this month, played and unpaid.",
@@ -722,12 +760,101 @@
           '<span class="tn">' + LT.esc(String(r.n)) + "</span>" +
           '<span class="tw"><span class="tt">' + LT.esc(r.t) + "</span>" +
           '<span class="ts" style="display:block;">' + LT.esc(r.s) + "</span></span>" +
-          (r.href
-            ? '<a class="btn btn-glass btn-sm" href="' + r.href + '">' + LT.esc(r.label) + "</a>"
-            : "") +
-          "</div>";
+          (r.collect
+            ? '<button type="button" class="btn btn-glass btn-sm" data-show-owed="1">' +
+              (todo.open ? "Hide" : "Collect") + "</button>"
+            : r.href
+              ? '<a class="btn btn-glass btn-sm" href="' + r.href + '">' + LT.esc(r.label) + "</a>"
+              : "") +
+          "</div>" +
+          (r.collect && todo.open ? owedList() : "");
       }).join("");
     }
+
+    /* The unpaid bookings themselves, under the row that counts them.
+       Collecting used to mean leaving the dashboard for Finance; it is an
+       action, and actions belong where the day starts. Finance keeps the
+       figure and no longer asks you to do anything about it. */
+    function owedList() {
+      var rows = (todo.owedRows || []);
+      if (!rows.length) return "";
+      return '<div class="owed-list">' + rows.map(function (b) {
+        var when = b.date === TODAY ? "today" : LT.shortDate(b.date);
+        /* hourLabel already returns the whole slot ("7 AM – 8 AM"); pasting
+           two together produced "7 AM – 8 AM–8 AM – 9 AM". */
+        var slot = (Number(b.hour) === 0) ? "full day" : LT.hourLabel(Number(b.hour));
+        return '<div class="owed-row">' +
+          '<span class="ow"><span class="on">' + LT.esc(b.name || "Walk-in") + "</span>" +
+          '<span class="os">' + LT.esc(when + " · " + slot) +
+          (b.court ? " · " + LT.esc(LT.courtLabel(b.court)) : "") + "</span></span>" +
+          '<span class="oa">' + LT.esc(LT.fmtINR(Number(b.amount) || 0)) + "</span>" +
+          '<button type="button" class="btn btn-primary btn-sm" data-collect="' +
+            LT.esc(String(b.id)) + '">Collect</button>' +
+          "</div>";
+      }).join("") + "</div>";
+    }
+
+    var clBackdrop = null, clId = null;
+
+    function closeCollect() {
+      if (clBackdrop) clBackdrop.classList.remove("open");
+      clId = null;
+    }
+
+    document.addEventListener("click", function (e) {
+      var t = e.target;
+      if (!t.closest) return;
+
+      if (t.closest("[data-show-owed]")) {
+        todo.open = !todo.open;
+        renderTodo();
+        return;
+      }
+
+      var cb = t.closest("[data-collect]");
+      if (cb) {
+        var id = cb.getAttribute("data-collect"), row = null;
+        (todo.owedRows || []).forEach(function (b) { if (String(b.id) === String(id)) row = b; });
+        if (!row) return;
+        clBackdrop = $("#clBackdrop");
+        clId = row.id;
+        $("#clSub").textContent =
+          (row.name || "Walk-in") + " · " + LT.shortDate(row.date) + " · " +
+          LT.fmtINR(Number(row.amount) || 0) + " due.";
+        $("#clMsg").textContent = "";
+        $("#clMsg").className = "form-msg";
+        /* Same key the bookings board and Finance write, so whoever is on
+           the counter is remembered across every screen. */
+        $("#clBy").value = LT.store.read("collected-by", "") || "";
+        clBackdrop.classList.add("open");
+        return;
+      }
+
+      if (t.closest("#clClose") || t.id === "clBackdrop") { closeCollect(); return; }
+
+      if (t.closest("#clSave")) {
+        if (!clId) return;
+        var btn = t.closest("#clSave"), msg = $("#clMsg");
+        var by = ($("#clBy").value || "").trim();
+        btn.disabled = true;
+        msg.textContent = ""; msg.className = "form-msg";
+        LT_CLOUD.collectBooking(clId, $("#clMode").value, by || null, null)
+          .then(function () {
+            if (by) LT.store.write("collected-by", by);
+            btn.disabled = false;
+            closeCollect();
+            LT.toast("Collected");
+            /* Re-read rather than patch: the screen must show what the
+               database says, not what this handler hoped. */
+            location.reload();
+          })
+          .catch(function (err) {
+            btn.disabled = false;
+            msg.textContent = (err && err.message) || "Could not collect.";
+            msg.className = "form-msg error";
+          });
+      }
+    });
 
     function admShow(on) {
       var card = $("#admCard");
@@ -984,6 +1111,11 @@
          owed, and a today-only figure would call it collected. */
       todo.unpaid = stillOwed.length;
       todo.owed = owed;
+      /* Newest first: the court played most recently is the one somebody
+         is most likely standing in front of you about. */
+      todo.owedRows = stillOwed.slice().sort(function (a, b) {
+        return String(b.date) < String(a.date) ? -1 : String(b.date) > String(a.date) ? 1 : 0;
+      });
       renderTodo();
       statMoney("#kpiMonth", collected);
       $("#kpiMonthSub").textContent =

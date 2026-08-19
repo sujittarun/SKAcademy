@@ -1195,7 +1195,10 @@
           (hidden > 0
             ? '<button type="button" class="btn btn-glass btn-sm nt-more" data-nets-all="1">' +
               "Show the whole day · " + hidden + " more hours</button>"
-            : "") +
+            : (netsAll
+                ? '<button type="button" class="btn btn-glass btn-sm nt-more" data-nets-all="0">' +
+                  "Show less</button>"
+                : "")) +
           "</section>";
       }
 
@@ -1817,7 +1820,9 @@
         if ((el = t.closest("#nextMonth"))) { state.month = addMonths(state.month || monthStart(state.date),  1); loadMonth(); return; }
 
         if ((el = t.closest("[data-nets-all]"))) {
-          netsAll = true;
+          /* Both ways. Expanding with no way back is a one-way door on a
+             screen you use all day. */
+          netsAll = el.getAttribute("data-nets-all") === "1";
           if (lastNetCells) paintNets(lastNetCells);
           return;
         }

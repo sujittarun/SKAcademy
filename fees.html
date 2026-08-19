@@ -209,21 +209,13 @@
         </div>
       </div>
 
-      <!-- Hidden whenever nothing is outstanding — same rule as the
-           dashboard's action list and the admissions tray. A panel that is
-           empty most days is a panel people stop reading. -->
-      <div class="glass glass-card reveal d1 hide" id="owedCard">
-        <div class="card-head">
-          <div>
-            <div class="kicker">Owed to the academy</div>
-            <h2>Rentals not collected</h2>
-            <div class="sub">Confirmed bookings with nothing taken yet</div>
-          </div>
-          <span class="pill" id="owedPill">—</span>
-        </div>
-        <div class="feed" id="owedBody"><div class="lt-skel"></div><div class="lt-skel"></div><div class="lt-skel"></div></div>
-      </div>
-    </div>
+      <!-- "Rentals not collected" used to live here. Collecting is an
+           ACTION, and actions belong where the day starts: it is now a row
+           on the dashboard's "Needs you" card, with the payment sheet
+           attached to it. Finance keeps the FIGURE — the Rental
+           outstanding tile above — because a ledger should still tell you
+           what is owed; it just no longer asks you to do something about
+           it in two places. -->
 
     <!-- ---------- performance: revenue vs expenses ----------
          Six months, from the same three reads the tiles above use, so the
@@ -363,32 +355,6 @@
   </div>
 
   <!-- ---------- collect a rental ---------- -->
-  <div class="lt-modal-backdrop" id="clBackdrop">
-    <div class="glass lt-modal">
-      <div class="modal-head">
-        <div><div class="kicker">Collect</div><h2 style="font-size: 20px;">Take payment</h2></div>
-        <button class="btn btn-icon btn-ghost" id="clClose" type="button" aria-label="Close">✕</button>
-      </div>
-      <p class="note" id="clSub" style="margin-bottom: var(--gap-3);"></p>
-      <div class="lt-grid" style="gap: var(--gap-3);">
-        <label class="field">
-          <span>Mode</span>
-          <select id="clMode">
-            <option value="cash">Cash</option>
-            <option value="upi">UPI</option>
-            <option value="card">Card</option>
-            <option value="bank">Bank transfer</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Collected by</span>
-          <input type="text" id="clBy" maxlength="60" placeholder="Who took the money" />
-        </label>
-        <div class="form-msg" id="clMsg"></div>
-        <button class="btn btn-primary btn-block" type="button" id="clSave">Mark collected</button>
-      </div>
-    </div>
-  </div>
 
   <script src="assets/js/core.js?v=16"></script>
   <script src="assets/js/cloud.js?v=16"></script>
@@ -640,8 +606,6 @@
         sub(s, "Loading…");
       });
       LT.skeleton($("#streamBody"), 3);
-      LT.skeleton($("#owedBody"), 3);
-      $("#owedPill").textContent = "—";
       slabLoading($("#txBody"), 6, 4);
       slabLoading($("#expBody"), 6, 3);
       $("#txFoot").textContent = "";
@@ -693,7 +657,7 @@
     });
 
     function repaintLists() {
-      if (S.rent) { paintOwed(); paintLedger(); }
+      if (S.rent) { paintLedger(); }
     }
 
     /* ---------- DEV fixtures ----------
@@ -753,11 +717,6 @@
         statDash("#kpiRent"); statDash("#kpiOwed");
         sub("#kpiRentSub", "Could not load", "down");
         sub("#kpiOwedSub", "Could not load", "down");
-        var oc = $("#owedCard");
-        if (oc) oc.classList.remove("hide");   /* a failure is not "nothing owed" */
-        $("#owedPill").textContent = "—";
-        $("#owedPill").className = "pill";
-        LT.fail($("#owedBody"), S.rentErr);
       } else {
         var paid = paidRentals(), owed = owedRentals();
         var paidTotal = sum(paid, function (r) { return r.amount; });
@@ -769,69 +728,12 @@
         sub("#kpiOwedSub", owed.length
           ? plural(owed.length, "confirmed booking", "confirmed bookings") + " unpaid"
           : "Everything confirmed is paid", owed.length ? "down" : "up");
-        paintOwed();
       }
       paintStreams();
       paintLedger();
       paintNet();
     }
 
-    function paintOwed() {
-      if (S.rentErr || !S.rent) return;
-      var owed = owedRentals().slice().sort(function (a, b) {
-        return String(a.date) < String(b.date) ? -1 : String(a.date) > String(b.date) ? 1 : 0;
-      });
-      var host = $("#owedBody"), pill = $("#owedPill");
-      var card = $("#owedCard");
-
-      /* Nothing owed means no panel at all. The month's figure is still on
-         the tile above, and the dashboard says so too — an "All clear" card
-         taking a screen of height to report the absence of work is the
-         thing that made this page feel repetitive. */
-      if (!owed.length) {
-        if (card) card.classList.add("hide");
-        return;
-      }
-      if (card) card.classList.remove("hide");
-
-      var overdue = owed.filter(function (r) { return isoOf(r.date) && isoOf(r.date) < TODAY; });
-      pill.textContent = LT.fmtINR(sum(owed, function (r) { return r.amount; }));
-      pill.className = "pill " + (overdue.length ? "red" : "gold");
-
-      host.innerHTML = owed.map(function (r) {
-        var d = isoOf(r.date);
-        var late = !!d && d < TODAY;
-        /* Three states, not two. A slot booked for today is neither a debt
-           nor a future sale, and calling it "upcoming" at 6 PM reads as a
-           mistake to whoever is standing at the counter. */
-        var when = late
-          ? ' · <span style="color:var(--tx-red);font-weight:700;">played, not paid</span>'
-          : (d === TODAY ? ' · <span style="color:var(--tx-gold);font-weight:700;">today</span>' : " · upcoming");
-        var court = r.court ? LT.courtLabel(r.court) : "";
-        var where = (sportOf(r) === "ground" ? "Ground" : "Nets") + (court ? " · " + court : "");
-        return '<div class="feed-item">' +
-          '<span class="fi-ic' + (late ? " owed" : "") + '">₹</span>' +
-          '<div class="grow">' +
-            '<div class="fi-body"><strong>' + LT.esc(r.name || "Walk-in") + "</strong> · " + LT.esc(where) + "</div>" +
-            '<div class="fi-time">' + LT.esc(niceDate(r.date)) + " · " + LT.esc(slotLabel(r)) +
-              (r.source ? " · " + LT.esc(r.source) : "") + when +
-            "</div>" +
-          "</div>" +
-          '<div class="fi-right">' +
-            '<span class="money">' + LT.fmtINR(num(r.amount)) + "</span>" +
-            '<button class="btn btn-glass btn-sm" type="button" data-collect="' + LT.esc(r.id) + '">Collect</button>' +
-          "</div>" +
-        "</div>";
-      }).join("");
-    }
-
-    /* ============================================================
-       FEES
-
-       payments rows come from record_fee_payment() — the one write path,
-       which also rolls the renewal forward and closes the reminder. This
-       page only ever reads them.
-       ============================================================ */
     function feeAmount(r) { return num(pick(r, ["amount", "paid_amount", "total"])); }
     function feeDate(r)   { return pick(r, ["on_date", "paid_on", "date", "created_at"]); }
     function feeWho(r)    { return pick(r, ["name", "member_name", "member", "student"]) || "Member"; }
@@ -1359,61 +1261,6 @@
        already says it is worth. A figure computed here could disagree
        with the row, and the row is the record.
        ============================================================ */
-    var clBackdrop = $("#clBackdrop"), clId = null;
-
-    function closeCollect() {
-      clBackdrop.classList.remove("open");
-      clId = null;
-    }
-    $("#clClose").addEventListener("click", closeCollect);
-    clBackdrop.addEventListener("click", function (e) { if (e.target === clBackdrop) closeCollect(); });
-
-    $("#owedBody").addEventListener("click", function (e) {
-      var btn = e.target.closest("[data-collect]");
-      if (!btn) return;
-      var id = btn.dataset.collect, row = null;
-      (S.rent || []).forEach(function (r) { if (String(r.id) === String(id)) row = r; });
-      if (!row) return;
-      clId = row.id;
-      $("#clSub").textContent =
-        (row.name || "Walk-in") + " · " + niceDate(row.date) + " · " + slotLabel(row) +
-        (row.court ? " · " + LT.courtLabel(row.court) : "") +
-        " · " + LT.fmtINR(num(row.amount)) + " due.";
-      $("#clMsg").textContent = "";
-      $("#clMsg").className = "form-msg";
-      /* Same key the bookings board writes, so whoever is on the counter
-         is remembered across both screens. */
-      $("#clBy").value = LT.store.read("collected-by", "") || "";
-      clBackdrop.classList.add("open");
-    });
-
-    $("#clSave").addEventListener("click", function () {
-      if (!clId) return;
-      var btn = this, msg = $("#clMsg");
-      var by = ($("#clBy").value || "").trim();
-      btn.disabled = true;
-      msg.textContent = "";
-      msg.className = "form-msg";
-      LT_CLOUD.collectBooking(clId, $("#clMode").value, by || null, null)
-        .then(function () {
-          if (by) LT.store.write("collected-by", by);
-          btn.disabled = false;
-          closeCollect();
-          LT.toast("Collected");
-          load(S.month);                       // re-read; nothing is patched in place
-        })
-        .catch(function (err) {
-          btn.disabled = false;
-          var m = (err && err.message) || "Could not collect.";
-          msg.textContent = m;
-          msg.className = "form-msg error";
-          /* DEV writes are blocked, loudly. Nothing on screen moves — a
-             page that paints a collection it did not make is the single
-             most dangerous thing this file could do. */
-          if (err && err.dev) LT.toast(m);
-        });
-    });
-
     /* ============================================================
        ADD AN EXPENSE
 
