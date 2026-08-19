@@ -384,6 +384,56 @@
      from the newest events row, so the academy would have read as
      "Onboarding" forever while looking perfectly healthy on screen.
      Caught by watching the live site's network tab, not by reading. */
+  /* ---------- what device, without identifying the person ----------
+     Enough to answer "is the client actually opening this, and on what?"
+     — phone or laptop, which browser, how wide the screen, and whether
+     they are running it as an installed app. Recorded once per event
+     alongside the version.
+
+     WHAT IS DELIBERATELY NOT HERE: no full user-agent string, no IP, no
+     screen fingerprint, nothing that identifies a PERSON. events is
+     insertable by anon — the public key is in this repo — so anything put
+     here is effectively public, and the same reasoning that keeps names
+     and phone numbers out of federated rollups applies. Buckets, not
+     identifiers. */
+  function device() {
+    var ua = "";
+    try { ua = String(navigator.userAgent || ""); } catch (e) {}
+    var w = 0;
+    try { w = window.innerWidth || 0; } catch (e) {}
+
+    var kind = /iPad|Tablet/i.test(ua) || (w >= 700 && w < 1100) ? "tablet"
+             : /Mobi|Android|iPhone/i.test(ua) || w < 700 ? "phone"
+             : "desktop";
+
+    /* Order matters: Edge and Chrome both say "Chrome", Chrome says
+       "Safari". Test the most specific first. */
+    var br = /Edg\//.test(ua) ? "edge"
+           : /OPR\//.test(ua) ? "opera"
+           : /Firefox\//.test(ua) ? "firefox"
+           : /Chrome\//.test(ua) ? "chrome"
+           : /Safari\//.test(ua) ? "safari"
+           : "other";
+
+    var os = /Android/i.test(ua) ? "android"
+           : /iPhone|iPad|iPod/i.test(ua) ? "ios"
+           : /Mac OS X/i.test(ua) ? "mac"
+           : /Windows/i.test(ua) ? "windows"
+           : "other";
+
+    var standalone = false;
+    try {
+      standalone = !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+                   !!(navigator.standalone);
+    } catch (e) {}
+
+    /* Bucketed, not exact: a precise width is a fingerprint, a bucket is
+       an answer to "does the layout they see match the one I tested". */
+    var vw = w < 400 ? "<400" : w < 700 ? "400-699" : w < 1100 ? "700-1099" : "1100+";
+
+    return { dev: kind, br: br, os: os, vw: vw, app: standalone };
+  }
+
   function track(name, props) {
     var body = {
       tenant_id: TENANT,
@@ -391,7 +441,7 @@
       page: page(),
       level: "info",
       session_id: sid(),
-      props: Object.assign({ ver: APP_VER }, props || {})
+      props: Object.assign({ ver: APP_VER }, device(), props || {})
     };
     /* Fire-and-forget, and anon-allowed: the events insert policy accepts
        a registered tenant_id from anon. A telemetry failure must never
