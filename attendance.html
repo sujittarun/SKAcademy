@@ -125,13 +125,27 @@
      "38 / 63" because present and absent are two halves of one number,
      and the "N of M shown" line moves into the search row. */
   @media (max-width: 699px) {
-    /* The batch and the bulk action share ONE line. They were stacked, and
-       because .right was right-aligned the button stranded itself against
-       the edge with a band of empty glass beside it — which is what the
-       owner circled. Two controls, one row, no dead space. */
-    .att-bar { gap: 8px; flex-wrap: nowrap; align-items: center; }
-    .att-bar .left  { flex: 1 1 auto; min-width: 0; width: auto; }
-    .att-bar .right { flex: 0 0 auto; width: auto; display: flex; align-items: center; gap: 6px; }
+    /* Each control gets its OWN full-width row.
+
+       The complaint was dead space: .right was right-aligned, so the
+       button stranded itself against the edge with a band of empty glass
+       beside it. The first repair forced both onto one line with nowrap —
+       which at 375px squeezed the batch dropdown to ZERO WIDTH, so the one
+       control a coach must use to pick their batch became invisible.
+       Measured, not guessed: its box was 27→27.
+
+       "Morning · 06:00–08:00" needs about 200px and the button about 150,
+       and 375 minus padding is 350. They do not both fit, so stacking is
+       the honest answer — the fix is that each one now FILLS its row
+       instead of hugging an edge. */
+    .att-bar { gap: 8px; flex-wrap: wrap; align-items: stretch; }
+    .att-bar .left  { flex: 1 1 100%; min-width: 0; width: 100%; }
+    .att-bar .right { flex: 1 1 100%; width: 100%; display: flex; align-items: center; gap: 6px; }
+    .att-bar .right .btn { flex: 1 1 auto; }
+    /* .lt-filter is an inline-block wrapper that sizes to its content, so
+       a 100% select inside it still stopped 128px short of the edge. Both
+       have to stretch, or the row has dead space at the end after all. */
+    .att-bar .left .lt-filter { display: block; width: 100%; }
     .att-bar select { width: 100%; }
     /* the days-and-times line describes a batch you just chose by name */
     .att-note { display: none; }
