@@ -95,6 +95,24 @@
   .watch-row .wr-sub { font-size: 11.5px; color: var(--ink-low); }
   .watch-row .btn { flex: none; }
 
+  /* ---------- the toolbar follows you down the register ----------
+     At 125 students a batch is ~60 names, which is 11 screens on a phone.
+     The count, the search and "mark the rest present" all lived at the
+     top, so the coach had to scroll back up to use any of them — and the
+     one number they want mid-register ("how many left?") was the furthest
+     away. It sticks under the nav instead. */
+  /* --nav-h is the space the design system already reserves for the fixed
+     nav, and --devbar-h is measured by core.js. Using them means the bar
+     lands just under the nav at every breakpoint instead of 18px behind
+     it, which is what hand-picked offsets gave: the nav's bottom sits at
+     116px on a phone and the first guess stuck at 98. */
+  .att-bar-wrap { position: sticky; z-index: 20; top: calc(var(--devbar-h, 0px) + var(--nav-h) + 6px); }
+
+  .att-find { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .att-find input { flex: 1 1 190px; min-width: 0; }
+  .att-find .chip { flex: none; }
+  .att-count { font-size: 12px; color: var(--ink-low); font-weight: 650; white-space: nowrap; }
+
   @media (max-width: 699px) {
     .att-grid { grid-template-columns: 1fr; }
     .att-bar select { min-width: 0; width: 100%; }
@@ -125,17 +143,30 @@
       </div>
     </div>
 
-    <!-- Toolbar: which batch, which session, and the one bulk action. -->
-    <div class="glass glass-card tight reveal">
-      <div class="att-bar">
-        <div class="left">
-          <span class="lt-filter"><select id="batchSelect" aria-label="Batch"></select></span>
-          <span class="att-note" id="batchMeta"></span>
+    <!-- Toolbar: which batch, which session, and the one bulk action.
+         Sticky, because at 60 students to a register everything here is
+         needed halfway down the list, not just at the top. -->
+    <div class="att-bar-wrap">
+      <div class="glass glass-card tight reveal">
+        <div class="att-bar">
+          <div class="left">
+            <span class="lt-filter"><select id="batchSelect" aria-label="Batch"></select></span>
+            <span class="att-note" id="batchMeta"></span>
+          </div>
+          <div class="right">
+            <span class="pill green hide" id="pillPresent">—</span>
+            <span class="pill red hide" id="pillAbsent">—</span>
+            <button type="button" class="btn btn-glass btn-sm" id="restPresent" disabled>Mark the rest present</button>
+          </div>
         </div>
-        <div class="right">
-          <span class="pill green hide" id="pillPresent">—</span>
-          <span class="pill red hide" id="pillAbsent">—</span>
-          <button type="button" class="btn btn-glass btn-sm" id="restPresent" disabled>Mark the rest present</button>
+        <!-- Find a child, or show only the ones still to do. The second is
+             the one that matters: it turns "scroll 11 screens hunting for
+             who is left" into a list of exactly those. -->
+        <div class="att-find">
+          <input type="search" id="attFind" placeholder="Find a student…" autocomplete="off"
+                 aria-label="Find a student in this register" />
+          <button type="button" class="chip" id="attUnmarked" aria-pressed="false">Still to mark</button>
+          <span class="att-count" id="attShown"></span>
         </div>
       </div>
     </div>
@@ -557,6 +588,31 @@
         if (state.watch.length) renderWatch(state.watch);
       }
 
+      /* ---------- the filter ----------
+         Applied at render, over rows already in memory. No re-read: the
+         register is loaded, and a coach filtering it must not depend on a
+         round trip to Tokyo while standing at the nets. */
+      var find = { q: "", unmarkedOnly: false };
+
+      function visibleRows() {
+        var q = find.q.trim().toLowerCase();
+        return state.rows.filter(function (r) {
+          if (find.unmarkedOnly && r.attendance_status) return false;
+          if (q && String(r.member_name || "").toLowerCase().indexOf(q) < 0) return false;
+          return true;
+        });
+      }
+
+      function paintFindCount(shown) {
+        var el = LT.$("#attShown");
+        if (!el) return;
+        var total = state.rows.length;
+        if (!total) { el.textContent = ""; return; }
+        el.textContent = (shown === total)
+          ? total + " in this batch"
+          : shown + " of " + total + " shown";
+      }
+
       function renderGrid() {
         if (!state.rows.length) {
           gridHost.innerHTML =
@@ -569,7 +625,23 @@
           return;
         }
 
-        gridHost.innerHTML = state.rows.map(function (r) {
+        var rows = visibleRows();
+        paintFindCount(rows.length);
+
+        if (!rows.length) {
+          gridHost.innerHTML =
+            '<div class="lt-empty" style="grid-column:1/-1;">' +
+            '<div class="lt-empty-t">' +
+              (find.unmarkedOnly && !find.q ? "Everyone is marked" : "Nobody matches that") + "</div>" +
+            '<div class="lt-empty-s">' +
+              (find.unmarkedOnly && !find.q
+                ? "Every student in this batch has a mark for this session."
+                : "Clear the search to see the whole register.") + "</div>" +
+            "</div>";
+          return;
+        }
+
+        gridHost.innerHTML = rows.map(function (r) {
           var st = r.attendance_status;
           return '<div class="att-tile' + (st === "present" ? " present" : st === "absent" ? " absent" : "") +
             '" data-enr="' + LT.esc(r.enrollment_id) + '">' +
@@ -895,6 +967,20 @@
          Postgres error after the tap. */
       dateEl.value = state.date;
       dateEl.max = LT.today();
+
+      /* Typing re-renders from memory, so it is instant. The register is
+         not re-read and no mark is touched. */
+      LT.$("#attFind").addEventListener("input", function () {
+        find.q = this.value || "";
+        renderGrid();
+      });
+
+      LT.$("#attUnmarked").addEventListener("click", function () {
+        find.unmarkedOnly = !find.unmarkedOnly;
+        this.classList.toggle("active", find.unmarkedOnly);
+        this.setAttribute("aria-pressed", String(find.unmarkedOnly));
+        renderGrid();
+      });
 
       dateEl.addEventListener("change", function () {
         var v = this.value;

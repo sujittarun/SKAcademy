@@ -113,7 +113,39 @@
   .mp-hint b { color: var(--tx-gold); font-weight: 700; }
   .mp-warn { font-size: 11.5px; color: var(--tx-red); line-height: 1.5; }
 
+  /* ---------- the roster becomes cards on a phone ----------
+     Five columns need 747px. In a 375px viewport that is a sideways
+     scroll on EVERY row just to see whether a fee is due — measured at
+     125 members, which is what this academy actually has.
+
+     CSS only: the row markup and the tap-to-open handler are untouched,
+     the table simply stops behaving like a table below 700px. The header
+     row goes because a card labels itself. */
   @media (max-width: 699px) {
+    .table-wrap { overflow-x: visible; }
+    .lt-table thead { display: none; }
+    .lt-table, .lt-table tbody { display: block; width: 100%; }
+    .lt-table tr.mem-row {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+      border: 1px solid var(--line); border-radius: 14px;
+      background: var(--tile-bg); padding: 8px 11px; margin-bottom: 7px;
+    }
+    /* the avatar earns its space on a wide table and costs a line here */
+    .lt-table tr.mem-row .pl-name .av { width: 30px; height: 30px; font-size: 11px; }
+    .lt-table tr.mem-row .t-name { font-size: 14px; }
+    .lt-table tr.mem-row .sub2 { font-size: 11.5px; }
+    .lt-table tr.more-row { display: block; text-align: center; padding: 6px 0 2px; }
+    .lt-table tr.more-row td { display: block; }
+    .lt-table tr.mem-row td { display: block; border: 0; padding: 0; }
+    /* the name owns the first line */
+    .lt-table tr.mem-row td:nth-child(1) { flex: 1 1 100%; }
+    /* batch · status · renewal share the second, phone actions sit right */
+    .lt-table tr.mem-row td:nth-child(2),
+    .lt-table tr.mem-row td:nth-child(4),
+    .lt-table tr.mem-row td:nth-child(5) { flex: 0 1 auto; font-size: 12.5px; }
+    .lt-table tr.mem-row td:nth-child(3) { flex: 1 0 auto; text-align: right; }
+    .lt-table tr.mem-row td.num { text-align: right; }
+
     .pl-bar input[type="search"] { max-width: none; width: 100%; }
     .pl-bar .lt-filter, .pl-bar .lt-filter select { width: 100%; }
     .md-stats { grid-template-columns: 1fr; }
@@ -373,6 +405,12 @@
       var BOOK_DAYS = 45;        /* facility-booking window in the detail  */
       var PLAN_MONTHS = [1, 3, 6, 12];   /* record_fee_payment accepts only these */
 
+      /* One screenful and a bit on a laptop, about four on a phone. Big
+         enough that a small academy never sees the button, small enough
+         that a large one is not handed 125 rows it did not ask for. */
+      var PAGE = 40;
+      var QUEUE_PAGE = 20;
+
       var state = {
         members: [],  membersErr: null,  membersLoaded: false,
         batches: [],
@@ -385,6 +423,8 @@
         upi: null, upiErr: null,   /* the academy default, for the header line */
         bookings: null, bookingsErr: null,
         filter: { q: "", batch: "all", status: "all", standing: "all" },
+        page: 40,                  /* rows DRAWN, not rows loaded */
+        queuePage: 20,             /* reminder rows drawn; see renderQueue */
         openId: null,              /* member id shown in the detail panel */
         detailSeq: 0,
         feeSeq: 0,
@@ -936,7 +976,19 @@
           return;
         }
 
-        host.innerHTML = rows.map(function (r) {
+        /* Same cap as the roster, and for a sharper reason: this list has
+           no natural ceiling. reminder_queue() returns everyone standing on
+           a rung of the ladder, so a quiet Tuesday is four rows and the
+           first of the month is most of the academy. Measured at 125
+           members with everyone due, it drew 23,227px — 28 screens — above
+           the member table, which is why the roster felt endless even when
+           the table itself was short.
+
+           It is a WORK QUEUE: you go down it making calls. Twenty at a time
+           is a session's worth, and the rest are one tap away. */
+        var qShown = Math.min(state.queuePage, rows.length);
+
+        host.innerHTML = rows.slice(0, qShown).map(function (r) {
           var blocked = r.blocked_reason ? String(r.blocked_reason) : "";
           var cls = "rem-item rem-open";
           if (blocked) cls += " stopped";
@@ -976,9 +1028,22 @@
             '<span class="rm-acts">' + acts + "</span>" +
             "</div>";
         }).join("");
+
+        if (qShown < rows.length) {
+          host.insertAdjacentHTML("beforeend",
+            '<button type="button" class="btn btn-glass btn-sm" id="moreQueue" ' +
+            'style="align-self:center;margin-top:4px;">Show ' +
+            Math.min(QUEUE_PAGE, rows.length - qShown) + " more · " +
+            (rows.length - qShown) + " still due</button>");
+        }
       }
 
       byId("remList").addEventListener("click", function (e) {
+        if (e.target.closest && e.target.closest("#moreQueue")) {
+          state.queuePage += QUEUE_PAGE;
+          renderQueue();
+          return;
+        }
         var wa = e.target.closest ? e.target.closest("[data-wa]") : null;
         if (wa) { e.stopPropagation(); remindFromQueue(wa.getAttribute("data-wa")); return; }
         if (e.target.closest && e.target.closest("a")) return;   /* tel: link */
@@ -1084,7 +1149,19 @@
           return;
         }
 
-        host.innerHTML = list.map(function (m) {
+        /* ---------- draw a page at a time ----------
+           At 125 members every row sat in the DOM at once: 47 screens of
+           scroll on a phone, with the search box far above whatever you
+           were looking at. A roster is a thing you SEARCH, not a thing you
+           read end to end, so it opens at roughly one screenful and grows
+           on request.
+
+           This caps what is DRAWN, never what is loaded. The counts above,
+           every filter and the search all still see all 125. */
+        var shown = Math.min(state.page, list.length);
+        var slice = list.slice(0, shown);
+
+        host.innerHTML = slice.map(function (m) {
           var en = enrolOf(m);
           var qr = queueOf(m);
           var parent = (en && en.parent_name) || (qr && qr.parent_name) || "";
@@ -1113,10 +1190,24 @@
             "<td>" + renewalCell(m) + "</td>" +
             "</tr>";
         }).join("");
+
+        if (shown < list.length) {
+          host.insertAdjacentHTML("beforeend",
+            '<tr class="more-row"><td colspan="5">' +
+              '<button type="button" class="btn btn-glass btn-sm" id="showMore">' +
+              "Show " + Math.min(PAGE, list.length - shown) + " more · " +
+              (list.length - shown) + " still hidden</button>" +
+            "</td></tr>");
+        }
       }
 
       byId("rows").addEventListener("click", function (e) {
         if (e.target.closest && e.target.closest("a")) return;   /* tel: / wa.me */
+        if (e.target.closest && e.target.closest("#showMore")) {
+          state.page += PAGE;
+          renderRows();
+          return;
+        }
         var row = e.target.closest ? e.target.closest(".mem-row") : null;
         if (row) openMember(row.getAttribute("data-mid"));
       });
@@ -1129,16 +1220,20 @@
       /* ---------- filters ---------- */
       byId("q").addEventListener("input", function () {
         state.filter.q = this.value.trim().toLowerCase();
+        state.page = PAGE;   /* a new filter is a new list */
         renderRows();
       });
       byId("batchFilter").addEventListener("change", function () {
-        state.filter.batch = this.value; renderRows();
+        state.filter.batch = this.value; state.page = PAGE;   /* a new filter is a new list */
+        renderRows();
       });
       byId("statusFilter").addEventListener("change", function () {
-        state.filter.status = this.value; renderRows();
+        state.filter.status = this.value; state.page = PAGE;   /* a new filter is a new list */
+        renderRows();
       });
       byId("standingFilter").addEventListener("change", function () {
-        state.filter.standing = this.value; renderRows();
+        state.filter.standing = this.value; state.page = PAGE;   /* a new filter is a new list */
+        renderRows();
       });
       byId("reloadBtn").addEventListener("click", function () { loadAll(); });
 
