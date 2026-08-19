@@ -811,32 +811,41 @@
         aadhaar: ["image/jpeg", "image/png", "image/webp", "application/pdf"]
       };
 
+      /* Drops whatever is attached WITHOUT touching the error line. Kept
+         separate from showDoc because the first version cleared the error
+         it had just written: a rejected file vanished from the preview
+         with no message saying why, which is the worst of both. */
+      function clearDoc(kind) {
+        var img = LT.$("#" + kind + "Img");
+        docs[kind] = null;
+        LT.$("#" + kind + "Prev").hidden = true;
+        if (img.src) { try { URL.revokeObjectURL(img.src); } catch (e) {} img.removeAttribute("src"); }
+        /* The input keeps a rejected file otherwise, so picking the same
+           file again would fire no change event and look ignored. */
+        LT.$("#" + kind + "File").value = "";
+      }
+
       function showDoc(kind, file) {
         var prev = LT.$("#" + kind + "Prev");
         var img  = LT.$("#" + kind + "Img");
         var nameEl = LT.$("#" + kind + "Name");
         var err  = LT.$("#" + kind + "Err");
-        err.textContent = "";
 
-        if (!file) {
-          docs[kind] = null;
-          prev.hidden = true;
-          if (img.src) { try { URL.revokeObjectURL(img.src); } catch (e) {} img.removeAttribute("src"); }
-          LT.$("#" + kind + "File").value = "";
-          return;
-        }
+        if (!file) { err.textContent = ""; clearDoc(kind); return; }
+
         if (DOC_OK[kind].indexOf(file.type) < 0) {
+          clearDoc(kind);
           err.textContent = kind === "photo"
             ? "Please choose a JPG or PNG photo."
             : "Please attach a JPG, PNG or PDF.";
-          showDoc(kind, null);
           return;
         }
         if (file.size > DOC_MAX) {
+          clearDoc(kind);
           err.textContent = "That file is larger than 5 MB. Please pick a smaller one.";
-          showDoc(kind, null);
           return;
         }
+        err.textContent = "";
 
         docs[kind] = file;
         nameEl.textContent = file.name;
