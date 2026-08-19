@@ -34,10 +34,17 @@ declare
     'Aarav','Vihaan','Dhruv','Kavin','Nithin','Pranav','Rithvik','Sanjay','Tharun','Vishal',
     'Yuvan','Adhya','Ishani','Keerthana','Nivedha','Swetha','Bhavesh','Charan','Deepak','Eshwar',
     'Gokul','Harish','Jeeva','Karthik','Lokesh','Mithun','Naveen','Prithvi','Rohit','Surya'];
+  /* FIVE surnames, paired with the thirty first names by INTEGER DIVISION
+     — first[i % 30] with last[i / 30] — which gives 30 x 5 = 150 distinct
+     people.
+
+     The first version used last[(i * 7 + 3) % 15]. 210 % 15 = 0, so member
+     i and member i+30 got the same first name AND the same surname: 150
+     students sharing 30 names, five copies each. A register full of
+     identical names cannot be tested against, because you cannot tell
+     which row you just tapped. */
   v_last    text[] := array[
-    'Krishnamurthy','Sundaravel','Rajasekar','Balachandar','Chidambaram',
-    'Ponnusamy','Vaidyanathan','Kandaswamy','Thirumalai','Venkataraman',
-    'Muthukumar','Sivaprakash','Ramanujam','Alagappan','Meenakshisundaram'];
+    'Krishnamurthy','Sundaravel','Rajasekar','Balachandar','Chidambaram'];
   i         int;
   v_name    text;
   v_member  bigint;
@@ -55,7 +62,7 @@ begin
   -- ---------- build the names, then prove none is a real person ----------
   v_names := array[]::text[];
   for i in 0 .. 149 loop
-    v_names := v_names || (v_first[1 + (i % 30)] || ' ' || v_last[1 + ((i * 7 + 3) % 15)]);
+    v_names := v_names || (v_first[1 + (i % 30)] || ' ' || v_last[1 + (i / 30)]);
   end loop;
 
   select string_agg(distinct m.name, ', ') into v_clash
