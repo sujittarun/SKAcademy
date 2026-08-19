@@ -12,9 +12,12 @@
   .jn-wrap { min-height: 100svh; display: grid; place-items: center; padding: var(--gap-4); }
   .jn-card { width: min(440px, 100%); }
   .jn-head { text-align: center; margin-bottom: var(--gap-4); }
-  .jn-head .mark { width: 56px; height: 56px; border-radius: 16px; margin: 0 auto 12px;
-                   background: var(--gold-grad); color: #231d00; display: grid; place-items: center;
-                   font-family: var(--font-display); font-weight: 800; font-size: 19px; }
+  /* The SVG mark paints its own badge, so this is only a box to centre it
+     in — a gold background here would sit behind a gold badge. */
+  .jn-head .mark { width: 56px; height: 56px; margin: 0 auto 12px;
+                   display: grid; place-items: center; }
+  .jn-head .mark svg { border-radius: 15px;
+                   filter: drop-shadow(0 4px 14px rgba(16, 31, 56, .3)); }
   .jn-note { font-size: 12px; color: var(--ink-faint); margin-top: -2px; }
   .jn-foot { text-align: center; margin-top: var(--gap-3); font-size: 13px; }
 </style>
@@ -25,7 +28,7 @@
   <main class="jn-wrap">
     <div class="glass glass-card jn-card reveal in">
       <div class="jn-head">
-        <div class="mark">SKA</div>
+        <div class="mark" id="brandMark"></div>
         <h1 style="font-size:21px;">Ask for an account</h1>
         <p class="faint" style="font-size:13px;margin-top:4px;">
           For coaches and staff at VAKAMAN FE. The academy sets up the login and emails you a link.
@@ -102,6 +105,13 @@
      ============================================================ */
   (function () {
     "use strict";
+
+    /* The real mark, not the initials. */
+    (function () {
+      var m = document.getElementById("brandMark");
+      if (m && window.LT && LT.logoSVG) m.innerHTML = LT.logoSVG(56);
+    })();
+
     var $ = function (s) { return document.querySelector(s); };
 
     $("#form").addEventListener("submit", function (e) {

@@ -450,15 +450,24 @@ button { font-family: inherit; }
 .lt-nav.glass::after { display: none; }
 
 .nav-brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
-/* Dark signboard tile keeps the venue's ivory-and-gold player emblem
-   legible in both themes and echoes the physical North sign. */
-/* The player emblem is a full two-player composition (solid gold smasher
-   + a second player and shuttles in WHITE linework) that fills its whole
-   canvas — no box, no crop: render the complete artwork. A theme-aware
-   drop-shadow keeps the white strokes legible over light glass. */
+/* THE MARK IS A SQUARE BADGE, and this block used to describe somebody
+   else's. It arrived from MatchPoint with a 60x46 box for "a full
+   two-player composition (solid gold smasher + a second player and
+   shuttles in WHITE linework)" and, in light mode, filter: url(#mxInk) —
+   an ink filter built to turn white linework dark.
+
+   Super Kings' mark is a gold badge with navy inside it. Stretched to
+   60x46 it distorted, and #mxInk in light mode recoloured the one thing
+   that must not move: the brand's own gold. Same failure as the .lt-bg
+   violet literals — a value inherited from the app this was forked from
+   and never re-derived.
+
+   A square box, a soft shadow, and NO filter in either theme: the badge
+   carries its own contrast, so it needs no help and tolerates no
+   interference. */
 .nav-brand .mark {
-  width: 60px;
-  height: 46px;
+  width: 40px;
+  height: 40px;
   flex: none;
   display: grid;
   place-items: center;
@@ -467,15 +476,12 @@ button { font-family: inherit; }
   box-shadow: none;
 }
 .nav-brand .mark svg, .nav-brand .mark img {
-  width: 60px; height: auto; max-width: none; flex: none;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.55));
+  width: 40px; height: 40px; max-width: none; flex: none; border-radius: 11px;
+  filter: drop-shadow(0 3px 10px rgba(16, 31, 56, 0.35));
 }
 :root[data-theme="light"] .nav-brand .mark svg,
 :root[data-theme="light"] .nav-brand .mark img {
-  /* light mode: white players → dark ink, gold centre stays amber —
-     mirrors the dark theme's white+gold structure (filter defined by
-     core.js, see injectInkFilter) */
-  filter: url(#mxInk);
+  filter: drop-shadow(0 2px 8px rgba(45, 55, 90, 0.22));
 }
 .nav-brand .t { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
 .nav-brand .t strong {

@@ -71,7 +71,6 @@
      nav of a client demo is worse than no image), and NO CSK or IPL
      artwork is reproduced anywhere in this repo. Drop the real file in as
      assets/img/ska-mark.png and this picks it up. */
-  var MARK_SRC = "assets/img/ska-mark.png";
   /* null  = try the file, fall back to the monogram via onerror
      false = do not even request it
 
@@ -81,14 +80,61 @@
      devtools on their own new site and seeing failed requests is a poor
      first impression for exactly the reason the fallback exists.
      Drop assets/img/ska-mark.png in, change this to null, done. */
-  var markOk = false;
+  /* ---------- the mark ----------
+     Drawn here rather than loaded, for two reasons. assets/img/ska-mark.png
+     was referenced from day one and never existed, so every screen quietly
+     fell through to a text monogram — a gold square with "SKA" in it, which
+     is what "plain and boring" was. And an inline SVG cannot 404, scales to
+     any size, and needs no second request.
+
+     WHAT IT IS: a crown sitting on three stumps, with a seamed ball.
+     "Super Kings" gives the crown, cricket gives the stumps and the ball,
+     and the two share one silhouette rather than sitting side by side.
+
+     WHAT IT DELIBERATELY IS NOT: anything resembling the CSK lion. The
+     brief was CSK-themed colours without copying the mark, so the palette
+     is the borrowed part and the drawing is ours.
+
+     Built from four solid shapes and no strokes under 2px, because the
+     nav renders it at 40px and hairlines disappear there. */
   LT.logoSVG = function (size) {
     var w = size || 40;
-    if (markOk === false) return monogram(w);
-    return '<img src="' + MARK_SRC + '" width="' + w + '" alt="' + ACADEMY +
-           '" style="display:block;border-radius:8px" ' +
-           'onerror="this.outerHTML=window.LT._monogram(' + w + ')" />';
+    /* The gradient id is suffixed so two marks on one page (nav + a card)
+       cannot both answer to the same id — the second would inherit the
+       first's stops and, if the first is ever removed, lose its fill. */
+    var gid = "skaMark" + (LT._markN = (LT._markN || 0) + 1);
+    return '' +
+      '<svg viewBox="0 0 48 48" width="' + w + '" height="' + w + '" role="img" ' +
+           'aria-label="' + ACADEMY + '" style="display:block">' +
+        '<defs>' +
+          '<linearGradient id="' + gid + '" x1="0" y1="0" x2="1" y2="1">' +
+            '<stop offset="0" stop-color="#ffe07a"/>' +
+            '<stop offset=".55" stop-color="#f2c220"/>' +
+            '<stop offset="1" stop-color="#d99a00"/>' +
+          '</linearGradient>' +
+        '</defs>' +
+        '<rect width="48" height="48" rx="12" fill="url(#' + gid + ')"/>' +
+        /* one specular sweep across the top, the same trick the glass
+           surfaces use, so the badge belongs to the same material */
+        '<path d="M0 12A12 12 0 0 1 12 0h24a12 12 0 0 1 12 12v5H0z" fill="#fff" opacity=".16"/>' +
+        '<g fill="#101f38">' +
+          /* crown: three points, flat base, sitting ON the stumps */
+          '<path d="M12.5 21.5V12l5 4.5L24 9l6.5 7.5 5-4.5v9.5z"/>' +
+          /* stumps: the middle one longer, as they are */
+          '<rect x="15.6" y="24" width="3.2" height="12" rx="1.6"/>' +
+          '<rect x="22.4" y="24" width="3.2" height="14" rx="1.6"/>' +
+          '<rect x="29.2" y="24" width="3.2" height="12" rx="1.6"/>' +
+        '</g>' +
+        /* the ball, cut into the badge so it reads at 40px: a dark disc with
+           a lighter seam rather than an outline that would vanish */
+        '<circle cx="36.5" cy="33.5" r="5.5" fill="#101f38"/>' +
+        '<path d="M33.6 29.6a6 6 0 0 1 0 7.8" stroke="#f2c220" stroke-width="1.4" ' +
+              'fill="none" stroke-linecap="round"/>' +
+      "</svg>";
   };
+
+  /* Kept because older markup still calls it, and because a mark that
+     cannot draw should still leave the academy's initials behind. */
   function monogram(w) {
     var f = Math.round(w * 0.42);
     return '<span aria-label="' + ACADEMY + '" style="display:grid;place-items:center;' +
@@ -96,7 +142,7 @@
       'background:var(--gold-grad);color:#231d00;font-weight:800;' +
       'font-size:' + f + 'px;letter-spacing:-.5px;line-height:1">SKA</span>';
   }
-  LT._monogram = function (w) { markOk = false; return monogram(w); };
+  LT._monogram = function (w) { return monogram(w); };
 
   /* ---------- Theme (dark-first, persisted) ---------- */
   LT.theme = {
