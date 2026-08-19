@@ -103,9 +103,12 @@
   .sd .sd-tot {
     font-family: var(--font-display); font-weight: 800; letter-spacing: -.02em;
     line-height: 1; color: var(--tx-gold);
-    /* The total is ₹900 one month and ₹2,40,000 the next, and a fixed
-       size either overflows the hole or wastes it. */
-    font-size: clamp(17px, 4.6vw, 25px);
+    /* Sized in JS from the LENGTH OF THE NUMBER, not from the viewport.
+       The hole is 168px wide on a phone and on a laptop alike, so a vw
+       clamp — which is what this was — shrank ₹20,900 to 17px on mobile
+       where it had room for 25px, and would have let ₹12,40,000 overflow
+       on a desktop where it did not. The number decides, not the screen. */
+    font-size: 25px;
   }
   .sd .sd-cap {
     font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
@@ -118,7 +121,7 @@
     align-items: center; gap: 9px;
     padding: 7px 8px; border-radius: 10px;
   }
-  .sd-lg + .sd-lg { border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; }
+  .sd-lg + .sd-lg { border-top: 1px solid var(--line); }
   .sd-sw { width: 11px; height: 11px; border-radius: 3px; }
   .sd-sw.fees   { background: var(--gold-grad); }
   .sd-sw.nets   { background: linear-gradient(90deg, #6ee7b7, #34d399); }
@@ -982,6 +985,22 @@
          largest arc. */
       var R = 54, CIRC = 2 * Math.PI * R, run = 0;
 
+      /* The hole gives 132px of usable width at every breakpoint — it is a
+         168px box less 18px of padding each side — so the only thing that
+         can overflow it is a long number: "₹900" and "₹1,24,00,000" are
+         the same element on the same screen.
+
+         The steps are MEASURED, not estimated. Rendered in the display
+         face on 2026-08-19: ₹12,40,000 is 120px at 25px, ₹1,24,00,000 is
+         140px at 25px and 118px at 21px. A first guess shrank anything
+         over seven characters, which quietly dropped ₹2,40,000 to 21px
+         with 25px of room to spare.
+
+         Stepped rather than measured at run time, because measuring means
+         painting, reading back and reflowing — which the eye catches. */
+      var totStr = LT.fmtINR(total);
+      var totPx = totStr.length <= 10 ? 25 : totStr.length <= 12 ? 21 : 17;
+
       var arcs = rows.map(function (s) {
         var v = known[s.key];
         /* A stream that earned nothing gets NO arc. A zero-length dash
@@ -1024,7 +1043,8 @@
             "</svg>" +
             '<div class="sd-hole">' +
               "<div>" +
-                '<div class="sd-tot">' + LT.esc(LT.fmtINR(total)) + "</div>" +
+                '<div class="sd-tot" style="font-size:' + totPx + 'px;">' +
+                  LT.esc(totStr) + "</div>" +
                 '<div class="sd-cap">Collected' +
                   (broken.length ? "*" : "") +
                 "</div>" +
