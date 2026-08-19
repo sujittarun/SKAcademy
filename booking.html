@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=18" />
+<link rel="stylesheet" href="assets/css/glass.css?v=19" />
 <style>
   /* Page-local LAYOUT only. Glass, buttons, fields, pills, .slot,
      .form-msg and .lt-empty all come from glass.css. */
@@ -351,15 +351,15 @@
     </div>
   </main>
 
-  <script src="assets/js/core.js?v=18"></script>
-  <script src="assets/js/cloud.js?v=18"></script>
+  <script src="assets/js/core.js?v=19"></script>
+  <script src="assets/js/cloud.js?v=19"></script>
   <!-- dev-data.js loads for shell consistency and is DELIBERATELY NOT USED
        here. Sample rows behind the striped banner are a preview on a staff
        screen; on a public page they would be a customer shown invented
        availability with no way to tell. A failed read says "could not
        load" instead — an empty academy and a broken one must not look
        alike. -->
-  <script src="assets/js/dev-data.js?v=18"></script>
+  <script src="assets/js/dev-data.js?v=19"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -780,7 +780,11 @@
         } else if (!slots) {
           LT.skeleton(el.ground, 1);
         } else if (groundTaken() >= courts.ground) {
-          el.ground.innerHTML = '<div class="cell-status red">Taken on ' + LT.esc(longDate(el.date.value)) + "</div>";
+          /* Say what to do next. "Taken" alone leaves a family staring at a
+             dead end with no idea the next day might be free. */
+          el.ground.innerHTML = '<div class="cell-status red">Taken on ' + LT.esc(longDate(el.date.value)) + "</div>" +
+            '<div class="hint" style="margin-top:8px;">The whole ground is booked that day. Pick another date above — ' +
+            "or call the academy and they will tell you what is free.</div>";
         } else {
           el.ground.innerHTML = '<div class="cell-status green">Free on ' + LT.esc(longDate(el.date.value)) + "</div>";
         }
@@ -800,6 +804,22 @@
         var haveDate = !!el.date.value;
         var haveSurface = nets && !!sport;
         if (haveDate && (nets ? (haveSurface && selected.length > 0) : groundOk())) lastOpen = true;
+
+        /* ...but the GROUND closes it again when the day is gone.
+           lastOpen latches on purpose: for nets it holds the half-typed
+           name and the error message, and hiding it when the last hour is
+           deselected would throw both away. The ground has no hours, so
+           the only thing that can change is the DAY — and a day that is
+           already sold must not keep a price and a "Book the ground"
+           button underneath a line reading "Taken".
+
+           The button was disabled and the server's unique index would have
+           refused it, so nothing could actually be double-sold; it simply
+           read as bookable, which is its own kind of wrong.
+
+           Only when we KNOW: slots loaded, no read error, genuinely full.
+           A date still being checked leaves the step alone. */
+        if (!nets && slots && !loadErr && groundTaken() >= courts.ground) lastOpen = false;
 
         var fresh = [];
         function step(node, on) {
