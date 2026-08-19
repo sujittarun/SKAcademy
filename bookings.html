@@ -257,6 +257,9 @@
     .day-sum .stat-card .delta,
     .day-sum .stat-card .sub { display: none; }
   }
+  /* the expand control sits under its own facility's grid */
+  .nt-more { width: 100%; margin-top: 8px; }
+  @media (min-width: 700px) { .nt-more { display: none; } }
 </style>
 </head>
 <body>
@@ -1111,8 +1114,45 @@
         }).join("");
       }
 
+      /* ---------- how much of the day to draw ----------
+         The board is 17 hours x 2 courts x 2 facilities = 68 cells. On a
+         desktop that is a glanceable grid; on a phone it measured 2,486px
+         — 3.1 screens — and almost every cell was an empty hour nobody
+         booked.
+
+         So on a narrow screen it opens SHORT: the hours that actually have
+         something in them, plus the next three sellable ones so putting a
+         walk-in on a net is still one tap. "Show the whole day" expands it,
+         and the choice sticks for the session.
+
+         A desktop is untouched — there is room there, and the full grid is
+         genuinely the better view when it fits. */
+      var netsAll = false;
+
+      function isNarrow() {
+        try { return window.matchMedia("(max-width: 699px)").matches; }
+        catch (e) { return window.innerWidth <= 699; }
+      }
+
+      function hoursFor(f, cells, isToday, nowH) {
+        var all = [], h;
+        for (h = HOUR_OPEN; h <= HOUR_LAST; h++) all.push(h);
+        if (netsAll || !isNarrow()) return all;
+
+        var from = isToday ? Math.max(HOUR_OPEN, nowH) : HOUR_OPEN;
+        return all.filter(function (hr) {
+          for (var i = 0; i < f.courts.length; i++) {
+            if (cells[f.courts[i] + "|" + hr]) return true;   /* something is in it */
+          }
+          return hr >= from && hr < from + 3;                 /* the next few to sell */
+        });
+      }
+
       /* One block per facility, in board order: Astro, then Matting. */
+      var lastNetCells = null;
+
       function paintNets(cells) {
+        lastNetCells = cells;
         var isToday = state.date === LT.today();
         var nowH = new Date().getHours();
         var host = byId("netsBody");
@@ -1134,12 +1174,14 @@
           var label = LT.courtLabel(c);
           grid += '<div class="nt-h">' + esc(label) + (label === c ? "" : "<small>" + esc(c) + "</small>") + "</div>";
         });
-        for (var h = HOUR_OPEN; h <= HOUR_LAST; h++) {
+        var hours = hoursFor(f, cells, isToday, nowH);
+        hours.forEach(function (h) {
           grid += '<div class="nt-hour">' + hourShort(h) + "<small>to " + hourShort((h + 1) % 24) + "</small></div>";
           for (var i = 0; i < f.courts.length; i++) {
             grid += netCell(cells[f.courts[i] + "|" + h], h, f.courts[i], f, isToday, nowH);
           }
-        }
+        });
+        var hidden = (HOUR_LAST - HOUR_OPEN + 1) - hours.length;
 
         return '<section class="fac">' +
           '<div class="fac-head">' +
@@ -1149,7 +1191,12 @@
             '<div class="fac-rate" id="ntRate' + idx + '">checking rate…</div>' +
           "</div>" +
           '<div class="nt-scroll"><div class="nt-grid" style="--nt-cols:' + f.courts.length + '">' +
-          grid + "</div></div></section>";
+          grid + "</div></div>" +
+          (hidden > 0
+            ? '<button type="button" class="btn btn-glass btn-sm nt-more" data-nets-all="1">' +
+              "Show the whole day · " + hidden + " more hours</button>"
+            : "") +
+          "</section>";
       }
 
       function netCell(b, hour, court, fac, isToday, nowH) {
@@ -1768,6 +1815,12 @@
 
         if ((el = t.closest("#prevMonth"))) { state.month = addMonths(state.month || monthStart(state.date), -1); loadMonth(); return; }
         if ((el = t.closest("#nextMonth"))) { state.month = addMonths(state.month || monthStart(state.date),  1); loadMonth(); return; }
+
+        if ((el = t.closest("[data-nets-all]"))) {
+          netsAll = true;
+          if (lastNetCells) paintNets(lastNetCells);
+          return;
+        }
 
         if ((el = t.closest("[data-decline]"))) {
           var did = el.getAttribute("data-decline");

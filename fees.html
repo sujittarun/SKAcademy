@@ -209,7 +209,10 @@
         </div>
       </div>
 
-      <div class="glass glass-card reveal d1">
+      <!-- Hidden whenever nothing is outstanding — same rule as the
+           dashboard's action list and the admissions tray. A panel that is
+           empty most days is a panel people stop reading. -->
+      <div class="glass glass-card reveal d1 hide" id="owedCard">
         <div class="card-head">
           <div>
             <div class="kicker">Owed to the academy</div>
@@ -750,6 +753,8 @@
         statDash("#kpiRent"); statDash("#kpiOwed");
         sub("#kpiRentSub", "Could not load", "down");
         sub("#kpiOwedSub", "Could not load", "down");
+        var oc = $("#owedCard");
+        if (oc) oc.classList.remove("hide");   /* a failure is not "nothing owed" */
         $("#owedPill").textContent = "—";
         $("#owedPill").className = "pill";
         LT.fail($("#owedBody"), S.rentErr);
@@ -777,14 +782,17 @@
         return String(a.date) < String(b.date) ? -1 : String(a.date) > String(b.date) ? 1 : 0;
       });
       var host = $("#owedBody"), pill = $("#owedPill");
+      var card = $("#owedCard");
 
+      /* Nothing owed means no panel at all. The month's figure is still on
+         the tile above, and the dashboard says so too — an "All clear" card
+         taking a screen of height to report the absence of work is the
+         thing that made this page feel repetitive. */
       if (!owed.length) {
-        pill.textContent = "All clear";
-        pill.className = "pill green";
-        LT.empty(host, "Nothing outstanding",
-          "Every confirmed booking in " + S.label + " has been collected.");
+        if (card) card.classList.add("hide");
         return;
       }
+      if (card) card.classList.remove("hide");
 
       var overdue = owed.filter(function (r) { return isoOf(r.date) && isoOf(r.date) < TODAY; });
       pill.textContent = LT.fmtINR(sum(owed, function (r) { return r.amount; }));

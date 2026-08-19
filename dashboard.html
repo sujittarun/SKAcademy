@@ -415,9 +415,12 @@
       }).length;
 
       stat("#kpiBookings", all.length);
-      sub("#kpiBookingsSub",
-          pending ? pending + " awaiting confirmation" : (all.length ? "All confirmed" : "Nothing booked yet"),
-          pending ? "down" : "up");
+      /* No confirmation count here. It said "1 awaiting confirmation" for
+         TODAY while the action list above said how many are waiting on ANY
+         day — two true numbers about different things, side by side, which
+         reads as the screen contradicting itself. The action list is the
+         one that gets acted on, so it keeps the subject. */
+      sub("#kpiBookingsSub", all.length ? "on the board today" : "Nothing booked yet");
 
       /* Sums of amounts the server put on the rows. Nothing is priced here. */
       statMoney("#kpiCollected", sum(paid));
@@ -1250,7 +1253,18 @@
        reason this tile was added. So DEV says what it cannot show, in
        wording that cannot be mistaken for "all clear". Unreachable the
        moment a live session answers the read. */
+    /* Preview mode has no inbox to read, and "no sample admissions inbox"
+       is still a panel reporting that there is nothing to do — the exact
+       thing these cards are supposed to stop doing. Hidden, like an empty
+       real inbox. */
     function devAdmissionsPanel() {
+      admShow(false);
+      todo.applications = 0;
+      renderTodo();
+      return;
+    }
+
+    function devAdmissionsPanelUnused() {
       admShow(true);
       var pill = $("#admPill");
       pill.className = "pill";
