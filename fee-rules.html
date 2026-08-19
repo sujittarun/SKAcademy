@@ -10,7 +10,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=26" />
+<link rel="stylesheet" href="assets/css/glass.css?v=27" />
 <style>
   /* ---------- the three figures ----------
      Three, and the third is the one that matters: a student whose batch
@@ -34,6 +34,10 @@
      count, and a five-column table of that collapses into unreadable
      slivers on the phone this is actually opened on. */
   .fr-list { display: grid; gap: var(--gap-3); margin-top: var(--gap-3); }
+  /* Two up on a laptop. A rules card is short and fixed-height-ish, so one
+     per row on a 1280px screen is a column of whitespace and a scroll for
+     something an academy wants to compare side by side. */
+  @media (min-width: 900px) { .fr-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .fr-card { padding: 16px 18px; }
   .fr-top { display: flex; align-items: flex-start; gap: 12px; justify-content: space-between; }
   .fr-name { font-weight: 800; font-size: 16.5px; letter-spacing: -.01em; }
@@ -181,9 +185,9 @@
     </div>
   </div>
 
-  <script src="assets/js/core.js?v=26"></script>
-  <script src="assets/js/cloud.js?v=26"></script>
-  <script src="assets/js/dev-data.js?v=26"></script>
+  <script src="assets/js/core.js?v=27"></script>
+  <script src="assets/js/cloud.js?v=27"></script>
+  <script src="assets/js/dev-data.js?v=27"></script>
   <script>
   (function () {
     "use strict";
@@ -212,9 +216,12 @@
        Read from the same fields resolve_fee() matches on, and phrased for
        someone who has never heard the word "scope". */
     function whoFor(r) {
-      if (r.member_id) return "One student — " + (r.member_name || "#" + r.member_id);
-      if (r.batch_id)  return (r.batch_name || "Batch #" + r.batch_id) + " batch";
-      if (r.centre_id && r.sport) return (r.centre_name || "one centre") + " · " + r.sport;
+      /* Phrased as WHO IT COVERS, not as a label. A rule named "Morning
+         batch" sitting above the words "Morning batch" says nothing twice;
+         "Everyone in Morning" is the fact the manager is here to check. */
+      if (r.member_id) return "Just " + (r.member_name || "one student");
+      if (r.batch_id)  return "Everyone in " + (r.batch_name || "batch #" + r.batch_id);
+      if (r.centre_id && r.sport) return "Everyone doing " + r.sport + " at " + (r.centre_name || "one centre");
       if (r.sport)     return "Everyone doing " + r.sport;
       if (r.centre_id) return "Everyone at " + (r.centre_name || "one centre");
       return "Everyone at the academy";
