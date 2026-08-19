@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=23" />
+<link rel="stylesheet" href="assets/css/glass.css?v=24" />
 <style>
   /* Page-local layout only. Glass, pills, tables, chips, modals, empty
      states and the money/skeleton helpers all come from glass.css. */
@@ -314,9 +314,12 @@
           <input type="text" id="asName" maxlength="80" placeholder="As it should appear on the register" />
         </label>
         <label class="field">
-          <span>Mobile number</span>
-          <!-- The parent's number in practice. It is how a fee reminder
-               reaches them, so it is the one field with no optional. -->
+          <span>Mobile number <span class="opt">(optional)</span></span>
+          <!-- Optional, because a roll being typed from a paper register
+               does not have every number to hand, and a form that refuses
+               the row gets abandoned halfway. Without one they simply
+               cannot be reminded — the queue reports that and declines to
+               chase, rather than anything breaking. -->
           <input type="tel" id="asPhone" inputmode="numeric" data-digits="10" placeholder="10-digit mobile" />
         </label>
         <label class="field">
@@ -425,9 +428,9 @@
     </div>
   </div>
 
-  <script src="assets/js/core.js?v=23"></script>
-  <script src="assets/js/cloud.js?v=23"></script>
-  <script src="assets/js/dev-data.js?v=23"></script>
+  <script src="assets/js/core.js?v=24"></script>
+  <script src="assets/js/cloud.js?v=24"></script>
+  <script src="assets/js/dev-data.js?v=24"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -1342,14 +1345,24 @@
         var phone = (byId("asPhone").value || "").replace(/\D/g, "");
         msg.className = "form-msg";
 
-        if (name.length < 2) { msg.textContent = "Give the student's name."; msg.className = "form-msg error"; byId("asName").focus(); return; }
-        if (phone.length !== 10) { msg.textContent = "A 10-digit mobile number is needed — it is how fee reminders reach them."; msg.className = "form-msg error"; byId("asPhone").focus(); return; }
+        /* The NAME is the only thing the database insists on. A phone is
+           welcome and, if typed at all, must be a whole one — a half-typed
+           number looks reachable, gets chased, and the WhatsApp goes to a
+           stranger. */
+        if (name.length < 2) {
+          msg.textContent = "Give the student's name.";
+          msg.className = "form-msg error"; byId("asName").focus(); return;
+        }
+        if (phone.length > 0 && phone.length !== 10) {
+          msg.textContent = "That mobile number is not 10 digits — leave it blank if you do not have it.";
+          msg.className = "form-msg error"; byId("asPhone").focus(); return;
+        }
 
         btn.disabled = true;
         msg.textContent = "Adding…";
         LT_CLOUD.addStudent({
           name: name,
-          phone: phone,
+          phone: phone || null,
           batch: byId("asBatch").value ? Number(byId("asBatch").value) : null,
           parentName: (byId("asParent").value || "").trim() || null,
           by: (LT.auth.session() || {}).email || null
@@ -1369,7 +1382,11 @@
           var money = (!fee || String(fee.source) === "unset" || fee.amount == null)
             ? "No fee is set for that batch yet, so nothing will be charged or chased."
             : "Fee " + LT.fmtINR(fee.amount) + ".";
-          LT.toast(name + " added. " + money, "ok", 6000);
+          /* Say it now, once. A student with no number is fine, but the
+             academy should learn it here rather than the first time a
+             reminder run quietly skips them. */
+          var noNum = r.no_phone ? " No number yet, so they cannot be reminded." : "";
+          LT.toast(name + " added. " + money + noNum, "ok", 6000);
 
           /* Stay open, cleared: an academy loading its roll is adding
              thirty in a row, and closing after each one would make them
