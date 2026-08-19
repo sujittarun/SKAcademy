@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Ask for an account · Super Kings Academy</title>
+  <meta name="description" content="Coaches and staff at Super Kings Academy, VAKAMAN FE — ask for a login to the academy app." />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="assets/img/favicon.svg" />
+  <link rel="stylesheet" href="assets/css/glass.css?v=16" />
+<style>
+  .jn-wrap { min-height: 100svh; display: grid; place-items: center; padding: var(--gap-4); }
+  .jn-card { width: min(440px, 100%); }
+  .jn-head { text-align: center; margin-bottom: var(--gap-4); }
+  .jn-head .mark { width: 56px; height: 56px; border-radius: 16px; margin: 0 auto 12px;
+                   background: var(--gold-grad); color: #231d00; display: grid; place-items: center;
+                   font-family: var(--font-display); font-weight: 800; font-size: 19px; }
+  .jn-note { font-size: 12px; color: var(--ink-faint); margin-top: -2px; }
+  .jn-foot { text-align: center; margin-top: var(--gap-3); font-size: 13px; }
+</style>
+</head>
+<body>
+  <div class="lt-bg" aria-hidden="true"></div>
+
+  <main class="jn-wrap">
+    <div class="glass glass-card jn-card reveal in">
+      <div class="jn-head">
+        <div class="mark">SKA</div>
+        <h1 style="font-size:21px;">Ask for an account</h1>
+        <p class="faint" style="font-size:13px;margin-top:4px;">
+          For coaches and staff at VAKAMAN FE. The academy sets up the login and emails you a link.
+        </p>
+      </div>
+
+      <form id="form" class="lt-grid" style="gap:var(--gap-3);" autocomplete="off">
+        <label class="field">
+          <span>Your name</span>
+          <input type="text" id="name" autocomplete="name" required maxlength="80"
+                 placeholder="As the academy knows you" />
+        </label>
+        <label class="field">
+          <span>Your email</span>
+          <!-- The address the setup link is sent to, so it has to be one
+               they actually read. -->
+          <input type="email" id="email" autocomplete="email" required
+                 inputmode="email" autocapitalize="none" spellcheck="false"
+                 placeholder="you@example.com" />
+        </label>
+        <label class="field">
+          <span>Mobile <span class="opt">(optional)</span></span>
+          <input type="tel" id="phone" inputmode="numeric" maxlength="15" placeholder="10-digit mobile" />
+        </label>
+        <label class="field">
+          <span>What do you do here?</span>
+          <!-- Only these two. Operator is platform-wide access across every
+               academy and is never something a form can ask for. -->
+          <select id="role">
+            <option value="coach">Coach — take attendance for my batches</option>
+            <option value="staff">Manager — the whole academy</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Anything the academy should know <span class="opt">(optional)</span></span>
+          <input type="text" id="note" maxlength="120" placeholder="Which batches, when you start…" />
+        </label>
+
+        <div class="jn-note">
+          This does not create a login. Someone at the academy approves it, and the setup
+          link comes to your email — you choose your own password.
+        </div>
+        <div class="form-msg" id="msg" role="status" aria-live="polite" style="min-height:0;"></div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="send">Send the request</button>
+      </form>
+
+      <div id="done" hidden>
+        <div class="lt-empty">
+          <div class="lt-empty-t">Request sent</div>
+          <div class="lt-empty-s" id="doneS"></div>
+        </div>
+      </div>
+
+      <div class="jn-foot"><a href="login.html">Already have a login? Sign in →</a></div>
+    </div>
+  </main>
+
+  <script src="assets/js/core.js?v=16"></script>
+  <script src="assets/js/cloud.js?v=16"></script>
+  <script>
+  /* ============================================================
+     ASK FOR AN ACCOUNT — not sign up for one.
+
+     Open sign-up is OFF on this project, deliberately: the public anon key
+     is in every tenant repo, so /auth/v1/signup was an endpoint anyone
+     could mint accounts against. And a self-made account is useless here
+     anyway — it carries no am_role and no tenant_id, so RLS shows it
+     nothing and the app says "this account has no role set".
+
+     So the page is public and the DECISION is not. This writes one row to
+     staff_requests. An operator approves it, and access-admin mints the
+     real login — the one path that sets the claims and never handles a
+     password.
+     ============================================================ */
+  (function () {
+    "use strict";
+    var $ = function (s) { return document.querySelector(s); };
+
+    $("#form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var btn = $("#send"), msg = $("#msg");
+      var name = ($("#name").value || "").trim();
+      var email = ($("#email").value || "").trim();
+
+      msg.className = "form-msg";
+      if (!name) { msg.textContent = "Please give your name."; msg.className = "form-msg error"; return; }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        msg.textContent = "That does not look like an email address.";
+        msg.className = "form-msg error";
+        $("#email").focus();
+        return;
+      }
+
+      btn.disabled = true;
+      msg.textContent = "Sending…";
+      LT_CLOUD.requestAccess({
+        name: name,
+        email: email,
+        phone: ($("#phone").value || "").trim() || null,
+        role: $("#role").value,
+        note: ($("#note").value || "").trim() || null
+      }).then(function () {
+        $("#form").hidden = true;
+        $("#done").hidden = false;
+        $("#doneS").textContent =
+          "The academy will set up your login and send a link to " + email +
+          ". Nothing else is needed from you.";
+      }).catch(function (err) {
+        btn.disabled = false;
+        msg.textContent = (err && err.message) || "Could not send that just now.";
+        msg.className = "form-msg error";
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

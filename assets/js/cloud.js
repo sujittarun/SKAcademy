@@ -448,6 +448,20 @@
     /* `keep` decides where the session is stored: true (the default) keeps
        it on the device through tab closes and phone restarts; false ties
        it to the tab, for a shared counter machine. */
+    /* Ask the academy for a login. Creates a REQUEST, never an account —
+       open sign-up is off on this project on purpose, so the only thing
+       that can mint a login is an operator approving one. */
+    requestAccess: function (o) {
+      return rpc("request_staff_access", {
+        p_tenant: TENANT,
+        p_name:  o.name,
+        p_email: o.email,
+        p_role:  o.role || "coach",
+        p_phone: o.phone || null,
+        p_note:  o.note || null
+      }, true);
+    },
+
     /* ---------- forgot password ----------
        Asks Supabase to email a one-time recovery link. Deliberately
        resolves the SAME WAY whether or not the address has an account:
