@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=19" />
+<link rel="stylesheet" href="assets/css/glass.css?v=20" />
 <style>
   /* Page-local LAYOUT only. Glass, buttons, fields, pills, .slot,
      .form-msg and .lt-empty all come from glass.css. */
@@ -93,6 +93,32 @@
   }
   .day-chip:hover { border-color: var(--input-border-hover); color: var(--ink-hi); }
   .day-chip:active { transform: scale(.96); }
+
+  /* ---------- a day that is already sold ----------
+     Three signals, because one is never enough:
+       · the number is struck through — the shape reads as "not this one"
+         before any colour is processed, and it survives colour blindness
+         and a phone in bright sun;
+       · the chip recedes (dimmer, flatter, dashed edge) so the free days
+         are what the eye lands on;
+       · a red dot, for the reader who is scanning for a status.
+     The aria-label carries "already booked" too, so it is not a purely
+     visual fact.
+
+     Still clickable: tapping shows the sentence telling them what to do,
+     which a disabled chip cannot. */
+  .day-chip.sold { border-style: dashed; opacity: .62; }
+  .day-chip.sold .dc-num { text-decoration: line-through;
+                           text-decoration-thickness: 2px;
+                           text-decoration-color: var(--tx-red); }
+  .day-chip.sold::after {
+    content: ""; position: absolute; top: 7px; right: 7px;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--tx-red);
+  }
+  .day-chip { position: relative; }
+  /* Selected AND sold: keep the selection obvious, keep the strike. The
+     chosen day must never look free just because it is chosen. */
+  .day-chip.sold.on { opacity: 1; border-style: solid; }
   .day-chip .dc-top { font-size: 11px; font-weight: 700; white-space: nowrap; line-height: 1.2; }
   .day-chip .dc-top.wd { font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; }
   .day-chip .dc-num {
@@ -351,15 +377,15 @@
     </div>
   </main>
 
-  <script src="assets/js/core.js?v=19"></script>
-  <script src="assets/js/cloud.js?v=19"></script>
+  <script src="assets/js/core.js?v=20"></script>
+  <script src="assets/js/cloud.js?v=20"></script>
   <!-- dev-data.js loads for shell consistency and is DELIBERATELY NOT USED
        here. Sample rows behind the striped banner are a preview on a staff
        screen; on a public page they would be a customer shown invented
        availability with no way to tell. A failed read says "could not
        load" instead — an empty academy and a broken one must not look
        alike. -->
-  <script src="assets/js/dev-data.js?v=19"></script>
+  <script src="assets/js/dev-data.js?v=20"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -401,6 +427,11 @@
          "Other date" input is for — the strip is the common case, not the
          whole capability. */
       var STRIP_DAYS = 14;
+      /* Availability for every chip on the strip, not just the chosen day.
+         null until the range read lands, and null forever if it fails —
+         "unknown" is a state the chips must render honestly rather than
+         guessing at. */
+      var stripSlots = null;
       var DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
       var MON_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -526,12 +557,42 @@
          of truth for the chosen date, so the chips and the native input can
          never disagree. Returns the checked chip, or null when the date is
          outside the fourteen (picked through "Other date"). */
+      /* Is the GROUND sold on this date?
+
+         Only the ground gets a verdict. A net day is "full" only if every
+         hour on every court is taken, which is rare and expensive to be
+         wrong about — a chip that says "sold" when two nets are free costs
+         the academy a booking. The ground is a single all-day unit, so
+         "taken" is a fact rather than an estimate, and it is the case that
+         actually bites: one booking removes the whole day. */
+      function groundSoldOn(iso) {
+        if (!stripSlots) return null;                 // unknown, not free
+        var n = 0;
+        for (var i = 0; i < stripSlots.length; i++) {
+          var r = stripSlots[i];
+          if (r.sport === GROUND && String(r.date) === iso) n++;
+        }
+        return n >= courts.ground;
+      }
+
       function paintStrip() {
         var cur = el.date.value, found = null;
         LT.$$(".day-chip", el.strip).forEach(function (c) {
-          var on = c.getAttribute("data-d") === cur;
+          var iso = c.getAttribute("data-d");
+          var on = iso === cur;
           c.classList.toggle("on", on);
           c.setAttribute("aria-checked", on ? "true" : "false");
+
+          /* Sold days are marked only on the GROUND track — on the nets
+             track the same day may have plenty free, and carrying a mark
+             across would be a lie. Left CLICKABLE on purpose: tapping shows
+             the sentence explaining what to do, which a disabled chip
+             cannot. */
+          var sold = (track === GROUND) && groundSoldOn(iso) === true;
+          c.classList.toggle("sold", sold);
+          var base = c.getAttribute("data-label") || c.getAttribute("aria-label") || "";
+          if (!c.getAttribute("data-label")) c.setAttribute("data-label", base);
+          c.setAttribute("aria-label", sold ? base + " — already booked" : base);
           /* Roving tabindex: one stop for the whole group, as a radiogroup
              should be — seventeen tab stops would be worse than the OS
              control this replaced. */
@@ -627,9 +688,24 @@
         loadErr = null; slots = null;
         render();
 
+        /* THE WHOLE FORTNIGHT, not just the chosen day.
+           The strip previously knew nothing about availability, so a family
+           learned a day was sold only by tapping it — and for the ground,
+           which is sold whole days at a time, that is the single most
+           useful thing a date picker could tell them. One extra read for
+           fourteen days is cheaper than the tap-and-back-out it replaces:
+           the flight to Tokyo is ~180ms and this rides alongside the reads
+           already in flight. */
+        var stripFrom = LT.isoDate(new Date());
+        var stripTo = LT.isoDate(new Date(Date.now() + (STRIP_DAYS - 1) * 86400000));
+
         Promise.all([
           LT_CLOUD.publicSlots(date, date),
-          LT_CLOUD.tenantConfig().catch(function () { return null; })
+          LT_CLOUD.tenantConfig().catch(function () { return null; }),
+          /* Never fatal: the strip falls back to plain chips, which is what
+             it has always been. A failed range read must not take the
+             booking form down with it. */
+          LT_CLOUD.publicSlots(stripFrom, stripTo).catch(function () { return null; })
         ]).then(function (out) {
           if (seq !== reqSeq) return;
           var cfg = out[1] && out[1].config;
@@ -642,6 +718,7 @@
             });
           }
           slots = out[0] || [];
+          stripSlots = out[2] || null;
           slotsAt = Date.now();
           renderSurfaces();
           render();
