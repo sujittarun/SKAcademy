@@ -48,32 +48,53 @@
     margin-top: var(--gap-3); padding-top: var(--gap-3); border-top: 1px solid var(--line); }
   .st-total .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-low); font-weight: 700; }
 
-  /* ---------- money in: the split ----------
-     "By stream" is a three-part breakdown. Given 1192px it drew three
-     bars with ~800px of empty track each, which is what "looks empty at
-     full width" was: not too little content, too much room for it.
+  /* ---------- money in: the band ----------
+     THE FIRST TRY PUT THIS BESIDE THE SIX-MONTH CHART, and it was wrong
+     for a reason that only shows with real data in it: the chart is a
+     viewBox 620x190 SVG with height:auto, so its HEIGHT is 0.31 x its
+     width. Halving the chart's column did not just narrow it, it
+     collapsed it to 135px tall — and the performance card came out half
+     the height of this one, leaving an L-shaped hole under it.
 
-     It gets a 360px column and the six-month chart takes the rest. They
-     belong beside each other — where this month's money came from, and
-     how the last six months went — and the chart is a viewBox SVG, so it
-     scales into the narrower half rather than reflowing.
-
-     Below 1000px they stack, which is also where .perf-body's own
-     breakpoint (899px) lives, so the chart never has to be both stacked
-     and squeezed. */
-  .fin-split { grid-template-columns: 360px minmax(0, 1fr); align-items: start; }
-  @media (max-width: 999px) { .lt-grid.fin-split { grid-template-columns: 1fr; } }
+     A card whose height follows its width cannot be balanced against one
+     whose height follows its content. So the chart gets its full width
+     back (255px tall, legible), and this card stops being tall and narrow
+     and becomes short and wide: a donut and one column per stream, in the
+     same rhythm as the five figures above it. Five tiles already read
+     well across 1192px; three streams and a donut read better. */
+  .sd-band { display: flex; align-items: stretch; gap: var(--gap-4); }
+  .sd-col {
+    flex: 1 1 0; min-width: 0;
+    padding-left: var(--gap-4);
+    border-left: 1px solid var(--line);
+    display: flex; flex-direction: column; justify-content: center; gap: 10px;
+  }
+  .sd-top { display: flex; align-items: flex-start; gap: 9px; min-width: 0; }
+  .sd-sw { width: 11px; height: 11px; border-radius: 3px; flex: none; margin-top: 3px; }
+  .sd-sw.fees   { background: var(--gold-grad); }
+  .sd-sw.nets   { background: linear-gradient(90deg, #6ee7b7, #34d399); }
+  .sd-sw.ground { background: linear-gradient(90deg, #a9ccff, #7fb3ff); }
+  .sd-nm { font-size: 13.5px; font-weight: 650; color: var(--ink-mid); min-width: 0; }
+  .sd-nm small { display: block; font-weight: 500; font-size: 11px; color: var(--ink-faint); margin-top: 1px; }
+  .sd-bot { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+  .sd-amt {
+    font-family: var(--font-display); font-size: 23px; font-weight: 800;
+    letter-spacing: -.02em; color: var(--ink-hi); font-variant-numeric: tabular-nums;
+  }
+  .sd-pct { font-size: 12px; font-weight: 700; color: var(--ink-low); font-variant-numeric: tabular-nums; }
+  /* A stream that took nothing is stated, never hidden — "the nets earned
+     nothing this month" is information — but it does not get the weight of
+     one that did. */
+  .sd-col.zero .sd-nm, .sd-col.zero .sd-amt { color: var(--ink-low); }
+  .sd-col.zero .sd-sw { opacity: .35; }
 
   /* ---------- the donut ----------
-     Three parts of one whole is what a donut is FOR, and it reads at a
-     glance in a way three bars never did: last month the ground was 96%
-     of everything the academy collected, which is the single most useful
-     sentence on this page.
-
-     Its own .sd-* namespace rather than the shared .donut, which draws
-     one value ring against a track and is used on other screens. */
-  .sd-wrap { display: grid; gap: var(--gap-3); }
-  .sd { position: relative; width: 168px; height: 168px; margin: 2px auto 0; }
+     Three parts of one whole is what a donut is for, and it says at a
+     glance what three bars never did: the ground was 96% of everything
+     the academy collected. Its own .sd-* namespace rather than the shared
+     .donut, which draws one value ring against a track and is used on
+     other screens. */
+  .sd { position: relative; width: 150px; height: 150px; flex: none; }
   /* -90deg so the first segment starts at twelve o'clock, where a reader
      expects a total to begin. */
   .sd svg { width: 100%; height: 100%; transform: rotate(-90deg); }
@@ -81,62 +102,37 @@
   :root[data-theme="light"] .sd .sd-track { stroke: rgba(28, 32, 44, 0.13); }
   .sd .sd-seg {
     fill: none; stroke-width: 13; stroke-linecap: butt;
-    /* Drawn from nothing on first paint, in the same spring the bars
-       used, so the card still arrives rather than appearing. */
     animation: sd-draw 0.9s var(--ease-spring) both;
   }
   @keyframes sd-draw { from { stroke-dasharray: 0 999; } }
   .sd .sd-hole {
     position: absolute; inset: 0; display: grid; place-items: center;
-    text-align: center; padding: 0 18px;
+    text-align: center; padding: 0 16px;
   }
   .sd .sd-tot {
     font-family: var(--font-display); font-weight: 800; letter-spacing: -.02em;
     line-height: 1; color: var(--tx-gold);
-    /* Sized in JS from the LENGTH OF THE NUMBER, not from the viewport.
-       The hole is 168px wide on a phone and on a laptop alike, so a vw
-       clamp — which is what this was — shrank ₹20,900 to 17px on mobile
-       where it had room for 25px, and would have let ₹12,40,000 overflow
-       on a desktop where it did not. The number decides, not the screen. */
-    font-size: 25px;
+    /* Sized in JS from the LENGTH OF THE NUMBER, not from the viewport:
+       the donut is 150px wide on a phone and on a laptop alike. */
+    font-size: 22px;
   }
   .sd .sd-cap {
-    font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
-    color: var(--ink-low); font-weight: 700; margin-top: 5px;
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--ink-low); font-weight: 700; margin-top: 4px;
   }
 
-  .sd-legend { display: grid; gap: 2px; }
-  .sd-lg {
-    display: grid; grid-template-columns: 11px minmax(0, 1fr) auto;
-    align-items: center; gap: 9px;
-    padding: 7px 8px; border-radius: 10px;
-  }
-  .sd-lg + .sd-lg { border-top: 1px solid var(--line); }
-  .sd-sw { width: 11px; height: 11px; border-radius: 3px; }
-  .sd-sw.fees   { background: var(--gold-grad); }
-  .sd-sw.nets   { background: linear-gradient(90deg, #6ee7b7, #34d399); }
-  .sd-sw.ground { background: linear-gradient(90deg, #a9ccff, #7fb3ff); }
-  .sd-nm { font-size: 13px; font-weight: 650; color: var(--ink-mid); min-width: 0; }
-  .sd-nm small { display: block; font-weight: 500; font-size: 10.5px; color: var(--ink-faint); }
-  .sd-amt {
-    text-align: right; font-weight: 700; font-size: 13.5px; color: var(--ink-hi);
-    font-variant-numeric: tabular-nums;
-  }
-  .sd-amt small {
-    display: block; font-weight: 600; font-size: 10.5px; color: var(--ink-faint);
-    font-variant-numeric: tabular-nums;
-  }
-  /* A stream that took nothing is stated, not hidden — "the nets earned
-     nothing this month" is information — but it does not get the same
-     weight as one that did. */
-  .sd-lg.zero .sd-nm, .sd-lg.zero .sd-amt { color: var(--ink-low); }
-  .sd-lg.zero .sd-sw { opacity: .35; }
-
-  /* Stacked, the card is full width again, so the donut moves beside the
-     legend instead of sitting above a short list with room to spare. */
-  @media (min-width: 700px) and (max-width: 999px) {
-    .sd-wrap { grid-template-columns: 168px minmax(0, 1fr); align-items: center; gap: var(--gap-4); }
-    .sd { margin: 0; }
+  /* Stacked below 800px: the columns cannot hold a name, a sub-label and
+     an amount side by side much under 170px each, and three of them plus
+     the donut needs 660px before it starts truncating. */
+  @media (max-width: 799px) {
+    .sd-band { flex-direction: column; align-items: stretch; gap: var(--gap-3); }
+    .sd { margin: 0 auto; }
+    .sd-col {
+      padding-left: 0; border-left: 0;
+      border-top: 1px solid var(--line); padding-top: 12px;
+      flex-direction: row; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .sd-bot { justify-content: flex-end; }
   }
 
   /* ---------- outstanding rentals ---------- */
@@ -293,7 +289,6 @@
          One card needs no grid. .lt-page is already a flex column, so
          every section below is full width, which is what the ledger's
          six-column table needs. -->
-    <div class="lt-grid fin-split">
       <div class="glass glass-card reveal">
         <div class="card-head">
           <div>
@@ -345,8 +340,6 @@
         </div>
       </div>
     </div>
-
-    </div><!-- /.fin-split -->
 
     <!-- ---------- the ledger: money in and money out, one card ----------
          Two cards became one with tabs. They were the same object — a list
@@ -977,21 +970,21 @@
          largest arc. */
       var R = 54, CIRC = 2 * Math.PI * R, run = 0;
 
-      /* The hole gives 132px of usable width at every breakpoint — it is a
-         168px box less 18px of padding each side — so the only thing that
-         can overflow it is a long number: "₹900" and "₹1,24,00,000" are
-         the same element on the same screen.
+      /* The hole gives 118px of usable width at every breakpoint — a 150px
+         box less 16px of padding each side — so the only thing that can
+         overflow it is a long number: "₹900" and "₹1,24,00,000" are the
+         same element on the same screen.
 
-         The steps are MEASURED, not estimated. Rendered in the display
-         face on 2026-08-19: ₹12,40,000 is 120px at 25px, ₹1,24,00,000 is
-         140px at 25px and 118px at 21px. A first guess shrank anything
-         over seven characters, which quietly dropped ₹2,40,000 to 21px
-         with 25px of room to spare.
+         The steps come from widths MEASURED in the display face rather
+         than estimated: at 22px a 10-character total runs about 106px and
+         a 12-character one about 123px. An earlier guess at the usable
+         width was 97px, and it was wrong — the hole is the full box, not
+         the ring's inner circle.
 
          Stepped rather than measured at run time, because measuring means
          painting, reading back and reflowing — which the eye catches. */
       var totStr = LT.fmtINR(total);
-      var totPx = totStr.length <= 10 ? 25 : totStr.length <= 12 ? 21 : 17;
+      var totPx = totStr.length <= 10 ? 22 : totStr.length <= 12 ? 19 : 16;
 
       var arcs = rows.map(function (s) {
         var v = known[s.key];
@@ -1019,7 +1012,7 @@
       }
 
       host.innerHTML =
-        '<div class="sd-wrap">' +
+        '<div class="sd-band">' +
           '<div class="sd">' +
             '<svg viewBox="0 0 120 120" role="img" aria-label="' +
               LT.esc(rows.map(function (s) {
@@ -1033,28 +1026,28 @@
               '<circle class="sd-track" cx="60" cy="60" r="' + R + '"/>' +
               arcs +
             "</svg>" +
-            '<div class="sd-hole">' +
-              "<div>" +
-                '<div class="sd-tot" style="font-size:' + totPx + 'px;">' +
-                  LT.esc(totStr) + "</div>" +
-                '<div class="sd-cap">Collected' +
-                  (broken.length ? "*" : "") +
-                "</div>" +
-              "</div>" +
-            "</div>" +
+            '<div class="sd-hole"><div>' +
+              '<div class="sd-tot" style="font-size:' + totPx + 'px;">' + LT.esc(totStr) + "</div>" +
+              '<div class="sd-cap">Collected' + (broken.length ? "*" : "") + "</div>" +
+            "</div></div>" +
           "</div>" +
-          '<div class="sd-legend">' +
-            rows.map(function (s) {
-              var v = known[s.key];
-              var share = total ? Math.round((v / total) * 100) : 0;
-              return '<div class="sd-lg' + (v > 0 ? "" : " zero") + '">' +
+          /* One column per stream, sharing the row equally — the same
+             rhythm as the five figures above, which is why the band reads
+             as part of the page rather than as a chart dropped into it. */
+          rows.map(function (s) {
+            var v = known[s.key];
+            var share = total ? Math.round((v / total) * 100) : 0;
+            return '<div class="sd-col' + (v > 0 ? "" : " zero") + '">' +
+              '<div class="sd-top">' +
                 '<span class="sd-sw ' + LT.esc(s.key) + '"></span>' +
                 '<span class="sd-nm">' + LT.esc(s.label) + "<small>" + LT.esc(s.sub) + "</small></span>" +
-                '<span class="sd-amt">' + LT.esc(LT.fmtINR(v)) +
-                  "<small>" + share + "%</small></span>" +
-              "</div>";
-            }).join("") +
-          "</div>" +
+              "</div>" +
+              '<div class="sd-bot">' +
+                '<span class="sd-amt">' + LT.esc(LT.fmtINR(v)) + "</span>" +
+                '<span class="sd-pct">' + share + "%</span>" +
+              "</div>" +
+            "</div>";
+          }).join("") +
         "</div>";
 
       $("#streamNote").innerHTML = broken.length
