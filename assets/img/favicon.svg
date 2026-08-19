@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48"
+     role="img" aria-label="Super Kings Academy">
+  <!-- The nav mark from core.js LT.logoSVG(), adjusted for the size it is
+       actually seen at. A browser rasterises this SVG into a ~16px tab
+       favicon, so it was drawn and then LOOKED AT at 16px, not scaled and
+       hoped for.
+
+       Two changes from the nav version, both optical:
+         * the band under the crown is gone. At 16px it and the crown's own
+           bottom edge are two dark bars two pixels apart, and they merge
+           into a smudge — the mark stopped reading as a crown at all.
+         * the crown is 16% larger on a slightly lighter stroke, so the gold
+           counter inside it survives instead of filling in.
+       core.js already says a logo at this size gets one idea. This is the
+       same rule applied one size further down. -->
+  <defs>
+    <linearGradient id="skaFav" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe07a"/>
+      <stop offset=".55" stop-color="#f2c220"/>
+      <stop offset="1" stop-color="#d99a00"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="11" fill="url(#skaFav)"/>
+  <path d="M8.92 36.52V16.22L16.92 22.95L24 10.88L31.08 22.95L39.08 16.22V36.52Z"
+        fill="none" stroke="#101f38" stroke-width="4"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
