@@ -24,7 +24,16 @@
   .fin-kpis .stat-value { font-size: 25px; }
   .fin-kpis .delta { color: var(--ink-low); font-weight: 600; }
   .fin-kpis .stat-card.net { border-color: var(--glass-border-hover); }
-  @media (max-width: 1099px) { .lt-grid.fin-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 1099px) {
+    .lt-grid.fin-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    /* Five tiles in threes is 3 + 2, and the leftover cell sat empty at the
+       end of the second row — the most conspicuous hole on the page once
+       the band below it tightened up. The net tile takes it: the same
+       treatment the <=699px block already gives it, for the same reason.
+       It is the one number the owner opens this page for, so the wider it
+       is the better, and the row closes. */
+    .fin-kpis .stat-card.net { grid-column: span 2; }
+  }
   @media (max-width: 699px) {
     .lt-grid.fin-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .fin-kpis .stat-card { padding: 12px 14px; }
