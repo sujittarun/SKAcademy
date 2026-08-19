@@ -148,6 +148,21 @@
     (function () {
       "use strict";
 
+      /* ---------- a recovery link that landed here ----------
+         Setup and reset links are minted with redirect_to pointing at an
+         academy's SIGN-IN page, and this page has nothing that understands
+         a recovery token — so clicking one did nothing at all. That is what
+         every new coach's setup link would have done on day one.
+
+         Forward to the page that does understand it, fragment intact. Kept
+         here as well as fixing the redirect at source, because links
+         already sent are already sitting in people's inboxes. */
+      (function forwardRecovery() {
+        var h = String(location.hash || "");
+        if (h.indexOf("access_token=") < 0 && h.indexOf("error_description=") < 0) return;
+        location.replace("reset.html" + h);
+      })();
+
       var form = LT.$("#loginForm");
       var msg = LT.$("#msg");
       var btn = LT.$("#submitBtn");
