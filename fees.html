@@ -197,8 +197,21 @@
       </div>
     </div>
 
-    <!-- ---------- where it came from + what is still owed ---------- -->
-    <div class="lt-grid cols-2">
+    <!-- ---------- where it came from ----------
+         NO .lt-grid.cols-2 wrapper any more. There used to be two cards
+         here, "By stream" and "Rentals not collected"; when the second
+         moved to the dashboard its card went but the grid's closing tag
+         went with it, leaving the wrapper open all the way to the end of
+         the page.
+
+         The browser recovered by closing it there, which put the
+         performance card and the whole ledger INSIDE a two-column grid —
+         so the ledger rendered in a half-width column with its table
+         crushed and the right half of the page empty.
+
+         One card needs no grid. .lt-page is already a flex column, so
+         every section below is full width, which is what the ledger's
+         six-column table needs. -->
       <div class="glass glass-card reveal">
         <div class="card-head">
           <div>
