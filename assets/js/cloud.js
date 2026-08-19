@@ -363,6 +363,25 @@
     } catch (e) { return "nosession"; }
   }
 
+  /* A visit is not a visitor. sid() lives in sessionStorage, so closing
+     the tab makes the same person look new — which is the difference
+     between "six people opened the link" and "one person opened it six
+     times", and that is the only thing worth knowing about a link you
+     have just sent out.
+
+     localStorage, so it survives the tab and the day. Random and opaque:
+     it identifies a browser profile, not a person, and carries no name,
+     no phone and nothing derived from either. The server pairs it with
+     the IP and user-agent it can see for itself; the page is not trusted
+     for those and is not allowed to send them. */
+  function vid() {
+    try {
+      var k = PREFIX + "vid", v = localStorage.getItem(k);
+      if (!v) { v = "v_" + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem(k, v); }
+      return v;
+    } catch (e) { return null; }        // private mode: server falls back to a fingerprint
+  }
+
   function page() {
     return location.pathname.split("/").pop() || "index.html";
   }
@@ -441,7 +460,7 @@
       page: page(),
       level: "info",
       session_id: sid(),
-      props: Object.assign({ ver: APP_VER }, device(), props || {})
+      props: Object.assign({ ver: APP_VER, vid: vid() }, device(), props || {})
     };
     /* Fire-and-forget, and anon-allowed: the events insert policy accepts
        a registered tenant_id from anon. A telemetry failure must never
