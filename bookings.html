@@ -428,7 +428,7 @@
 
         <div class="lt-grid cols-2" style="gap:var(--gap-2);">
           <label class="field"><span>Phone <span class="opt">(optional)</span></span>
-            <input type="tel" name="phone" id="abPhone" placeholder="10-digit mobile" maxlength="15" />
+            <input type="tel" name="phone" id="abPhone" placeholder="10-digit mobile" maxlength="10" />
           </label>
           <label class="field"><span>Source</span>
             <select name="source" id="abSource">
@@ -1571,7 +1571,12 @@
             (charged == null ? "" : " · " + LT.fmtINR(charged)));
           state.date = payload.date;
           byId("bkDate").value = state.date;
-          load();                                            // repaint from the server, never from the input
+          /* A booking can be saved for ANOTHER month than the one on the
+             calendar, so the month has to follow the date before the
+             calendar is re-read — otherwise it refreshes the month you are
+             no longer looking at. */
+          if (monthStart(state.date) !== state.month) state.month = monthStart(state.date);
+          refreshBoard();                                    // repaint from the server, never from the input
         }).catch(function (err) {
           btn.disabled = false;
           var m = (err && err.message) || "Could not save.";
@@ -1704,7 +1709,7 @@
             closeCollect();
             closeDetail();
             LT.toast("Collected" + (got == null ? "" : " " + LT.fmtINR(got)));
-            load();
+            refreshBoard();
           }).catch(function (err) {
             btn.disabled = false;
             var m = (err && err.message) || "Could not collect.";
@@ -1758,9 +1763,7 @@
         LT_CLOUD.cancelBooking(id, reason || null).then(function () {
           closeDetail();
           LT.toast("Cancelled — the slot is free again");
-          load();
-          loadPending();
-          loadMonth();
+          refreshBoard();
         }).catch(function (err) {
           LT.toast((err && err.message) || "Could not cancel.");
         });
@@ -1770,10 +1773,33 @@
           sport: sport, date: state.date, hour: hour, court: court, reason: reason || "Maintenance"
         }).then(function () {
           LT.toast("Blocked — nobody can book it");
-          load();
+          refreshBoard();
         }).catch(function (err) {
           LT.toast((err && err.message) || "Could not block.");
         });
+      }
+
+      /* ---------- after anything is WRITTEN ----------
+         The board is three independent reads — the day, the pending tray
+         and the month calendar — and every write touches more than one of
+         them. They were refreshed by hand at each call site, so each site
+         refreshed whichever ones its author was thinking about:
+
+             confirm  -> day + tray, NOT the calendar
+             collect  -> day only
+             block    -> day only
+             add      -> day only
+             cancel   -> all three
+
+         Confirming a net therefore left the calendar showing the old
+         markers until the page was reloaded, which is exactly what was
+         reported. One function, called by all of them, so a new write path
+         cannot quietly forget one. If a read is ever added to this screen,
+         add it HERE and every action gets it. */
+      function refreshBoard() {
+        load();
+        loadPending();
+        loadMonth();
       }
 
       /* ============================================================
@@ -1844,7 +1870,7 @@
               dbtn.disabled = true;
               LT_CLOUD.cancelBooking(did, why || "Declined").then(function () {
                 LT.toast("Declined");
-                load(); loadPending(); loadMonth();
+                refreshBoard();
               }).catch(function (err) {
                 dbtn.disabled = false;
                 LT.toast((err && err.message) || "Could not decline.");
@@ -1861,8 +1887,7 @@
             var r = objOf(res) || {};
             closeDetail();
             LT.toast("Confirmed" + (r.court ? " · " + LT.courtLabel(r.court) : ""));
-            load();
-            loadPending();          // it has left the queue
+            refreshBoard();         // it has left the queue AND changed the calendar
           }).catch(function (err) {
             el.disabled = false;
             LT.toast((err && err.message) || "Could not confirm.");
@@ -1952,7 +1977,7 @@
         dateInput.value = state.date;
         load();
       });
-      byId("refreshBtn").addEventListener("click", function () { load(); loadPending(); loadMonth(); });
+      byId("refreshBtn").addEventListener("click", refreshBoard);
 
       /* ---------- go ---------- */
       hydrateConfig();

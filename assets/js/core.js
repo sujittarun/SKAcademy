@@ -321,6 +321,40 @@
   };
   LT.setCourtLabels = function (map) { LT._courtLabels = map || {}; };
 
+  /* ---------- phone and number inputs, everywhere ----------
+     Delegated on the document, so it covers inputs that did not exist when
+     the page loaded (the add-booking form, the member sheet) and any page
+     added later without anyone remembering this rule.
+
+     DIGITS ONLY, CAPPED AT maxlength. The cap is read from the element
+     rather than hardcoded to ten, because Aadhaar is also type="tel" and
+     is twelve — a blanket slice(0,10) would have silently truncated every
+     Aadhaar number to its first ten digits, which is the kind of bug that
+     shows up months later as "the number is wrong".
+
+     Stripping as they type also means a pasted "+91 99515 97567" becomes
+     9951597567 instead of being rejected at submit, which is the same
+     number and a worse experience to argue with. */
+  document.addEventListener("input", function (e) {
+    var el = e.target;
+    if (!el || el.tagName !== "INPUT") return;
+    if (el.type !== "tel" && el.inputMode !== "numeric") return;
+    if (el.dataset && el.dataset.rawInput === "1") return;   /* opt out if ever needed */
+
+    var cap = Number(el.getAttribute("maxlength")) || 10;
+    var cleaned = String(el.value || "").replace(/\D/g, "").slice(0, cap);
+    if (el.value === cleaned) return;
+
+    /* Keep the caret where the typist expects it: count the digits before
+       it, then put it back after that many digits in the cleaned value.
+       Without this, editing the middle of a number throws the caret to the
+       end on every keystroke. */
+    var pos = el.selectionStart;
+    var before = String(el.value || "").slice(0, pos).replace(/\D/g, "").length;
+    el.value = cleaned;
+    try { el.setSelectionRange(before, before); } catch (err) {}
+  });
+
   /* ---------- Count-up ----------
      Cancellable, unlike the original. A page that re-renders its stats
      after a cloud fetch otherwise leaves two rAF loops writing the same
