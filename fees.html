@@ -58,6 +58,94 @@
     .st-row .st-v { width: 88px; font-size: 12.5px; }
   }
 
+  /* ---------- money in: the split ----------
+     "By stream" is a three-part breakdown. Given 1192px it drew three
+     bars with ~800px of empty track each, which is what "looks empty at
+     full width" was: not too little content, too much room for it.
+
+     It gets a 360px column and the six-month chart takes the rest. They
+     belong beside each other — where this month's money came from, and
+     how the last six months went — and the chart is a viewBox SVG, so it
+     scales into the narrower half rather than reflowing.
+
+     Below 1000px they stack, which is also where .perf-body's own
+     breakpoint (899px) lives, so the chart never has to be both stacked
+     and squeezed. */
+  .fin-split { grid-template-columns: 360px minmax(0, 1fr); align-items: start; }
+  @media (max-width: 999px) { .lt-grid.fin-split { grid-template-columns: 1fr; } }
+
+  /* ---------- the donut ----------
+     Three parts of one whole is what a donut is FOR, and it reads at a
+     glance in a way three bars never did: last month the ground was 96%
+     of everything the academy collected, which is the single most useful
+     sentence on this page.
+
+     Its own .sd-* namespace rather than the shared .donut, which draws
+     one value ring against a track and is used on other screens. */
+  .sd-wrap { display: grid; gap: var(--gap-3); }
+  .sd { position: relative; width: 168px; height: 168px; margin: 2px auto 0; }
+  /* -90deg so the first segment starts at twelve o'clock, where a reader
+     expects a total to begin. */
+  .sd svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .sd .sd-track { fill: none; stroke: var(--line); stroke-width: 13; }
+  :root[data-theme="light"] .sd .sd-track { stroke: rgba(28, 32, 44, 0.13); }
+  .sd .sd-seg {
+    fill: none; stroke-width: 13; stroke-linecap: butt;
+    /* Drawn from nothing on first paint, in the same spring the bars
+       used, so the card still arrives rather than appearing. */
+    animation: sd-draw 0.9s var(--ease-spring) both;
+  }
+  @keyframes sd-draw { from { stroke-dasharray: 0 999; } }
+  .sd .sd-hole {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    text-align: center; padding: 0 18px;
+  }
+  .sd .sd-tot {
+    font-family: var(--font-display); font-weight: 800; letter-spacing: -.02em;
+    line-height: 1; color: var(--tx-gold);
+    /* The total is ₹900 one month and ₹2,40,000 the next, and a fixed
+       size either overflows the hole or wastes it. */
+    font-size: clamp(17px, 4.6vw, 25px);
+  }
+  .sd .sd-cap {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--ink-low); font-weight: 700; margin-top: 5px;
+  }
+
+  .sd-legend { display: grid; gap: 2px; }
+  .sd-lg {
+    display: grid; grid-template-columns: 11px minmax(0, 1fr) auto;
+    align-items: center; gap: 9px;
+    padding: 7px 8px; border-radius: 10px;
+  }
+  .sd-lg + .sd-lg { border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; }
+  .sd-sw { width: 11px; height: 11px; border-radius: 3px; }
+  .sd-sw.fees   { background: var(--gold-grad); }
+  .sd-sw.nets   { background: linear-gradient(90deg, #6ee7b7, #34d399); }
+  .sd-sw.ground { background: linear-gradient(90deg, #a9ccff, #7fb3ff); }
+  .sd-nm { font-size: 13px; font-weight: 650; color: var(--ink-mid); min-width: 0; }
+  .sd-nm small { display: block; font-weight: 500; font-size: 10.5px; color: var(--ink-faint); }
+  .sd-amt {
+    text-align: right; font-weight: 700; font-size: 13.5px; color: var(--ink-hi);
+    font-variant-numeric: tabular-nums;
+  }
+  .sd-amt small {
+    display: block; font-weight: 600; font-size: 10.5px; color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  /* A stream that took nothing is stated, not hidden — "the nets earned
+     nothing this month" is information — but it does not get the same
+     weight as one that did. */
+  .sd-lg.zero .sd-nm, .sd-lg.zero .sd-amt { color: var(--ink-low); }
+  .sd-lg.zero .sd-sw { opacity: .35; }
+
+  /* Stacked, the card is full width again, so the donut moves beside the
+     legend instead of sitting above a short list with room to spare. */
+  @media (min-width: 700px) and (max-width: 999px) {
+    .sd-wrap { grid-template-columns: 168px minmax(0, 1fr); align-items: center; gap: var(--gap-4); }
+    .sd { margin: 0; }
+  }
+
   /* ---------- outstanding rentals ---------- */
   .feed-item .fi-right { display: flex; align-items: center; gap: 8px; flex: none; }
   .feed-item .fi-ic.owed { color: var(--tx-red); }
@@ -212,6 +300,7 @@
          One card needs no grid. .lt-page is already a flex column, so
          every section below is full width, which is what the ledger's
          six-column table needs. -->
+    <div class="lt-grid fin-split">
       <div class="glass glass-card reveal">
         <div class="card-head">
           <div>
@@ -263,6 +352,8 @@
         </div>
       </div>
     </div>
+
+    </div><!-- /.fin-split -->
 
     <!-- ---------- the ledger: money in and money out, one card ----------
          Two cards became one with tabs. They were the same object — a list
@@ -879,23 +970,83 @@
       }
 
       var total = rows.reduce(function (t, s) { return t + known[s.key]; }, 0);
-      var top = rows.reduce(function (m, s) { return Math.max(m, known[s.key]); }, 0) || 1;
 
-      host.innerHTML = rows.map(function (s, i) {
+      /* ---------- the donut ----------
+         Three parts of one whole, drawn as arcs of a single circle with
+         stroke-dasharray. The total sits in the hole, so the card answers
+         "how much, and where from" in one object instead of a list plus a
+         footer.
+
+         `top` is no longer used to scale anything — a share of the whole
+         is the honest comparison, and the largest stream simply owns the
+         largest arc. */
+      var R = 54, CIRC = 2 * Math.PI * R, run = 0;
+
+      var arcs = rows.map(function (s) {
         var v = known[s.key];
-        var share = total ? Math.round((v / total) * 100) : 0;
-        return '<div class="st-row ' + s.cls + '">' +
-          '<span class="st-l">' + LT.esc(s.label) + "<small>" + LT.esc(s.sub) + "</small></span>" +
-          '<span class="st-bar"><i style="width:' + Math.round((v / top) * 100) + "%;animation-delay:" + (i * 80) + 'ms;"></i></span>' +
-          '<span class="st-v">' + LT.esc(LT.fmtINR(v)) + "<small>" + share + "% of intake</small></span>" +
+        /* A stream that earned nothing gets NO arc. A zero-length dash
+           still paints — as a dot with round caps, and as a hairline
+           seam without — and a phantom mark on a chart of money is worse
+           than a stream that is simply absent from it. It keeps its
+           legend row, where the zero is stated in words. */
+        if (!total || v <= 0) return "";
+        var len = (v / total) * CIRC;
+        /* A 2px breath between neighbours so three arcs read as three,
+           never as one ring that happens to change colour. Skipped when a
+           stream is the whole intake, where a gap would be a false seam. */
+        var seg = Math.max(len - (len >= CIRC - 0.5 ? 0 : 2), 0.5);
+        var out = '<circle class="sd-seg" stroke="url(#sd_' + s.key + ')" cx="60" cy="60" r="' + R + '" ' +
+                  'stroke-dasharray="' + seg.toFixed(2) + " " + (CIRC - seg).toFixed(2) + '" ' +
+                  'stroke-dashoffset="' + (-run).toFixed(2) + '" />';
+        run += len;
+        return out;
+      }).join("");
+
+      function grad(id, a, b) {
+        return '<linearGradient id="' + id + '" x1="0" y1="0" x2="1" y2="1">' +
+               '<stop offset="0" stop-color="' + a + '"/><stop offset="1" stop-color="' + b + '"/></linearGradient>';
+      }
+
+      host.innerHTML =
+        '<div class="sd-wrap">' +
+          '<div class="sd">' +
+            '<svg viewBox="0 0 120 120" role="img" aria-label="' +
+              LT.esc(rows.map(function (s) {
+                return s.label + " " + (total ? Math.round((known[s.key] / total) * 100) : 0) + " percent";
+              }).join(", ")) + '">' +
+              "<defs>" +
+                grad("sd_fees", "#ffd75e", "#d19a00") +
+                grad("sd_nets", "#6ee7b7", "#34d399") +
+                grad("sd_ground", "#a9ccff", "#7fb3ff") +
+              "</defs>" +
+              '<circle class="sd-track" cx="60" cy="60" r="' + R + '"/>' +
+              arcs +
+            "</svg>" +
+            '<div class="sd-hole">' +
+              "<div>" +
+                '<div class="sd-tot">' + LT.esc(LT.fmtINR(total)) + "</div>" +
+                '<div class="sd-cap">Collected' +
+                  (broken.length ? "*" : "") +
+                "</div>" +
+              "</div>" +
+            "</div>" +
+          "</div>" +
+          '<div class="sd-legend">' +
+            rows.map(function (s) {
+              var v = known[s.key];
+              var share = total ? Math.round((v / total) * 100) : 0;
+              return '<div class="sd-lg' + (v > 0 ? "" : " zero") + '">' +
+                '<span class="sd-sw ' + LT.esc(s.key) + '"></span>' +
+                '<span class="sd-nm">' + LT.esc(s.label) + "<small>" + LT.esc(s.sub) + "</small></span>" +
+                '<span class="sd-amt">' + LT.esc(LT.fmtINR(v)) +
+                  "<small>" + share + "%</small></span>" +
+              "</div>";
+            }).join("") +
+          "</div>" +
         "</div>";
-      }).join("") +
-      '<div class="st-total"><span class="lbl">Collected' +
-        (broken.length ? ", less " + LT.esc(broken.join(" and ")) : "") +
-      '</span><span class="money money-lg gold">' + LT.esc(LT.fmtINR(total)) + "</span></div>";
 
       $("#streamNote").innerHTML = broken.length
-        ? "<b>Incomplete.</b> " + LT.esc(broken.join(" and ")) +
+        ? "<b>*Incomplete.</b> " + LT.esc(broken.join(" and ")) +
           " could not be read, so this card is missing that stream. It is not a zero."
         : "Fees are counted on the date the payment was recorded; rentals on " +
           "the date of play, which is the date the month filter selects on.";
