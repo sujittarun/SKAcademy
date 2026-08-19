@@ -342,7 +342,19 @@
     if (el.dataset && el.dataset.rawInput === "1") return;   /* opt out if ever needed */
 
     var cap = Number(el.getAttribute("maxlength")) || 10;
-    var cleaned = String(el.value || "").replace(/\D/g, "").slice(0, cap);
+    var digits = String(el.value || "").replace(/\D/g, "");
+
+    /* A pasted "+91 99515 97567" is eleven or twelve digits, and slicing
+       the FIRST ten off it keeps the country code and throws away the end
+       of the number — "9199515975", a real-looking number belonging to
+       nobody. The server has always taken the LAST ten (right(phone, 10)),
+       so drop a leading 91 when that is what makes it fit. Only for
+       ten-digit fields: an Aadhaar may legitimately start with 91. */
+    if (cap === 10 && digits.length > 10 && digits.indexOf("91") === 0 &&
+        digits.length - 2 <= 10) {
+      digits = digits.slice(2);
+    }
+    var cleaned = digits.slice(0, cap);
     if (el.value === cleaned) return;
 
     /* Keep the caret where the typist expects it: count the digits before
