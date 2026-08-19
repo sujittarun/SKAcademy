@@ -36,27 +36,17 @@
     .fin-kpis .stat-card.net { grid-column: 1 / -1; }
   }
 
-  /* ---------- money in, by stream ---------- */
-  .st-row { display: flex; align-items: center; gap: 12px; font-size: 13px; margin-bottom: 11px; }
-  .st-row:last-child { margin-bottom: 0; }
-  .st-row .st-l { flex: none; width: 132px; color: var(--ink-mid); font-weight: 650; }
-  .st-row .st-l small { display: block; font-weight: 500; font-size: 10.5px; color: var(--ink-faint); }
-  .st-row .st-bar { flex: 1; min-width: 40px; height: 10px; border-radius: 6px; background: var(--line); overflow: hidden; }
-  :root[data-theme="light"] .st-row .st-bar { background: rgba(28, 32, 44, 0.14); }
-  .st-row .st-bar i { display: block; height: 100%; border-radius: 6px; transform-origin: left; animation: lt-fill-bar 0.7s var(--ease-spring) both; }
-  .st-row .st-v { flex: none; width: 104px; text-align: right; font-weight: 700; color: var(--ink-hi); font-variant-numeric: tabular-nums; }
-  .st-row .st-v small { display: block; font-weight: 600; font-size: 10.5px; color: var(--ink-faint); }
-  .st-fees i   { background: var(--gold-grad); }
-  .st-nets i   { background: linear-gradient(90deg, #6ee7b7, #34d399); }
-  .st-ground i { background: linear-gradient(90deg, #a9ccff, #7fb3ff); }
-  .st-out i    { background: linear-gradient(90deg, rgba(255,107,107,.9), rgba(220,80,86,.9)); }
+  /* ---------- money in ----------
+     The .st-row bars, and the .st-fees/.st-nets/.st-ground fills that
+     coloured them, were deleted with the design they belonged to — see
+     the donut below. Leaving them would describe a card this page no
+     longer draws, which is the sort of thing the next reader trusts.
+
+     .st-total stays: the six-month summary beside the chart still uses
+     it, and it is the only survivor. */
   .st-total { display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
     margin-top: var(--gap-3); padding-top: var(--gap-3); border-top: 1px solid var(--line); }
   .st-total .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-low); font-weight: 700; }
-  @media (max-width: 480px) {
-    .st-row .st-l { width: 96px; font-size: 12px; }
-    .st-row .st-v { width: 88px; font-size: 12.5px; }
-  }
 
   /* ---------- money in: the split ----------
      "By stream" is a three-part breakdown. Given 1192px it drew three
@@ -543,10 +533,12 @@
     var TODAY = LT.today();
 
     /* Facility vocabulary — labels, not money. */
+    /* `key` is now the swatch and the gradient id as well as the lookup —
+       the old `cls` property named a bar-fill rule that no longer exists. */
     var STREAMS = [
-      { key: "fees",   label: "Coaching fees", sub: "Members",        cls: "st-fees" },
-      { key: "nets",   label: "Practice nets", sub: "Astro & Matting", cls: "st-nets" },
-      { key: "ground", label: "Main ground",   sub: "Full day",       cls: "st-ground" }
+      { key: "fees",   label: "Coaching fees", sub: "Members" },
+      { key: "nets",   label: "Practice nets", sub: "Astro & Matting" },
+      { key: "ground", label: "Main ground",   sub: "Full day" }
     ];
 
     var EXPENSE_CATS = [
