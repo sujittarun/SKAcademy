@@ -341,18 +341,24 @@
     if (el.type !== "tel" && el.inputMode !== "numeric") return;
     if (el.dataset && el.dataset.rawInput === "1") return;   /* opt out if ever needed */
 
-    var cap = Number(el.getAttribute("maxlength")) || 10;
+    /* data-digits, NOT maxlength. maxlength truncates a PASTE before any
+       script runs, so "+91 99515 97567" arrived as "+91 99515 " and the
+       real digits were already gone — the cap has to be enforced after the
+       non-digits are stripped, which only JavaScript can do. */
+    var cap = Number(el.getAttribute("data-digits")) || 10;
     var digits = String(el.value || "").replace(/\D/g, "");
 
-    /* A pasted "+91 99515 97567" is eleven or twelve digits, and slicing
-       the FIRST ten off it keeps the country code and throws away the end
-       of the number — "9199515975", a real-looking number belonging to
-       nobody. The server has always taken the LAST ten (right(phone, 10)),
-       so drop a leading 91 when that is what makes it fit. Only for
-       ten-digit fields: an Aadhaar may legitimately start with 91. */
-    if (cap === 10 && digits.length > 10 && digits.indexOf("91") === 0 &&
-        digits.length - 2 <= 10) {
-      digits = digits.slice(2);
+    /* Trunk and country prefixes. Indians write the same number as
+       9951597567, 09951597567 and +91 99515 97567; taking the FIRST ten of
+       the last one gives "9199515975" — a real-looking number belonging to
+       nobody. The server has always kept the LAST ten (right(phone, 10)),
+       so strip the prefix rather than the tail.
+
+       Only for ten-digit fields. An Aadhaar can legitimately start 91. */
+    if (cap === 10 && digits.length > 10) {
+      if (digits.indexOf("91") === 0 && digits.length - 2 <= 10) digits = digits.slice(2);
+      else if (digits.charAt(0) === "0" && digits.length - 1 <= 10) digits = digits.slice(1);
+      else digits = digits.slice(-10);   /* anything else: keep the tail, as the server does */
     }
     var cleaned = digits.slice(0, cap);
     if (el.value === cleaned) return;

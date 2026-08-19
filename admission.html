@@ -251,13 +251,13 @@
                    twice and then disagree with itself. -->
               <label class="field is-hidden" id="parentPhoneField">
                 <span>Emergency contact number <span class="opt">(optional)</span></span>
-                <input type="tel" id="parentPhone" name="parentPhone" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="10-digit mobile" />
+                <input type="tel" id="parentPhone" name="parentPhone" inputmode="numeric" autocomplete="off" data-digits="10" placeholder="10-digit mobile" />
               </label>
               <label class="field" id="phoneField">
                 <span id="phoneLbl">Parent's mobile number</span>
                 <!-- No value= on anything here, ever. This repo is public and
                      its history is permanent. -->
-                <input type="tel" id="phone" name="phone" inputmode="numeric" autocomplete="tel" maxlength="10" placeholder="10-digit mobile" required />
+                <input type="tel" id="phone" name="phone" inputmode="numeric" autocomplete="tel" data-digits="10" placeholder="10-digit mobile" required />
               </label>
               <label class="field" id="emailField">
                 <span>Email <span class="opt">(optional)</span></span>
@@ -265,7 +265,7 @@
               </label>
               <div class="field full doc-field">
                 <span class="doc-lbl">Parent's Aadhaar <span class="opt">(optional)</span></span>
-                <input type="tel" id="aadhaar" name="aadhaar" inputmode="numeric" maxlength="12"
+                <input type="tel" id="aadhaar" name="aadhaar" inputmode="numeric" data-digits="12"
                        placeholder="12-digit number" autocomplete="off" />
                 <div class="doc-row" style="margin-top:8px;">
                   <label class="doc-pick">
