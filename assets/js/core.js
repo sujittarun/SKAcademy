@@ -118,17 +118,21 @@
            surfaces use, so the badge belongs to the same material */
         '<path d="M0 12A12 12 0 0 1 12 0h24a12 12 0 0 1 12 12v5H0z" fill="#fff" opacity=".16"/>' +
         '<g fill="#101f38">' +
-          /* crown: three points, flat base, sitting ON the stumps */
-          '<path d="M12.5 21.5V12l5 4.5L24 9l6.5 7.5 5-4.5v9.5z"/>' +
-          /* stumps: the middle one longer, as they are */
-          '<rect x="15.6" y="24" width="3.2" height="12" rx="1.6"/>' +
-          '<rect x="22.4" y="24" width="3.2" height="14" rx="1.6"/>' +
-          '<rect x="29.2" y="24" width="3.2" height="12" rx="1.6"/>' +
+          /* Crown, three points on a flat base. Sits ABOVE the stumps with a
+             clear gap: overlapped, the first attempt read as one dark blob
+             at 40px instead of two things. */
+          '<path d="M11.5 21V11.5l5.2 4.6L24 8.5l7.3 7.6 5.2-4.6V21z"/>' +
+          /* Three stumps, evenly spaced, centred under the crown. */
+          '<rect x="16.4" y="24.5" width="3.1" height="11" rx="1.55"/>' +
+          '<rect x="22.45" y="24.5" width="3.1" height="11" rx="1.55"/>' +
+          '<rect x="28.5" y="24.5" width="3.1" height="11" rx="1.55"/>' +
         '</g>' +
-        /* the ball, cut into the badge so it reads at 40px: a dark disc with
-           a lighter seam rather than an outline that would vanish */
-        '<circle cx="36.5" cy="33.5" r="5.5" fill="#101f38"/>' +
-        '<path d="M33.6 29.6a6 6 0 0 1 0 7.8" stroke="#f2c220" stroke-width="1.4" ' +
+        /* The ball, clear of the stumps rather than through them — the
+           first version put it at cx 36.5 r 5.5, which ran straight over
+           the third stump. Dark disc with a gold seam, because an outlined
+           ball loses its line at this size. */
+        '<circle cx="36.6" cy="37" r="4.4" fill="#101f38"/>' +
+        '<path d="M34.3 33.6a4.9 4.9 0 0 1 0 6.8" stroke="#f2c220" stroke-width="1.3" ' +
               'fill="none" stroke-linecap="round"/>' +
       "</svg>";
   };
