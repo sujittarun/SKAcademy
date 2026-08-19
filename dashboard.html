@@ -84,6 +84,16 @@
   .adm-docs { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
   .adm-thumb { width: 44px; height: 44px; border-radius: 10px; object-fit: cover;
                border: 1px solid var(--line); background: var(--tile-bg); }
+  /* the action list */
+  .todo-row { display: flex; align-items: center; gap: 12px; padding: 10px 0;
+              border-top: 1px solid var(--line); }
+  .todo-row:first-child { border-top: 0; }
+  .todo-row .tw { flex: 1 1 auto; min-width: 0; }
+  .todo-row .tt { font-weight: 700; color: var(--ink-hi); font-size: 14px; }
+  .todo-row .ts { font-size: 12px; color: var(--ink-mid); }
+  .todo-row .tn { flex: none; font-family: var(--font-display); font-size: 20px;
+                  font-weight: 800; color: var(--ink-hi); font-variant-numeric: tabular-nums; }
+  .todo-row .btn { flex: none; }
 </style>
 </head>
 <body>
@@ -139,6 +149,24 @@
          the Active members number above does not move when this one does.
          The pill, the count and the names all live inside #admBody's
          region so that a failed read can replace the whole thing. -->
+    <!-- ---------- what needs a person today ----------
+         The three things that STOP if nobody acts: an application waiting
+         for approval, a booking waiting to be confirmed, and money sitting
+         uncollected. Each of those lived on a different screen, so knowing
+         whether the academy was up to date meant visiting three.
+
+         It is hidden whenever all three are clear, which is most days.
+         A permanent panel reading "nothing to do" is a panel people stop
+         reading, and then it is still ignored on the morning it says
+         something. -->
+    <div class="glass glass-card reveal hide" id="todoCard">
+      <div class="card-head" style="margin-bottom:8px;">
+        <div><div class="kicker">Needs you</div><h2>Waiting on someone</h2></div>
+        <span class="pill gold" id="todoPill">—</span>
+      </div>
+      <div id="todoBody"></div>
+    </div>
+
     <div class="glass glass-card reveal hide" id="admCard">
       <div class="card-head" style="margin-bottom:10px;">
         <div><div class="kicker">Admissions</div><h2>New applications</h2></div>
@@ -386,6 +414,12 @@
         return String(b.status || "").toLowerCase() === "pending";
       }).length;
 
+      /* The same three numbers the tiles below are about to show, handed to
+         the action list so the two can never disagree. `owed` is summed a
+         few lines down; the list is rendered after it. */
+      todo.pending = pending;
+      todo.unpaid = unpaid.length;
+
       stat("#kpiBookings", all.length);
       sub("#kpiBookingsSub",
           pending ? pending + " awaiting confirmation" : (all.length ? "All confirmed" : "Nothing booked yet"),
@@ -394,6 +428,8 @@
       /* Sums of amounts the server put on the rows. Nothing is priced here. */
       statMoney("#kpiCollected", sum(paid));
       var owed = sum(unpaid);
+      todo.owed = owed;
+      renderTodo();
       sub("#kpiCollectedSub",
           owed ? LT.fmtINR(owed) + " still to collect (" + unpaid.length + ")" : "Everything collected",
           owed ? "down" : "up");
@@ -646,6 +682,57 @@
         });
     });
 
+    /* ---------- the action list ----------
+       Reads only what the dashboard has already fetched, so it costs no
+       extra round trip and can never disagree with the tiles beside it.
+       Every number here is the length of a list the server returned. */
+    var todo = { applications: null, pending: null, unpaid: null, owed: 0 };
+
+    function renderTodo() {
+      var card = $("#todoCard"), body = $("#todoBody"), pill = $("#todoPill");
+      if (!card) return;
+
+      var rows = [];
+      if (todo.applications) {
+        rows.push({
+          n: todo.applications,
+          t: todo.applications === 1 ? "1 admission to review" : todo.applications + " admissions to review",
+          s: "Nobody joins the roll until one is approved.",
+          href: null, label: "Below ↓"
+        });
+      }
+      if (todo.pending) {
+        rows.push({
+          n: todo.pending,
+          t: todo.pending === 1 ? "1 booking to confirm" : todo.pending + " bookings to confirm",
+          s: "Requested from the website or the phone, no court assigned yet.",
+          href: "bookings.html", label: "Open"
+        });
+      }
+      if (todo.unpaid) {
+        rows.push({
+          n: todo.unpaid,
+          t: LT.fmtINR(todo.owed) + " to collect",
+          s: todo.unpaid + (todo.unpaid === 1 ? " confirmed booking" : " confirmed bookings") + " played and unpaid.",
+          href: "fees.html", label: "Collect"
+        });
+      }
+
+      if (!rows.length) { card.classList.add("hide"); return; }
+      card.classList.remove("hide");
+      pill.textContent = rows.length === 1 ? "1 thing" : rows.length + " things";
+      body.innerHTML = rows.map(function (r) {
+        return '<div class="todo-row">' +
+          '<span class="tn">' + LT.esc(String(r.n)) + "</span>" +
+          '<span class="tw"><span class="tt">' + LT.esc(r.t) + "</span>" +
+          '<span class="ts" style="display:block;">' + LT.esc(r.s) + "</span></span>" +
+          (r.href
+            ? '<a class="btn btn-glass btn-sm" href="' + r.href + '">' + LT.esc(r.label) + "</a>"
+            : "") +
+          "</div>";
+      }).join("");
+    }
+
     function admShow(on) {
       var card = $("#admCard");
       if (card) card.classList.toggle("hide", !on);
@@ -657,6 +744,8 @@
       var pill = $("#admPill");
       admRows = rows || [];
 
+      todo.applications = admRows.length;
+      renderTodo();
       if (!admRows.length) { admShow(false); return; }
       admShow(true);
 

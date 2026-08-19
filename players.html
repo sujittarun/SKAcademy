@@ -180,7 +180,15 @@
     }
     /* "3d overdue" already carries the date. */
     .lt-table tr.mem-row .pl-due .faint { display: none; }
-    .lt-table tr.more-row { display: block; text-align: center; padding: 6px 0 2px; }
+    /* The rows ARE cards on a phone, so the card they sit inside is a
+       second border round the same thing — and its bottom padding showed
+       as an empty rounded panel under the last member, which is what got
+       circled. The wrapper keeps its job on a desktop, where the rows are
+       table rows and need a surface. */
+    .glass.reveal.d2 { background: none; border: 0; box-shadow: none;
+                       backdrop-filter: none; -webkit-backdrop-filter: none; padding: 0; }
+    .lt-table tr.mem-row:last-child { margin-bottom: 0; }
+    .lt-table tr.more-row { display: block; text-align: center; padding: 10px 0 2px; }
     .lt-table tr.more-row td { display: block; }
     .lt-table tr.mem-row td { display: block; border: 0; padding: 0; }
     /* the name owns the first line */
