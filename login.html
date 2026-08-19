@@ -264,9 +264,31 @@
 
       /* No self-serve reset is wired, and inventing one that silently does
          nothing is worse than saying who to ask. */
+      /* A real reset, not a note telling you to find someone. With 7-8
+         coaches this is the difference between "I forgot my password" being
+         a two-minute self-serve job and being the owner's problem every
+         time. */
       LT.$("#forgot").addEventListener("click", function (e) {
         e.preventDefault();
-        LT.toast("Ask the academy administrator to reset it — there is no self-serve reset yet.");
+        var email = (LT.$("#email").value || "").trim();
+        if (!email) {
+          LT.toast("Type your email above first, then tap this.");
+          LT.$("#email").focus();
+          return;
+        }
+        var link = this;
+        link.textContent = "Sending…";
+        LT_CLOUD.sendRecovery(email, location.href.replace(/[^/]*$/, "") + "reset.html")
+          .then(function () {
+            link.textContent = "Forgot password?";
+            /* Says the same thing whether or not the address exists — see
+               sendRecovery(). */
+            LT.toast("If that address has an account, a reset link is on its way. It expires in an hour.", "ok", 7000);
+          })
+          .catch(function (err) {
+            link.textContent = "Forgot password?";
+            LT.toast((err && err.message) || "Could not send the link.", "error");
+          });
       });
 
       /* ---------- already signed in ----------

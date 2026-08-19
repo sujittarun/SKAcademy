@@ -448,6 +448,33 @@
     /* `keep` decides where the session is stored: true (the default) keeps
        it on the device through tab closes and phone restarts; false ties
        it to the tab, for a shared counter machine. */
+    /* ---------- forgot password ----------
+       Asks Supabase to email a one-time recovery link. Deliberately
+       resolves the SAME WAY whether or not the address has an account:
+       telling a stranger "no such user" turns this box into a way to
+       discover who works at the academy. The person who owns the address
+       gets the mail; anyone guessing learns nothing.
+
+       redirectTo must be on the project's allow-list or Supabase falls
+       back to the Site URL — see the note in reset.html. */
+    sendRecovery: function (email, redirectTo) {
+      var to = String(email || "").trim();
+      if (!to) return Promise.reject(new Error("Enter your email address first."));
+      var url = AUTH + "/recover" +
+        (redirectTo ? "?redirect_to=" + encodeURIComponent(redirectTo) : "");
+      return fetch(url, {
+        method: "POST",
+        headers: { apikey: KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ email: to })
+      }).then(function (r) {
+        /* 429 is the one failure worth surfacing: it means "you already
+           asked", and silently swallowing it would have someone press the
+           button ten more times. */
+        if (r.status === 429) throw new Error("A link was just sent. Check your email, or try again in a minute.");
+        return true;   /* every other outcome is reported the same way */
+      });
+    },
+
     signIn: function (email, password, keep) {
       return tokenRequest({ email: email, password: password },
                           keep === undefined ? true : !!keep);
