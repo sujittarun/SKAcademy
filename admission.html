@@ -85,6 +85,27 @@
     width: 22px; height: 22px; flex: none; border-radius: 50%; display: grid; place-items: center;
     font-size: 11px; font-weight: 800; color: #231d00; background: var(--gold-grad);
   }
+  /* ---------- optional documents on the admission form ---------- */
+  .doc-field { display: flex; flex-direction: column; gap: 6px; }
+  .doc-lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .07em;
+             color: var(--ink-low); font-weight: 700; }
+  .doc-row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+  .doc-pick { position: relative; overflow: hidden; display: inline-flex; align-items: center;
+              justify-content: center; padding: 10px 16px; border-radius: var(--r-pill);
+              border: 1px dashed var(--input-border); background: var(--input-bg);
+              font-size: 13px; font-weight: 650; color: var(--ink-hi); cursor: pointer;
+              min-height: 44px; }
+  .doc-pick:hover { border-color: var(--input-border-hover); }
+  .doc-pick input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .doc-prev { display: flex; gap: 10px; align-items: center; min-width: 0; }
+  .doc-prev img { width: 56px; height: 56px; object-fit: cover; border-radius: 12px;
+                  border: 1px solid var(--line); background: var(--tile-bg); }
+  .doc-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 12px; }
+  .doc-meta span { color: var(--ink-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+  .doc-meta .lnk { background: none; border: 0; padding: 0; text-align: left;
+                   color: var(--tx-red); font-size: 12px; font-weight: 700; cursor: pointer; }
+  .doc-err { font-size: 12px; color: var(--tx-red); }
+  .doc-note { font-size: 11.5px; color: var(--ink-faint); }
 </style>
 </head>
 <body>
@@ -190,6 +211,52 @@
                 <span>Email <span class="opt">(optional)</span></span>
                 <input type="email" id="email" name="email" autocomplete="email" placeholder="you@example.com" />
               </label>
+              <!-- ---------- optional documents ----------
+                   Both are optional and the form says so, because a family
+                   without a scanner at 9pm must still be able to finish.
+                   Nothing here blocks submission.
+
+                   The preview is built from the local File with
+                   createObjectURL — no upload is needed to see it, and no
+                   read permission either, which matters: anonymous callers
+                   can write to the bucket and deliberately cannot read it
+                   back. So the preview is the file in your hand, not a
+                   round trip. -->
+              <div class="field full doc-field">
+                <span class="doc-lbl">Student photo <span class="opt">(optional)</span></span>
+                <div class="doc-row">
+                  <label class="doc-pick">
+                    <input type="file" id="photoFile" accept="image/jpeg,image/png,image/webp" />
+                    <span>Choose a photo</span>
+                  </label>
+                  <div class="doc-prev" id="photoPrev" hidden>
+                    <img id="photoImg" alt="The photo you chose" />
+                    <div class="doc-meta"><span id="photoName"></span>
+                      <button type="button" class="lnk" data-clear="photo">Remove</button></div>
+                  </div>
+                </div>
+                <div class="doc-err" id="photoErr"></div>
+              </div>
+
+              <div class="field full doc-field">
+                <span class="doc-lbl">Parent's Aadhaar <span class="opt">(optional)</span></span>
+                <input type="tel" id="aadhaar" name="aadhaar" inputmode="numeric" maxlength="14"
+                       placeholder="12-digit number" autocomplete="off" />
+                <div class="doc-row" style="margin-top:8px;">
+                  <label class="doc-pick">
+                    <input type="file" id="aadhaarFile" accept="image/jpeg,image/png,image/webp,application/pdf" />
+                    <span>Attach a copy</span>
+                  </label>
+                  <div class="doc-prev" id="aadhaarPrev" hidden>
+                    <img id="aadhaarImg" alt="The document you chose" />
+                    <div class="doc-meta"><span id="aadhaarName"></span>
+                      <button type="button" class="lnk" data-clear="aadhaar">Remove</button></div>
+                  </div>
+                </div>
+                <div class="doc-err" id="aadhaarErr"></div>
+                <div class="doc-note">Kept private to the academy and used only for your child's record.</div>
+              </div>
+
               <label class="field full" id="batchField">
                 <span>Preferred batch <span class="opt">(optional)</span></span>
                 <select id="batch" name="batch">
@@ -534,6 +601,10 @@
              not be sent as a parent's number. */
           parentPhone: minor ? "" : normPhone(txt("#parentPhone")),
           email: txt("#email") || null,
+          /* Digits only. People type Aadhaar with spaces; the server wants
+             twelve digits and refuses anything else, so strip here rather
+             than bounce the family for a formatting habit. */
+          aadhaar: (txt("#aadhaar") || "").replace(/\D/g, "") || null,
           batch: batch,
           batchLabel: batch ? batch + " batch" : "No preference"
         };
@@ -647,7 +718,13 @@
           p_centre: null,                     /* server resolves the single centre — see the comment at the form */
           p_consent: true,
           p_terms: true,
-          p_source: "website"
+          p_source: "website",
+          /* Object names, not URLs. Filled in by submit() after the files
+             land; null when the family attached nothing, which is the
+             ordinary case. */
+          p_photo_path: docs.photoPath,
+          p_aadhaar_path: docs.aadhaarPath,
+          p_aadhaar: v.aadhaar || null
         };
       }
 
@@ -707,16 +784,126 @@
         return "Something went wrong and the application was not sent. Please try again in a moment.";
       }
 
+      /* ============================================================
+         OPTIONAL DOCUMENTS
+
+         Two files, both optional, previewed locally and uploaded only when
+         the form is actually submitted. Uploading on pick would litter the
+         bucket with files from every abandoned form; uploading on submit
+         means what is stored matches what was sent.
+         ============================================================ */
+      var docs = { photo: null, aadhaar: null, photoPath: null, aadhaarPath: null, ref: null };
+
+      /* Groups one family's files under a single folder. Not a security
+         boundary — the tenant prefix and the storage policy are that — just
+         a way to keep an abandoned upload identifiable. */
+      function docRef() {
+        if (!docs.ref) {
+          docs.ref = String(Date.now().toString(36)) + "-" +
+                     Math.random().toString(36).slice(2, 8);
+        }
+        return docs.ref;
+      }
+
+      var DOC_MAX = 5 * 1024 * 1024;
+      var DOC_OK = {
+        photo:   ["image/jpeg", "image/png", "image/webp"],
+        aadhaar: ["image/jpeg", "image/png", "image/webp", "application/pdf"]
+      };
+
+      function showDoc(kind, file) {
+        var prev = LT.$("#" + kind + "Prev");
+        var img  = LT.$("#" + kind + "Img");
+        var nameEl = LT.$("#" + kind + "Name");
+        var err  = LT.$("#" + kind + "Err");
+        err.textContent = "";
+
+        if (!file) {
+          docs[kind] = null;
+          prev.hidden = true;
+          if (img.src) { try { URL.revokeObjectURL(img.src); } catch (e) {} img.removeAttribute("src"); }
+          LT.$("#" + kind + "File").value = "";
+          return;
+        }
+        if (DOC_OK[kind].indexOf(file.type) < 0) {
+          err.textContent = kind === "photo"
+            ? "Please choose a JPG or PNG photo."
+            : "Please attach a JPG, PNG or PDF.";
+          showDoc(kind, null);
+          return;
+        }
+        if (file.size > DOC_MAX) {
+          err.textContent = "That file is larger than 5 MB. Please pick a smaller one.";
+          showDoc(kind, null);
+          return;
+        }
+
+        docs[kind] = file;
+        nameEl.textContent = file.name;
+        nameEl.title = file.name;
+        prev.hidden = false;
+
+        /* A PDF has no thumbnail to show, so it gets a mark rather than a
+           broken image. */
+        if (file.type === "application/pdf") {
+          img.removeAttribute("src");
+          img.alt = "PDF attached";
+          img.style.display = "none";
+          prev.classList.add("is-pdf");
+        } else {
+          img.style.display = "";
+          prev.classList.remove("is-pdf");
+          if (img.src) { try { URL.revokeObjectURL(img.src); } catch (e) {} }
+          img.src = URL.createObjectURL(file);
+        }
+      }
+
+      ["photo", "aadhaar"].forEach(function (kind) {
+        LT.$("#" + kind + "File").addEventListener("change", function () {
+          showDoc(kind, this.files && this.files[0]);
+        });
+      });
+      document.addEventListener("click", function (e) {
+        var b = e.target.closest ? e.target.closest("[data-clear]") : null;
+        if (b) showDoc(b.getAttribute("data-clear"), null);
+      });
+
+      /* Uploads whatever was attached, in parallel, and resolves once the
+         paths are known. A refused upload STOPS the submission — a family
+         who attached a photo and was told "received" would otherwise never
+         learn the academy has nothing. */
+      function uploadDocs() {
+        var jobs = [];
+        if (docs.photo) {
+          jobs.push(LT_CLOUD.uploadDoc(docs.photo, "photo", docRef())
+            .then(function (p) { docs.photoPath = p; }));
+        }
+        if (docs.aadhaar) {
+          jobs.push(LT_CLOUD.uploadDoc(docs.aadhaar, "aadhaar", docRef())
+            .then(function (p) { docs.aadhaarPath = p; }));
+        }
+        return jobs.length ? Promise.all(jobs) : Promise.resolve();
+      }
+
       function submit() {
         if (busy) return;
         var v = collect();
+        /* Twelve digits or nothing. The server enforces the same rule; this
+           just puts the message next to the box the family typed in. */
+        if (v.aadhaar && v.aadhaar.length !== 12) {
+          LT.$("#aadhaarErr").textContent = "An Aadhaar number is 12 digits.";
+          var ae = LT.$("#aadhaar"); if (ae) ae.focus();
+          return;
+        }
+        LT.$("#aadhaarErr").textContent = "";
         busy = true;
         nextBtn.disabled = true;
         backBtn.disabled = true;
         nextBtn.textContent = "Sending…";
         say("Sending your application…");
 
-        LT_CLOUD.submitApplication(payloadWide(v))
+        (docs.photo || docs.aadhaar ? say("Uploading your files…") : 0, uploadDocs())
+          .then(function () { say("Sending your application…"); return LT_CLOUD.submitApplication(payloadWide(v)); })
           .then(function () { done(v, true); })
           .catch(function (err) {
             if (!signatureMissing(err)) throw err;

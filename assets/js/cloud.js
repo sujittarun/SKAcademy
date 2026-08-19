@@ -56,6 +56,7 @@
   var PROJECT = "https://ugsklcipzyiogxynshnh.supabase.co";
   var BASE = PROJECT + "/rest/v1";
   var AUTH = PROJECT + "/auth/v1";
+  var FILES = PROJECT + "/storage/v1";
 
   /* The anon key is PUBLIC BY DESIGN and belongs in this repo — it is the
      key every browser must present. service_role must never appear here. */
@@ -601,6 +602,85 @@
       return rpc("submit_application", o, true);
     },
 
+    /* ---------- documents ----------
+       Uploads one file to the private `member-docs` bucket and returns the
+       OBJECT NAME, which is what the application row stores. Never a URL:
+       the bucket is private, so a URL would either be useless or, if it
+       worked, would be a document readable by anyone who saw the link.
+
+       THE PATH STARTS WITH THE TENANT, and that is load-bearing rather
+       than tidy. The storage policy admits an anonymous upload only into a
+       folder named for a real academy, and submit_application refuses a
+       path that does not begin with its own tenant — so a form cannot file
+       a family's Aadhaar under another academy's name even if it tried.
+
+       `ref` groups one family's files together so a half-finished form
+       leaves an identifiable orphan rather than loose objects.
+
+       Anonymous callers may INSERT here and nothing else — no list, no
+       read, no overwrite — so one family can never reach another's
+       documents. The upload is x-upsert:false for the same reason: a
+       chosen path must not be able to replace an existing object. */
+    uploadDoc: function (file, kind, ref) {
+      if (DEV) return devBlocked("the upload");
+      if (!file) return Promise.reject(new Error("No file."));
+      if (file.size > 5 * 1024 * 1024) {
+        return Promise.reject(new Error("That file is larger than 5 MB. Please pick a smaller one."));
+      }
+      var ok = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+      if (ok.indexOf(file.type) < 0) {
+        return Promise.reject(new Error("Please upload a JPG, PNG or PDF."));
+      }
+      var ext = file.type === "application/pdf" ? "pdf"
+              : file.type === "image/png" ? "png"
+              : file.type === "image/webp" ? "webp" : "jpg";
+      var path = TENANT + "/adm/" + ref + "/" + kind + "." + ext;
+
+      /* allowAnon: a family filling the public form has no session, and
+         must not be told to sign in. Staff uploading from inside the app
+         pass their own token through the same call. */
+      return bearer(true).then(function (tok) {
+        return fetch(FILES + "/object/member-docs/" + encodeURI(path), {
+          method: "POST",
+          headers: {
+            apikey: KEY,
+            Authorization: "Bearer " + tok,
+            "Content-Type": file.type,
+            "x-upsert": "false"
+          },
+          body: file
+        });
+      }).then(function (res) {
+        if (res.ok) return path;
+        return res.text().then(function (t) {
+          throw new Error("The upload was refused" + (t ? " — " + t.slice(0, 120) : "."));
+        });
+      });
+    },
+
+    /* A private object is read through a short-lived signed URL, minted by
+       the server for a caller the storage policy already trusts. Staff
+       only — the policy refuses anon, which is the point. */
+    signedDocUrl: function (path, seconds) {
+      if (!path) return Promise.resolve(null);
+      return bearer(false).then(function (tok) {
+        return fetch(FILES + "/object/sign/member-docs/" + encodeURI(path), {
+          method: "POST",
+          headers: {
+            apikey: KEY,
+            Authorization: "Bearer " + tok,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ expiresIn: seconds || 300 })
+        });
+      }).then(function (res) {
+        if (!res.ok) throw new Error("Could not open that document.");
+        return res.json();
+      }).then(function (j) {
+        return j && j.signedURL ? PROJECT + "/storage/v1" + j.signedURL : null;
+      });
+    },
+
     /* ---------- admissions ----------
        submitApplication has existed since day one; these three did not,
        which meant a family could apply and NOBODY could see it. The row
@@ -615,7 +695,8 @@
               "&select=id,name,phone,email,age,dob,gender,parent_name,parent_phone," +
               "centre_id,batch_id,sport,program,slot,trial_date,status,member_id," +
               "consent_accepted,terms_accepted,consent_accepted_at,review_notes," +
-              "reviewed_at,reviewed_by,source_channel,created_at";
+              "reviewed_at,reviewed_by,source_channel,created_at," +
+              "student_photo_path,parent_aadhaar_path,parent_aadhaar";
       if (status) q += "&status=eq." + encodeURIComponent(status);
       return get(q + "&order=created_at.desc");
     },
