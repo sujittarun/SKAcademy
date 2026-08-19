@@ -154,6 +154,18 @@
      is not. Overriding the fill is what un-clips the text colour. */
   .stat-card.danger .stat-value { background: none; -webkit-text-fill-color: var(--tx-red); color: var(--tx-red); }
 
+  /* Sticky toolbar + find bar, same as the manager's register and for a
+     stronger reason: this is the page a coach stands at the nets with. At
+     125 students a batch is ~60 names — 11 screens on a phone, and the
+     coach is the one holding the phone. --nav-h is the space the design
+     system reserves for the fixed nav, --devbar-h is measured by core.js;
+     hand-picked offsets put the bar 18px behind the nav. */
+  .co-bar-wrap { position: sticky; z-index: 20; top: calc(var(--devbar-h, 0px) + var(--nav-h) + 6px); }
+  .co-find { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .co-find input { flex: 1 1 190px; min-width: 0; }
+  .co-find .chip { flex: none; }
+  .co-shown { font-size: 12px; color: var(--ink-low); font-weight: 650; white-space: nowrap; }
+
   @media (max-width: 699px) {
     /* Four full-width tiles would push the calendar most of a screen down.
        The design system collapses cols-4 to one column on a phone; this
@@ -211,16 +223,24 @@
 
     <!-- Which batch. The list comes from my_attendance_batches(), which is
          the only way a coach discovers a batch at all. -->
-    <div class="glass glass-card tight reveal">
-      <div class="co-bar">
-        <div class="left">
-          <span class="lt-filter"><select id="batchSelect" aria-label="Batch"></select></span>
-          <span class="co-note" id="batchMeta"></span>
+    <div class="co-bar-wrap">
+      <div class="glass glass-card tight reveal">
+        <div class="co-bar">
+          <div class="left">
+            <span class="lt-filter"><select id="batchSelect" aria-label="Batch"></select></span>
+            <span class="co-note" id="batchMeta"></span>
+          </div>
+          <div class="right">
+            <span class="pill green hide" id="pillPresent">—</span>
+            <span class="pill red hide" id="pillAbsent">—</span>
+            <button type="button" class="btn btn-glass btn-sm" id="restPresent" disabled>Mark the rest present</button>
+          </div>
         </div>
-        <div class="right">
-          <span class="pill green hide" id="pillPresent">—</span>
-          <span class="pill red hide" id="pillAbsent">—</span>
-          <button type="button" class="btn btn-glass btn-sm" id="restPresent" disabled>Mark the rest present</button>
+        <div class="co-find">
+          <input type="search" id="coFind" placeholder="Find a student…" autocomplete="off"
+                 aria-label="Find a student in this register" />
+          <button type="button" class="chip" id="coUnmarked" aria-pressed="false">Still to mark</button>
+          <span class="co-shown" id="coShown"></span>
         </div>
       </div>
     </div>
@@ -867,6 +887,27 @@
         paintSaved();
       }
 
+      /* Filters rows already in memory — no re-read. A coach filtering a
+         register must not wait on a round trip to Tokyo. */
+      var find = { q: "", unmarkedOnly: false };
+
+      function visibleRows() {
+        var q = find.q.trim().toLowerCase();
+        return state.rows.filter(function (r) {
+          if (find.unmarkedOnly && r.attendance_status) return false;
+          if (q && String(r.member_name || "").toLowerCase().indexOf(q) < 0) return false;
+          return true;
+        });
+      }
+
+      function paintFindCount(shown) {
+        var el = LT.$("#coShown");
+        if (!el) return;
+        var total = state.rows.length;
+        el.textContent = !total ? ""
+          : (shown === total ? total + " in this batch" : shown + " of " + total + " shown");
+      }
+
       function renderGrid() {
         if (!state.rows.length) {
           var b = batchById(state.batchId);
@@ -880,7 +921,23 @@
           return;
         }
 
-        gridHost.innerHTML = state.rows.map(function (r) {
+        var rows = visibleRows();
+        paintFindCount(rows.length);
+
+        if (!rows.length) {
+          gridHost.innerHTML =
+            '<div class="lt-empty" style="grid-column:1/-1;">' +
+            '<div class="lt-empty-t">' +
+              (find.unmarkedOnly && !find.q ? "Everyone is marked" : "Nobody matches that") + "</div>" +
+            '<div class="lt-empty-s">' +
+              (find.unmarkedOnly && !find.q
+                ? "Every student in this batch has a mark for this session."
+                : "Clear the search to see the whole register.") + "</div>" +
+            "</div>";
+          return;
+        }
+
+        gridHost.innerHTML = rows.map(function (r) {
           var st = r.attendance_status;
           return '<div class="att-tile' + (st === "present" ? " present" : st === "absent" ? " absent" : "") +
             '" data-enr="' + LT.esc(r.enrollment_id) + '">' +
@@ -1288,6 +1345,19 @@
          because a typed date bypasses the picker. */
       dateEl.value = state.date;
       dateEl.max = LT.today();
+
+      /* Re-renders from memory, so it is instant and touches no mark. */
+      LT.$("#coFind").addEventListener("input", function () {
+        find.q = this.value || "";
+        renderGrid();
+      });
+
+      LT.$("#coUnmarked").addEventListener("click", function () {
+        find.unmarkedOnly = !find.unmarkedOnly;
+        this.classList.toggle("active", find.unmarkedOnly);
+        this.setAttribute("aria-pressed", String(find.unmarkedOnly));
+        renderGrid();
+      });
 
       dateEl.addEventListener("change", function () {
         var v = this.value;
