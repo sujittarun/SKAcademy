@@ -37,13 +37,13 @@
           <span>New password</span>
           <!-- autocomplete=new-password so a password manager offers to
                generate and store one rather than filling the old value. -->
-          <input type="password" id="pw1" autocomplete="new-password" required minlength="10" />
+          <input type="password" id="pw1" autocomplete="new-password" required minlength="6" />
         </label>
         <label class="field">
           <span>Type it again</span>
-          <input type="password" id="pw2" autocomplete="new-password" required minlength="10" />
+          <input type="password" id="pw2" autocomplete="new-password" required minlength="6" />
         </label>
-        <div class="rs-rules">At least 10 characters. A short phrase you will remember beats a clever short one.</div>
+        <div class="rs-rules">At least 6 characters. A short phrase you will remember beats a clever short one.</div>
         <div class="form-msg" id="msg" role="status" aria-live="polite" style="min-height:0;"></div>
         <button type="submit" class="btn btn-primary btn-block btn-lg" id="save">Save the new password</button>
       </form>
@@ -159,8 +159,14 @@
       var a = $("#pw1").value, b = $("#pw2").value, msg = $("#msg"), btn = $("#save");
       msg.className = "form-msg";
 
-      if (a.length < 10) {
-        msg.textContent = "Use at least 10 characters.";
+      /* SIX, matching the project's own password_min_length. The form used
+         to ask for ten while the server accepted six, so the stricter rule
+         was one this file invented — and a client-side minimum the server
+         does not share is a rule that quietly disappears the moment anyone
+         resets a password by another route. Change it in Supabase too if
+         this ever needs to move. */
+      if (a.length < 6) {
+        msg.textContent = "Use at least 6 characters.";
         msg.className = "form-msg error";
         return;
       }
