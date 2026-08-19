@@ -976,6 +976,22 @@ body.lt-noscroll { overflow: hidden; }
 .flex.wrap { flex-wrap: wrap; }
 .grow { flex: 1; min-width: 0; }
 .hide { display: none !important; }
+
+/* The `hidden` ATTRIBUTE has to win too.
+   The browser's own rule is [hidden] { display: none }, which any explicit
+   display in this file outranks — and .lt-grid sets display:grid. So every
+   `<form class="lt-grid" hidden>` was fully visible:
+
+     · join.html never hid its form on success, leaving "Sending…" and the
+       button on screen under the "Request sent" message;
+     · reset.html showed the new-password fields before the recovery token
+       had been checked, and kept showing them when there was no token at
+       all — the form was only ever hidden in the DOM property, never on
+       screen. A test that read el.hidden instead of computed display
+       agreed with it, which is why this survived.
+
+   One rule, everywhere, rather than a .hide class swapped in per page. */
+[hidden] { display: none !important; }
 .mt-1 { margin-top: var(--gap-1); } .mt-2 { margin-top: var(--gap-2); }
 .mt-3 { margin-top: var(--gap-3); } .mt-4 { margin-top: var(--gap-4); }
 .num { font-variant-numeric: tabular-nums; }
