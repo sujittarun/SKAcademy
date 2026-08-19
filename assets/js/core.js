@@ -114,30 +114,21 @@
           '</linearGradient>' +
         '</defs>' +
         '<rect width="48" height="48" rx="12" fill="url(#' + gid + ')"/>' +
-        /* one specular sweep across the top, the same trick the glass
-           surfaces use, so the badge belongs to the same material */
-        '<path d="M0 12A12 12 0 0 1 12 0h24a12 12 0 0 1 12 12v5H0z" fill="#fff" opacity=".16"/>' +
-        '<g fill="#101f38">' +
-          /* Crown: SMALLER than the first two attempts and wider in stance.
-             At full size it was the whole logo and the stumps looked like a
-             footnote; a crown that sits ON something has to be the smaller
-             half of the pair. */
-          '<path d="M14 20.5v-7.2l4.4 3.6L24 11l5.6 5.9 4.4-3.6v7.2z"/>' +
-          /* Three stumps, slimmer, centred on 24 under the crown's centre.
-             The earlier ones were fat bars sitting right of centre, so the
-             whole mark leaned. */
-          '<rect x="17.9" y="23.5" width="2.7" height="13.5" rx="1.35"/>' +
-          '<rect x="22.65" y="23.5" width="2.7" height="13.5" rx="1.35"/>' +
-          '<rect x="27.4" y="23.5" width="2.7" height="13.5" rx="1.35"/>' +
-          /* The bails, two dots across the tops. Small, but they are what
-             makes three bars unmistakably a WICKET. */
-          '<circle cx="21.25" cy="21.6" r="1.15"/>' +
-          '<circle cx="26.75" cy="21.6" r="1.15"/>' +
-        '</g>' +
-        /* No ball. It was a dark disc with a gold arc on its edge, which at
-           any size read as a crescent bitten out of it rather than a seam,
-           and it pushed the whole composition off-centre. The wicket says
-           cricket on its own. */
+        /* one specular sweep across the top, so the badge belongs to the
+           same material as the glass surfaces around it */
+        '<path d="M0 12A12 12 0 0 1 12 0h24a12 12 0 0 1 12 12v5H0z" fill="#fff" opacity=".14"/>' +
+        /* ONE SHAPE. A crown, drawn as a single continuous stroke.
+           The previous mark was a crown plus three stumps plus two bails
+           plus a ball — six things competing inside 40 pixels, which is why
+           it read as a dark smudge. A logo at this size gets one idea.
+           "Super Kings" is the idea, so: the crown, and nothing else.
+           Stroked rather than filled — the open counters keep it light
+           instead of a solid block of navy, which is what makes it feel
+           drawn rather than stamped. */
+        '<path d="M11 33V16.5l6.5 5.5L24 12l6.5 10 6.5-5.5V33z" fill="none" stroke="#101f38" ' +
+              'stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>' +
+        /* the band, a single line — a crown without one is a zigzag */
+        '<path d="M13 37h22" stroke="#101f38" stroke-width="3.4" stroke-linecap="round"/>' +
       "</svg>";
   };
 
