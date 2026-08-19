@@ -121,6 +121,28 @@
      CSS only: the row markup and the tap-to-open handler are untouched,
      the table simply stops behaving like a table below 700px. The header
      row goes because a card labels itself. */
+  /* ---------- the view chips ----------
+     A horizontal scroller, not a wrap: on a phone a wrapping chip set
+     grows to three rows and pushes the list off screen, which is the
+     complaint this whole page is answering. One row, swipe for the rest,
+     and the active one carries its count. */
+  .pl-controls-wrap { position: sticky; z-index: 20; top: calc(var(--devbar-h, 0px) + var(--nav-h) + 6px); }
+  .pl-controls-wrap input[type="search"] { width: 100%; }
+  .pl-views {
+    display: flex; gap: 6px; margin-top: 8px;
+    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+  .pl-views::-webkit-scrollbar { display: none; }
+  .pl-views .chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; }
+  .pl-views .chip b { font-variant-numeric: tabular-nums; opacity: .75; font-weight: 800; }
+  .pl-views .chip.active b { opacity: 1; }
+
+  /* the chase action, on the member's own row */
+  .pl-due { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pl-due .amt { font-weight: 700; color: var(--ink-hi); font-variant-numeric: tabular-nums; }
+  .pl-due .why { font-size: 11.5px; color: var(--tx-red); }
+
   @media (max-width: 699px) {
     .table-wrap { overflow-x: visible; }
     .lt-table thead { display: none; }
@@ -131,9 +153,33 @@
       background: var(--tile-bg); padding: 8px 11px; margin-bottom: 7px;
     }
     /* the avatar earns its space on a wide table and costs a line here */
-    .lt-table tr.mem-row .pl-name .av { width: 30px; height: 30px; font-size: 11px; }
+    .lt-table tr.mem-row .pl-name .av { width: 28px; height: 28px; font-size: 10.5px; }
     .lt-table tr.mem-row .t-name { font-size: 14px; }
-    .lt-table tr.mem-row .sub2 { font-size: 11.5px; }
+    /* The parent's name is on the detail sheet one tap away. On a phone it
+       is a whole extra line per row — 150 lines to say what the row is not
+       about. */
+    .lt-table tr.mem-row .sub2 { display: none; }
+    /* Status is a dot, not a word: "Active" on 143 of 150 rows is noise,
+       and the ones that differ are the ones worth a colour. */
+    .lt-table tr.mem-row td:nth-child(4) .cell-status { font-size: 0; padding: 0; border: 0; background: none; }
+    .lt-table tr.mem-row td:nth-child(4) .cell-status::before {
+      content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: currentColor; vertical-align: middle;
+    }
+    /* Everything that is not the name shares ONE line: batch, a call and
+       a WhatsApp icon, a status dot, and — when the member is actually on
+       a rung — what they owe and the button to chase it. Two lines, not
+       three, which is 150 fewer lines on the page. */
+    .lt-table tr.mem-row td:nth-child(5) { flex: 1 1 auto; }
+    .lt-table tr.mem-row .pl-due { gap: 6px; font-size: 12px; }
+    /* The number itself is redundant next to buttons that dial it, and it
+       is the widest thing on the line. Icons stay; digits go. */
+    .lt-table tr.mem-row .pl-acts a:first-child { font-size: 0; }
+    .lt-table tr.mem-row .pl-acts a:first-child::before {
+      content: "Call"; font-size: 12px; font-weight: 650;
+    }
+    /* "3d overdue" already carries the date. */
+    .lt-table tr.mem-row .pl-due .faint { display: none; }
     .lt-table tr.more-row { display: block; text-align: center; padding: 6px 0 2px; }
     .lt-table tr.more-row td { display: block; }
     .lt-table tr.mem-row td { display: block; border: 0; padding: 0; }
@@ -172,39 +218,34 @@
       </div>
     </div>
 
-    <!-- Search and the three filters. -->
-    <div class="glass glass-card tight reveal">
-      <div class="pl-bar">
-        <input type="search" id="q" placeholder="Search name or phone…" aria-label="Search members by name or phone" autocomplete="off" />
-        <span class="lt-filter"><select id="batchFilter" aria-label="Filter by batch"><option value="all">All batches</option></select></span>
-        <span class="lt-filter"><select id="statusFilter" aria-label="Filter by status"><option value="all">Any status</option></select></span>
-        <span class="lt-filter">
-          <select id="standingFilter" aria-label="Filter by renewal standing">
-            <option value="all">Any renewal standing</option>
-            <option value="queue">In today's reminder queue</option>
-            <option value="overdue">Overdue</option>
-            <option value="blocked">Reminder blocked</option>
-          </select>
-        </span>
-        <span class="grow"></span>
-        <span class="pill gold" id="shownPill" role="status" aria-live="polite">—</span>
+    <!-- ---------- one control block, and one list ----------
+         This page used to be two lists of the same people: today's
+         reminder queue in its own card, then the roster below it. At 150
+         members that is 165 rows for 150 humans, the same names twice, and
+         the queue alone drew 23,000px.
+
+         A queue is not a different noun — it is the roster with a filter
+         on. So the views are chips, single-select, and the chase actions
+         ride on the member's own row. Three stacked dropdowns became one
+         scrolling row of chips carrying their own counts, which is the
+         pattern mobile filtering settled on: a handful of options, visible
+         state, one tap to change or clear.
+
+         It OPENS on "Due", because that is the work. Browsing 150 people
+         alphabetically is the rare case and it is one tap away. -->
+    <div class="pl-controls-wrap">
+      <div class="glass glass-card tight reveal">
+        <input type="search" id="q" placeholder="Search name or phone…"
+               aria-label="Search members by name or phone" autocomplete="off" />
+        <div class="pl-views" id="views" role="tablist" aria-label="Which members to show"></div>
       </div>
     </div>
 
-    <!-- Renewals. Every field on every row here was returned by
-         reminder_queue(): who is due, for how much, which account it
-         collects to, and whether the ladder has already stopped. -->
-    <div class="glass glass-card tight reveal d1">
-      <div class="card-head" style="margin-bottom:10px;">
-        <div>
-          <div class="kicker">Renewals</div>
-          <h2 style="font-size:16px;">Today's reminder queue</h2>
-          <div class="sub">The ladder — a heads-up two days before, the due day itself, +5, then daily to +14, and a full stop at +15 — belongs to the database. This screen shows what it returned and nothing else.</div>
-        </div>
-      </div>
-      <div class="rem-upi" id="remUpi"></div>
-      <div class="rem-list" id="remList"></div>
-    </div>
+    <!-- The reminder queue's own card used to sit here. Its DATA is still
+         read from reminder_queue() and is still the only authority on who
+         is due and for how much — it is now shown on each member's row
+         instead of in a second list of the same people. -->
+    <div class="rem-upi" id="remUpi"></div>
 
     <!-- The roster. -->
     <div class="glass reveal d2">
@@ -422,7 +463,8 @@
         queueErr: null,
         upi: null, upiErr: null,   /* the academy default, for the header line */
         bookings: null, bookingsErr: null,
-        filter: { q: "", batch: "all", status: "all", standing: "all" },
+        filter: { q: "", batch: "all", status: "all", standing: "queue" },
+        view: "due",               /* which chip is lit; see renderViews */
         page: 40,                  /* rows DRAWN, not rows loaded */
         queuePage: 20,             /* reminder rows drawn; see renderQueue */
         openId: null,              /* member id shown in the detail panel */
@@ -731,7 +773,6 @@
             state.membersErr = err;
             state.membersLoaded = true;
             byId("countLine").textContent = "The roster did not load.";
-            byId("shownPill").textContent = "—";
             byId("rows").innerHTML = noteRow("Could not load the roster",
               (err && err.message) || "The members read failed.");
           });
@@ -741,7 +782,7 @@
         state.members = rows;
         state.membersLoaded = true;
         state.membersErr = null;
-        fillStatusFilter();
+        renderViews();
         renderRows();
       }
 
@@ -760,10 +801,11 @@
           .then(function (rows) { haveBatches(rows || []); })
           .catch(function () {
             if (LT_CLOUD.DEV) { haveBatches(devBatches()); return; }
-            var sel = byId("batchFilter");
-            sel.innerHTML = '<option value="all">Batches unavailable</option>';
-            sel.disabled = true;
+            /* No batches means no per-batch chips. Due / Overdue /
+               Everyone still work, so the page stays usable. */
+            state.batches = [];
             state.enrolLoaded = true;
+            renderViews();
             renderRows();
           });
       }
@@ -777,19 +819,15 @@
 
       function haveBatches(rows) {
         state.batches = rows.filter(function (b) { return b.active !== false; });
-        var sel = byId("batchFilter");
-        sel.disabled = false;
-        sel.innerHTML = '<option value="all">All batches</option>' +
-          state.batches.map(function (b) {
-            return '<option value="' + LT.esc(b.id) + '">' + LT.esc(b.name) + "</option>";
-          }).join("");
+        /* Each batch becomes a view chip, so a third batch needs no code. */
+        renderViews();
         if (!state.batches.length) {
-          sel.innerHTML = '<option value="all">No batches yet</option>';
-          sel.disabled = true;
           state.enrolLoaded = true;
           renderRows();
           return;
         }
+        /* The enrolment map is what gives every row its batch — and what
+           the per-batch chips count. Losing this call is why they read 0. */
         loadEnrolments();
       }
 
@@ -836,6 +874,9 @@
               pending -= 1;
               if (pending <= 0) {
                 state.enrolLoaded = true;
+                /* The per-batch chips count through this map, so they are
+                   wrong until it lands and must be repainted when it does. */
+                renderViews();
                 renderRows();
                 if (state.openId) renderDetail();
               }
@@ -965,116 +1006,66 @@
         return '<span class="late">' + d + " " + plural(d, "day", "days") + " overdue</span>";
       }
 
+      /* The queue's rows are no longer drawn as a second list — they are
+         the "Due" view of the roster, and renewalCell() puts each one's
+         amount and action on that member's own row. This still exists to
+         keep the UPI line and to repaint the chips when the queue lands,
+         because the chip counts depend on it. */
       function renderQueue() {
-        var host = byId("remList");
-        var rows = state.queue;
-        if (!rows) return;
-
-        if (!rows.length) {
-          LT.empty(host, "Nobody is due today",
-            "The queue is what reminder_queue() returned for today. It is empty when no enrolment sits on one of the ladder's rungs — not necessarily when every fee is paid.");
-          return;
-        }
-
-        /* Same cap as the roster, and for a sharper reason: this list has
-           no natural ceiling. reminder_queue() returns everyone standing on
-           a rung of the ladder, so a quiet Tuesday is four rows and the
-           first of the month is most of the academy. Measured at 125
-           members with everyone due, it drew 23,227px — 28 screens — above
-           the member table, which is why the roster felt endless even when
-           the table itself was short.
-
-           It is a WORK QUEUE: you go down it making calls. Twenty at a time
-           is a session's worth, and the rest are one tap away. */
-        var qShown = Math.min(state.queuePage, rows.length);
-
-        host.innerHTML = rows.slice(0, qShown).map(function (r) {
-          var blocked = r.blocked_reason ? String(r.blocked_reason) : "";
-          var cls = "rem-item rem-open";
-          if (blocked) cls += " stopped";
-          else if (Number(r.days_since) < 0) cls += " upcoming";
-          if (r.already_sent) cls += " sent";
-
-          var money = isNum(r.amount)
-            ? '<span class="amt">' + LT.esc(LT.fmtINR(r.amount)) + "</span>" +
-              (r.months ? " · " + LT.esc(r.months) + " " + plural(Number(r.months), "month", "months") : "") +
-              (r.fee_source ? " · " + LT.esc(FEE_SOURCE[r.fee_source] || r.fee_source) : "")
-            : '<span class="faint">no amount — ' + LT.esc(FEE_SOURCE.unset) + "</span>";
-
-          var sub = standingText(r) + " · " + money +
-            (r.batch ? " · " + LT.esc(r.batch) : "") +
-            (r.already_sent ? ' · <span class="ok">reminded today ✓</span>' : "") +
-            (blocked ? '<br /><span class="late">' + LT.esc(BLOCKED[blocked] || blocked) + "</span>" : "");
-
-          var phone = digits(r.phone);
-          var acts;
-          if (blocked === "overdue_15_days" || blocked === "whatsapp_opted_out" || blocked === "wrong_phone_number") {
-            acts = phone.length >= 10
-              ? '<a class="btn btn-glass btn-sm" href="tel:+91' + LT.esc(phone.slice(-10)) + '">' + CALL_ICON + " Call</a>"
-              : '<span class="faint" style="font-size:11.5px;">Manual follow-up</span>';
-          } else if (blocked) {
-            acts = '<span class="faint" style="font-size:11.5px;">Fix this first</span>';
-          } else {
-            acts = '<button type="button" class="btn btn-primary btn-sm" data-wa="' + LT.esc(r.member_id) + '">' +
-              WA_ICON + " Remind</button>";
-          }
-
-          return '<div class="' + cls + '" data-open="' + LT.esc(r.member_id) + '" role="button" tabindex="0">' +
-            '<span class="av" aria-hidden="true">' + LT.esc(LT.initials(r.member_name)) + "</span>" +
-            '<span class="rm-body">' +
-              '<span class="rm-name">' + LT.esc(r.member_name) + "</span>" +
-              '<span class="rm-sub">' + sub + "</span>" +
-            "</span>" +
-            '<span class="rm-acts">' + acts + "</span>" +
-            "</div>";
-        }).join("");
-
-        if (qShown < rows.length) {
-          host.insertAdjacentHTML("beforeend",
-            '<button type="button" class="btn btn-glass btn-sm" id="moreQueue" ' +
-            'style="align-self:center;margin-top:4px;">Show ' +
-            Math.min(QUEUE_PAGE, rows.length - qShown) + " more · " +
-            (rows.length - qShown) + " still due</button>");
-        }
+        renderViews();
+        renderRows();
       }
 
-      byId("remList").addEventListener("click", function (e) {
-        if (e.target.closest && e.target.closest("#moreQueue")) {
-          state.queuePage += QUEUE_PAGE;
-          renderQueue();
-          return;
-        }
-        var wa = e.target.closest ? e.target.closest("[data-wa]") : null;
-        if (wa) { e.stopPropagation(); remindFromQueue(wa.getAttribute("data-wa")); return; }
-        if (e.target.closest && e.target.closest("a")) return;   /* tel: link */
-        var row = e.target.closest ? e.target.closest("[data-open]") : null;
-        if (row) openMember(row.getAttribute("data-open"));
-      });
-      byId("remList").addEventListener("keydown", function (e) {
-        if (e.key !== "Enter" && e.key !== " ") return;
-        var row = e.target.closest ? e.target.closest("[data-open]") : null;
-        if (row) { e.preventDefault(); openMember(row.getAttribute("data-open")); }
-      });
 
       /* ============================================================
          THE ROSTER TABLE
          ============================================================ */
 
-      function fillStatusFilter() {
-        var seen = {}, order = [];
-        state.members.forEach(function (m) {
-          var s = String(m.status || "");
-          if (!s || seen[s]) return;
-          seen[s] = 1; order.push(s);
+
+      /* ---------- the views ----------
+         Each chip is a whole filter state, not one axis of several. Two
+         dropdowns that can disagree ("Morning" + "Reminder blocked" = 0
+         rows and no clue why) is exactly the confusion a phone cannot
+         afford. One tap, one honest list, and search works across all of
+         them. */
+      var VIEWS = [
+        { id: "due",     label: "Due",      f: { batch: "all", status: "all", standing: "queue" } },
+        { id: "overdue", label: "Overdue",  f: { batch: "all", status: "all", standing: "overdue" } },
+        { id: "all",     label: "Everyone", f: { batch: "all", status: "all", standing: "all" } },
+        { id: "paused",  label: "Paused",   f: { batch: "all", status: "paused", standing: "all" } }
+      ];
+
+      /* Batches come from the data, so a third batch appears here the day
+         it is created without anyone editing this file. */
+      function viewList() {
+        var out = VIEWS.slice(0, 3);
+        (state.batches || []).forEach(function (b) {
+          out.push({ id: "batch:" + b.id, label: b.name || ("Batch " + b.id),
+                     f: { batch: String(b.id), status: "all", standing: "all" } });
         });
-        var sel = byId("statusFilter");
-        var keep = sel.value || "all";
-        sel.innerHTML = '<option value="all">Any status</option>' +
-          order.map(function (s) {
-            return '<option value="' + LT.esc(s) + '">' + LT.esc(STATUS_LABEL[s] || s) + "</option>";
-          }).join("");
-        sel.value = seen[keep] ? keep : "all";
-        state.filter.status = sel.value;
+        return out.concat(VIEWS.slice(3));
+      }
+
+      /* A chip's count is what that chip would actually show, search
+         included — a chip promising 34 that opens on 2 is worse than no
+         number at all. */
+      function countFor(v) {
+        var save = state.filter;
+        state.filter = { q: save.q, batch: v.f.batch, status: v.f.status, standing: v.f.standing };
+        var n = visibleMembers().length;
+        state.filter = save;
+        return n;
+      }
+
+      function renderViews() {
+        var host = byId("views");
+        if (!host) return;
+        host.innerHTML = viewList().map(function (v) {
+          var on = state.view === v.id;
+          return '<button type="button" role="tab" aria-selected="' + on + '" class="chip' +
+            (on ? " active" : "") + '" data-view="' + LT.esc(v.id) + '">' +
+            LT.esc(v.label) + "<b>" + countFor(v) + "</b></button>";
+        }).join("");
       }
 
       function visibleMembers() {
@@ -1115,7 +1106,35 @@
           : d === 0
             ? '<span class="cell-status gold">due today</span>'
             : '<span class="cell-status red">' + d + "d overdue</span>";
-        return txt + ' <span class="faint" style="font-size:11.5px;">' + LT.esc(niceDate(r.due_date)) + "</span>";
+
+        /* The amount and the action used to live in a second list of the
+           same people. They belong here, on the row, and every value is
+           reminder_queue()'s — nothing is priced or decided in this file.
+
+           The action follows the ladder's own verdict: a blocked reason
+           means the queue has stopped chasing, so the button must not
+           offer to. Trust blocked_reason itself rather than a list of
+           reasons this file happens to know — an unknown new reason has to
+           fail closed. */
+        var money = isNum(r.amount)
+          ? '<span class="amt">' + LT.esc(LT.fmtINR(r.amount)) + "</span>"
+          : "";
+        var phone = digits(r.phone || m.phone);
+        var act;
+        if (r.blocked_reason) {
+          act = '<span class="why">' + LT.esc(BLOCKED[r.blocked_reason] || r.blocked_reason) + "</span>" +
+            (phone.length >= 10
+              ? ' <a class="btn btn-glass btn-sm" href="tel:+91' + LT.esc(phone.slice(-10)) + '">Call</a>'
+              : "");
+        } else if (r.already_sent) {
+          act = '<span class="faint" style="font-size:11.5px;">reminded today ✓</span>';
+        } else {
+          act = '<button type="button" class="btn btn-primary btn-sm" data-wa="' + LT.esc(m.id) + '">Remind</button>';
+        }
+
+        return '<span class="pl-due">' + txt +
+          ' <span class="faint" style="font-size:11.5px;">' + LT.esc(niceDate(r.due_date)) + "</span>" +
+          (money ? " " + money : "") + " " + act + "</span>";
       }
 
       function renderRows() {
@@ -1126,7 +1145,6 @@
 
         if (!state.members.length) {
           byId("countLine").textContent = "Nobody on the roster yet.";
-          byId("shownPill").textContent = "0";
           host.innerHTML = noteRow("No members yet",
             "This academy has no members in the database. New families arrive through the admission form, and the first row appears here the moment one is enrolled.");
           return;
@@ -1139,9 +1157,6 @@
           state.members.length + " " + plural(state.members.length, "member", "members") +
           " · VAKAMAN FE" +
           (state.queue ? " · " + queued + " in today's reminder queue" : "");
-        byId("shownPill").textContent = list.length === state.members.length
-          ? String(state.members.length)
-          : list.length + " of " + state.members.length;
 
         if (!list.length) {
           host.innerHTML = noteRow("Nothing matches those filters",
@@ -1202,6 +1217,8 @@
       }
 
       byId("rows").addEventListener("click", function (e) {
+        var wa = e.target.closest ? e.target.closest("[data-wa]") : null;
+        if (wa) { e.stopPropagation(); remindFromQueue(wa.getAttribute("data-wa")); return; }
         if (e.target.closest && e.target.closest("a")) return;   /* tel: / wa.me */
         if (e.target.closest && e.target.closest("#showMore")) {
           state.page += PAGE;
@@ -1218,21 +1235,26 @@
       });
 
       /* ---------- filters ---------- */
+      byId("views").addEventListener("click", function (e) {
+        var c = e.target.closest ? e.target.closest("[data-view]") : null;
+        if (!c) return;
+        var id = c.getAttribute("data-view");
+        var v = null, list = viewList();
+        for (var i = 0; i < list.length; i++) if (list[i].id === id) v = list[i];
+        if (!v) return;
+        state.view = id;
+        state.filter.batch = v.f.batch;
+        state.filter.status = v.f.status;
+        state.filter.standing = v.f.standing;
+        state.page = PAGE;                 /* a new view is a new list */
+        renderViews();
+        renderRows();
+      });
+
       byId("q").addEventListener("input", function () {
         state.filter.q = this.value.trim().toLowerCase();
         state.page = PAGE;   /* a new filter is a new list */
-        renderRows();
-      });
-      byId("batchFilter").addEventListener("change", function () {
-        state.filter.batch = this.value; state.page = PAGE;   /* a new filter is a new list */
-        renderRows();
-      });
-      byId("statusFilter").addEventListener("change", function () {
-        state.filter.status = this.value; state.page = PAGE;   /* a new filter is a new list */
-        renderRows();
-      });
-      byId("standingFilter").addEventListener("change", function () {
-        state.filter.standing = this.value; state.page = PAGE;   /* a new filter is a new list */
+        renderViews();       /* counts follow the search */
         renderRows();
       });
       byId("reloadBtn").addEventListener("click", function () { loadAll(); });

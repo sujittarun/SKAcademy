@@ -113,6 +113,31 @@
   .att-find .chip { flex: none; }
   .att-count { font-size: 12px; color: var(--ink-low); font-weight: 650; white-space: nowrap; }
 
+  /* ---------- the toolbar must not eat the register ----------
+     Stacked on a phone it ran to about 500px: batch, then a line of days
+     and times, then two count pills, then the bulk button, then the search
+     row, then a count of what is shown. That is most of a screen of
+     controls sitting on top of the thing they control.
+
+     Everything collapses onto two lines. The days-and-times line goes —
+     it is a fact about the batch you just chose from a menu that names it,
+     and it is on the batch's own screen. The two pills become one
+     "38 / 63" because present and absent are two halves of one number,
+     and the "N of M shown" line moves into the search row. */
+  @media (max-width: 699px) {
+    .att-bar { gap: 8px; }
+    .att-bar .left, .att-bar .right { width: auto; flex: 1 1 auto; }
+    .att-bar .left { min-width: 0; }
+    .att-bar select { width: 100%; }
+    .att-note { display: none; }
+    .att-bar .right { display: flex; align-items: center; gap: 6px; justify-content: flex-end; flex: 0 0 auto; }
+    .att-bar .right .pill { display: none; }
+    .att-bar .right .btn { padding: 9px 12px; font-size: 12px; }
+    .att-find { margin-top: 8px; gap: 6px; }
+    .att-find input { flex: 1 1 130px; }
+    .att-count { flex: 1 1 100%; margin-top: -2px; }
+  }
+
   @media (max-width: 699px) {
     .att-grid { grid-template-columns: 1fr; }
     .att-bar select { min-width: 0; width: 100%; }
@@ -156,6 +181,8 @@
           <div class="right">
             <span class="pill green hide" id="pillPresent">—</span>
             <span class="pill red hide" id="pillAbsent">—</span>
+            <!-- both pills are hidden on a phone; #attCount above already
+                 says "N of M marked", which is the same fact in one chip -->
             <button type="button" class="btn btn-glass btn-sm" id="restPresent" disabled>Mark the rest present</button>
           </div>
         </div>
