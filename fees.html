@@ -1241,7 +1241,15 @@
       return null;
     }
 
+    /* Bumped on every call so a slow reply cannot overwrite a newer one.
+       Two expenses saved in quick succession fire two of these, and the
+       first can land last — which would redraw the chart without the
+       second expense in it and look exactly like the bug this guard sits
+       next to. */
+    var rvSeq = 0;
+
     function loadChart() {
+      var seq = ++rvSeq;
       var list = rvMonthList();
       var from = list[0].key + "-01";
       var to   = monthBounds(list[list.length - 1].key).to;
@@ -1259,6 +1267,8 @@
         devOr(readVia("payments", [from, to], "Coaching fee payments"), SKA_DEV.payments),
         devOr(readVia("expenses", [from, to], "Expenses"), SKA_DEV.expenses)
       ]).then(function (res) {
+        if (seq !== rvSeq) return;          /* a newer load is already in flight */
+
         /* A read that failed is not a zero. If none of the three landed the
            chart says so rather than drawing a flat line the academy would
            read as six months of nothing. */
@@ -1289,8 +1299,19 @@
 
         list.forEach(function (r) { r.rev = r.fees + r.nets + r.ground; });
         RV.months = list;
+
+        /* All THREE, the same set rvFocus() repaints. This used to redraw
+           the chart and the six-month summary and leave paintRvDetail()
+           out — harmless while the only caller was page boot, where no
+           month is focused yet. The moment a write refetches this, a
+           manager who had tapped August to see its breakdown would keep
+           reading the figures from before their own expense.
+
+           The invariant is simply: when RV.months is replaced, everything
+           that reads it repaints. */
         drawChart();
         paintRvSummary();
+        paintRvDetail();
       });
     }
 
@@ -1528,6 +1549,19 @@
            is readable by anyone holding the public key. */
         LT_CLOUD.track("expense_recorded", { category: category });
         load(S.month);
+
+        /* AND the six-month view. It holds its own three reads, taken once
+           at page boot, and it is deliberately NOT refetched when the month
+           picker changes — it is the context around the month, not a view
+           of it. That reasoning is right for a FILTER and was wrongly
+           carried over to a WRITE: money out had just changed, and the
+           chart and the summary beside it went on showing the figures from
+           before the expense until the page was reloaded by hand.
+
+           Safe to call again: rvMonthList() builds fresh zeroed months on
+           every call and RV.months is replaced wholesale, so nothing is
+           double-counted. */
+        loadChart();
       }).catch(function (err) {
         btn.disabled = false;
         var m = (err && err.message) || "Could not save.";
