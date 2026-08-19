@@ -118,22 +118,26 @@
            surfaces use, so the badge belongs to the same material */
         '<path d="M0 12A12 12 0 0 1 12 0h24a12 12 0 0 1 12 12v5H0z" fill="#fff" opacity=".16"/>' +
         '<g fill="#101f38">' +
-          /* Crown, three points on a flat base. Sits ABOVE the stumps with a
-             clear gap: overlapped, the first attempt read as one dark blob
-             at 40px instead of two things. */
-          '<path d="M11.5 21V11.5l5.2 4.6L24 8.5l7.3 7.6 5.2-4.6V21z"/>' +
-          /* Three stumps, evenly spaced, centred under the crown. */
-          '<rect x="16.4" y="24.5" width="3.1" height="11" rx="1.55"/>' +
-          '<rect x="22.45" y="24.5" width="3.1" height="11" rx="1.55"/>' +
-          '<rect x="28.5" y="24.5" width="3.1" height="11" rx="1.55"/>' +
+          /* Crown: SMALLER than the first two attempts and wider in stance.
+             At full size it was the whole logo and the stumps looked like a
+             footnote; a crown that sits ON something has to be the smaller
+             half of the pair. */
+          '<path d="M14 20.5v-7.2l4.4 3.6L24 11l5.6 5.9 4.4-3.6v7.2z"/>' +
+          /* Three stumps, slimmer, centred on 24 under the crown's centre.
+             The earlier ones were fat bars sitting right of centre, so the
+             whole mark leaned. */
+          '<rect x="17.9" y="23.5" width="2.7" height="13.5" rx="1.35"/>' +
+          '<rect x="22.65" y="23.5" width="2.7" height="13.5" rx="1.35"/>' +
+          '<rect x="27.4" y="23.5" width="2.7" height="13.5" rx="1.35"/>' +
+          /* The bails, two dots across the tops. Small, but they are what
+             makes three bars unmistakably a WICKET. */
+          '<circle cx="21.25" cy="21.6" r="1.15"/>' +
+          '<circle cx="26.75" cy="21.6" r="1.15"/>' +
         '</g>' +
-        /* The ball, clear of the stumps rather than through them — the
-           first version put it at cx 36.5 r 5.5, which ran straight over
-           the third stump. Dark disc with a gold seam, because an outlined
-           ball loses its line at this size. */
-        '<circle cx="36.6" cy="37" r="4.4" fill="#101f38"/>' +
-        '<path d="M34.3 33.6a4.9 4.9 0 0 1 0 6.8" stroke="#f2c220" stroke-width="1.3" ' +
-              'fill="none" stroke-linecap="round"/>' +
+        /* No ball. It was a dark disc with a gold arc on its edge, which at
+           any size read as a crescent bitten out of it rather than a seam,
+           and it pushed the whole composition off-centre. The wicket says
+           cricket on its own. */
       "</svg>";
   };
 
