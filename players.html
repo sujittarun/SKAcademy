@@ -11,7 +11,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=22" />
+<link rel="stylesheet" href="assets/css/glass.css?v=23" />
 <style>
   /* Page-local layout only. Glass, pills, tables, chips, modals, empty
      states and the money/skeleton helpers all come from glass.css. */
@@ -221,6 +221,7 @@
         <div class="sub" id="countLine">Loading the roster…</div>
       </div>
       <div class="flex wrap">
+        <button type="button" class="btn btn-primary btn-sm" id="addStudentBtn">+ Add student</button>
         <a class="btn btn-glass btn-sm" href="admission.html">New admission</a>
         <button type="button" class="btn btn-glass btn-sm" id="reloadBtn">Refresh</button>
       </div>
@@ -288,6 +289,50 @@
        counts and dates; every rupee on this panel came back from
        resolve_fee(), reminder_queue() or a bookings row.
        ============================================================ -->
+  <!-- ---------- add a student who is already at the academy ----------
+       The admission form is for someone ENQUIRING: it asks for consent, a
+       date of birth, a guardian, and it produces an application somebody
+       then approves. An academy arriving with 130 existing students would
+       have to invent an enquiry for each of them, complete with a consent
+       statement nobody made today.
+
+       So this is the short road: the four things the app genuinely cannot
+       work without, and nothing else. Everything else is editable on the
+       member afterwards. -->
+  <div class="lt-modal-backdrop" id="asBackdrop">
+    <div class="glass lt-modal" style="width:min(420px,100%);">
+      <div class="modal-head">
+        <div><div class="kicker">Roster</div><h2 style="font-size:20px;">Add a student</h2></div>
+        <button class="btn btn-icon btn-ghost" id="asClose" type="button" aria-label="Close">✕</button>
+      </div>
+      <p class="note" style="margin-bottom:var(--gap-3);">
+        For students already at the academy. Nothing is sent to them — this just puts them on the roll.
+      </p>
+      <div class="lt-grid" style="gap:var(--gap-3);">
+        <label class="field">
+          <span>Student's name</span>
+          <input type="text" id="asName" maxlength="80" placeholder="As it should appear on the register" />
+        </label>
+        <label class="field">
+          <span>Mobile number</span>
+          <!-- The parent's number in practice. It is how a fee reminder
+               reaches them, so it is the one field with no optional. -->
+          <input type="tel" id="asPhone" inputmode="numeric" data-digits="10" placeholder="10-digit mobile" />
+        </label>
+        <label class="field">
+          <span>Batch</span>
+          <select id="asBatch"></select>
+        </label>
+        <label class="field">
+          <span>Parent's name <span class="opt">(optional)</span></span>
+          <input type="text" id="asParent" maxlength="80" placeholder="Who the academy speaks to" />
+        </label>
+        <div class="form-msg" id="asMsg"></div>
+        <button class="btn btn-primary btn-block" type="button" id="asSave">Add to the roll</button>
+      </div>
+    </div>
+  </div>
+
   <div class="lt-modal-backdrop" id="mdBackdrop">
     <div class="glass lt-modal" style="width:min(560px,100%);">
       <div class="modal-head">
@@ -380,9 +425,9 @@
     </div>
   </div>
 
-  <script src="assets/js/core.js?v=22"></script>
-  <script src="assets/js/cloud.js?v=22"></script>
-  <script src="assets/js/dev-data.js?v=22"></script>
+  <script src="assets/js/core.js?v=23"></script>
+  <script src="assets/js/cloud.js?v=23"></script>
+  <script src="assets/js/dev-data.js?v=23"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -1266,6 +1311,79 @@
         renderRows();
       });
       byId("reloadBtn").addEventListener("click", function () { loadAll(); });
+
+      /* ---------- add a student ---------- */
+      var asBackdrop = byId("asBackdrop");
+
+      function asClose() { asBackdrop.classList.remove("open"); }
+
+      function asOpen() {
+        ["asName", "asPhone", "asParent"].forEach(function (id) { byId(id).value = ""; });
+        byId("asMsg").textContent = "";
+        byId("asMsg").className = "form-msg";
+        /* Batches come from the same list the filters use, so the options
+           here and the chips above can never disagree about what exists. */
+        byId("asBatch").innerHTML =
+          '<option value="">No batch yet</option>' +
+          (state.batches || []).map(function (b) {
+            return '<option value="' + LT.esc(String(b.id)) + '">' + LT.esc(b.name || ("Batch " + b.id)) + "</option>";
+          }).join("");
+        asBackdrop.classList.add("open");
+        setTimeout(function () { try { byId("asName").focus(); } catch (e) {} }, 60);
+      }
+
+      byId("addStudentBtn").addEventListener("click", asOpen);
+      byId("asClose").addEventListener("click", asClose);
+      asBackdrop.addEventListener("click", function (e) { if (e.target === asBackdrop) asClose(); });
+
+      byId("asSave").addEventListener("click", function () {
+        var btn = this, msg = byId("asMsg");
+        var name = (byId("asName").value || "").trim();
+        var phone = (byId("asPhone").value || "").replace(/\D/g, "");
+        msg.className = "form-msg";
+
+        if (name.length < 2) { msg.textContent = "Give the student's name."; msg.className = "form-msg error"; byId("asName").focus(); return; }
+        if (phone.length !== 10) { msg.textContent = "A 10-digit mobile number is needed — it is how fee reminders reach them."; msg.className = "form-msg error"; byId("asPhone").focus(); return; }
+
+        btn.disabled = true;
+        msg.textContent = "Adding…";
+        LT_CLOUD.addStudent({
+          name: name,
+          phone: phone,
+          batch: byId("asBatch").value ? Number(byId("asBatch").value) : null,
+          parentName: (byId("asParent").value || "").trim() || null,
+          by: (LT.auth.session() || {}).email || null
+        }).then(function (res) {
+          btn.disabled = false;
+          var r = res || {};
+          /* Already on the roll is NOT an error — it is the answer. Say who,
+             and leave the sheet open so the next one can be typed. */
+          if (r.duplicate) {
+            msg.textContent = r.message || "That student is already on the roll.";
+            msg.className = "form-msg";
+            return;
+          }
+          if (!r.ok) { msg.textContent = "That did not save."; msg.className = "form-msg error"; return; }
+
+          var fee = r.fee || {};
+          var money = (!fee || String(fee.source) === "unset" || fee.amount == null)
+            ? "No fee is set for that batch yet, so nothing will be charged or chased."
+            : "Fee " + LT.fmtINR(fee.amount) + ".";
+          LT.toast(name + " added. " + money, "ok", 6000);
+
+          /* Stay open, cleared: an academy loading its roll is adding
+             thirty in a row, and closing after each one would make them
+             re-open it thirty times. */
+          byId("asName").value = ""; byId("asPhone").value = ""; byId("asParent").value = "";
+          msg.textContent = "";
+          try { byId("asName").focus(); } catch (e) {}
+          loadAll();
+        }).catch(function (err) {
+          btn.disabled = false;
+          msg.textContent = (err && err.message) || "That did not save.";
+          msg.className = "form-msg error";
+        });
+      });
 
       /* ============================================================
          MEMBER DETAIL

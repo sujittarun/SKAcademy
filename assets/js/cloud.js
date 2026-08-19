@@ -892,6 +892,25 @@
       });
     },
 
+    /* Puts an EXISTING student on the roll: one call, one transaction,
+       member + enrolment together. Two inserts from here could half-fail
+       and leave someone on the roster in no batch — invisible to every
+       register and to the fee chase, and looking perfectly healthy. */
+    addStudent: function (o) {
+      if (DEV) return devBlocked("the student");
+      return rpc("add_student", {
+        p_tenant: TENANT,
+        p_name: o.name,
+        p_phone: o.phone,
+        p_batch: o.batch || null,
+        p_parent_name: o.parentName || null,
+        p_dob: o.dob || null,
+        p_joined_on: o.joinedOn || null,
+        p_centre: o.centre || null,
+        p_by: o.by || null
+      });
+    },
+
     /* ---------- members / roster ---------- */
     /* THE ROSTER. Two columns in the first version of this did not exist:
        `sport` and `centre_id`. members has neither — it has `program`, and
