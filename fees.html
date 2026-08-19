@@ -12,7 +12,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=25" />
+<link rel="stylesheet" href="assets/css/glass.css?v=26" />
 <style>
   /* ---------- the five headline figures ----------
      Five, not four, so .lt-grid.cols-4 does not fit. No cols-* class is
@@ -159,6 +159,11 @@
         <span class="lt-filter">
           <select id="monthSel" aria-label="Choose a month"></select>
         </span>
+        <!-- What the academy CHARGES lives on its own screen: it is a
+             setting changed twice a year, and the ledger below is a record
+             of what happened. Putting them in one page would mean an edit
+             box for next month's fees sitting above last month's receipts. -->
+        <a class="btn btn-glass btn-sm" href="fee-rules.html">Fee rules</a>
         <button class="btn btn-primary btn-sm" id="expAdd" type="button">+ Add expense</button>
       </div>
     </div>
@@ -356,9 +361,9 @@
 
   <!-- ---------- collect a rental ---------- -->
 
-  <script src="assets/js/core.js?v=25"></script>
-  <script src="assets/js/cloud.js?v=25"></script>
-  <script src="assets/js/dev-data.js?v=25"></script>
+  <script src="assets/js/core.js?v=26"></script>
+  <script src="assets/js/cloud.js?v=26"></script>
+  <script src="assets/js/dev-data.js?v=26"></script>
   <script>
   /* ============================================================
      FINANCE — what came in, what went out, what is still owed.

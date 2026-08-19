@@ -980,6 +980,43 @@
     reminderQueue: function (on) {
       return rpc("reminder_queue", { p_tenant: TENANT, p_on: on || null });
     },
+    /* ---------- what the academy charges ----------
+       fee_rules is the table resolve_fee() reads. These three edit it;
+       none of them price anything. The board's per-rule "students" figure
+       is resolve_fee() run over every active enrolment server-side — the
+       client must never count matching rows itself, because two rules can
+       cover one student and only the chain knows which wins. */
+    feeRulesBoard: function () {
+      return rpc("fee_rules_board", { p_tenant: TENANT });
+    },
+    /* Scope is a FULL replace: send every field, including the ones the
+       form did not change, or the rule silently starts pricing a different
+       group. Dates are the exception and are preserved when omitted. */
+    saveFeeRule: function (o) {
+      o = o || {};
+      return rpc("save_fee_rule", {
+        p_tenant: TENANT,
+        p_id:        o.id || null,
+        p_label:     o.label,
+        p_monthly:   o.monthly,
+        p_admission: (o.admission === 0 || o.admission) ? o.admission : 0,
+        p_batch:     o.batch  || null,
+        p_centre:    o.centre || null,
+        p_sport:     o.sport  || null,
+        p_member:    o.member || null,
+        p_from:      o.from || null,
+        p_to:        o.to || null,
+        p_active:    o.active === false ? false : true,
+        p_note:      o.note || null,
+        p_by:        o.by || null
+      });
+    },
+    /* Deactivates. There is no delete — a fee rule is the reason a family
+       was charged what they were charged. */
+    retireFeeRule: function (id, by) {
+      return rpc("retire_fee_rule", { p_tenant: TENANT, p_id: id, p_by: by || null });
+    },
+
     /* resolve_upi(p_tenant, p_centre, p_batch) — batch → centre → tenant. */
     resolveUpi: function (o) {
       o = o || {};

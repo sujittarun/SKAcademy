@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#04101f" />
+<title>Fee rules · Super Kings Academy</title>
+<meta name="description" content="What Super Kings Academy charges: the monthly fee behind every batch, who each rule prices, and who has no fee set." />
+<script>
+  try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
+  document.documentElement.className += " lt-js";
+</script>
+<link rel="stylesheet" href="assets/css/glass.css?v=26" />
+<style>
+  /* ---------- the three figures ----------
+     Three, and the third is the one that matters: a student whose batch
+     has no rule is charged nothing and chased for nothing, and nothing
+     else on this app says so out loud. */
+  .fr-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fr-kpis .stat-value { font-size: 26px; }
+  .fr-kpis .delta { color: var(--ink-low); font-weight: 600; }
+  .fr-kpis .stat-card.warn { border-color: rgba(229, 72, 77, .45); }
+  .fr-kpis .stat-card.warn .stat-value { color: #ff8a8f; }
+  @media (max-width: 699px) {
+    .lt-grid.fr-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .fr-kpis .stat-card { padding: 12px 10px; }
+    .fr-kpis .stat-value { font-size: 20px; }
+    .fr-kpis .stat-copy { font-size: 11px; }
+    .fr-kpis .delta { font-size: 11px; }
+  }
+
+  /* ---------- one card per rule ----------
+     Cards, not a table. A rule has a name, a scope, two amounts and a
+     count, and a five-column table of that collapses into unreadable
+     slivers on the phone this is actually opened on. */
+  .fr-list { display: grid; gap: var(--gap-3); margin-top: var(--gap-3); }
+  .fr-card { padding: 16px 18px; }
+  .fr-top { display: flex; align-items: flex-start; gap: 12px; justify-content: space-between; }
+  .fr-name { font-weight: 800; font-size: 16.5px; letter-spacing: -.01em; }
+  .fr-who { color: var(--ink-mid); font-size: 13px; margin-top: 3px; }
+  .fr-money { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
+  .fr-amt { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+  .fr-per { color: var(--ink-low); font-size: 13px; font-weight: 600; }
+  .fr-adm { color: var(--ink-mid); font-size: 13px; }
+  .fr-count { font-size: 13px; color: var(--ink-mid); margin-top: 2px; }
+  .fr-count b { color: var(--ink-high); font-weight: 700; }
+  .fr-count.none { color: var(--ink-low); }
+  .fr-note { color: var(--ink-low); font-size: 12.5px; margin-top: 8px; font-style: italic; }
+  .fr-acts { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+  /* Status. Four states that must not blur into one another: a rule can
+     price nobody because it is off, because it has not started, because
+     it has ended, or because its batch is empty — and only the last one
+     is fine. */
+  .fr-pill { font-size: 11px; font-weight: 800; padding: 4px 9px; border-radius: var(--r-pill);
+             text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+  .fr-pill.live  { background: rgba(48, 164, 108, .16); color: #4ade80; }
+  .fr-pill.off   { background: rgba(255, 255, 255, .07); color: var(--ink-low); }
+  .fr-pill.sched { background: rgba(245, 183, 49, .16); color: #f5b731; }
+  .fr-pill.exp   { background: rgba(229, 72, 77, .14); color: #ff8a8f; }
+  .fr-card.dim { opacity: .62; }
+
+  .fr-help { margin-top: var(--gap-4); padding: 16px 18px; }
+  .fr-help h3 { font-size: 14px; margin-bottom: 8px; }
+  .fr-help p { color: var(--ink-mid); font-size: 13px; line-height: 1.65; margin-bottom: 8px; }
+  .fr-help p:last-child { margin-bottom: 0; }
+  .fr-help code { background: rgba(255,255,255,.06); padding: 1px 5px; border-radius: 5px; font-size: 12px; }
+
+  .fr-locked { color: var(--ink-mid); font-size: 13px; padding: 10px 12px;
+               background: rgba(255,255,255,.04); border-radius: var(--r-md); }
+</style>
+</head>
+<body>
+  <div class="lt-bg" aria-hidden="true"></div>
+
+  <main class="lt-page lt-main">
+
+    <div class="card-head" style="margin-bottom: 0;">
+      <div>
+        <div class="kicker">Finance</div>
+        <h2>What the academy charges</h2>
+        <div class="sub">Every fee on this screen is what a student will actually be billed — the same answer the reminders quote.</div>
+      </div>
+      <div class="flex wrap">
+        <a class="btn btn-glass btn-sm" href="fees.html">← Finance</a>
+        <button class="btn btn-primary btn-sm" id="frAdd" type="button">+ Add a rule</button>
+      </div>
+    </div>
+
+    <div class="lt-grid fr-kpis" style="margin-top: var(--gap-3);">
+      <div class="glass glass-hover stat-card kpi reveal">
+        <span class="stat-copy">Priced by a rule</span>
+        <span class="stat-value" id="kpiPriced">—</span>
+        <span class="delta" id="kpiPricedSub">Loading…</span>
+      </div>
+      <div class="glass glass-hover stat-card kpi reveal d1">
+        <span class="stat-copy">On their own rate</span>
+        <span class="stat-value" id="kpiOwn">—</span>
+        <span class="delta">Set on the student</span>
+      </div>
+      <div class="glass glass-hover stat-card kpi reveal d2" id="kpiNoneCard">
+        <span class="stat-copy">No fee set</span>
+        <span class="stat-value" id="kpiNone">—</span>
+        <span class="delta" id="kpiNoneSub">&nbsp;</span>
+      </div>
+    </div>
+
+    <div class="fr-list" id="frList">
+      <div class="glass lt-skel" style="height: 120px;"></div>
+      <div class="glass lt-skel" style="height: 120px;"></div>
+    </div>
+
+    <div class="glass fr-help reveal">
+      <h3>How a fee is decided</h3>
+      <p>
+        A fee belongs to a <b>group</b>, not to a student. When a payment or a reminder needs an
+        amount, the academy's rules are checked from the most specific to the least: a rate set on
+        one student first, then their batch, then a rule for everyone. The first one that fits wins.
+      </p>
+      <p>
+        So changing the Morning rule changes it for <b>everyone in Morning</b>, immediately, including
+        what tomorrow's reminders say. Nothing needs re-entering student by student.
+      </p>
+      <p>
+        To give <b>one</b> student their own rate — a sibling discount, a scholarship — set it on that
+        student on the <a href="players.html">Members</a> page. That beats every rule here, which is
+        why those students are counted separately above.
+      </p>
+    </div>
+
+  </main>
+
+  <!-- ---------- add / edit ----------
+       No date fields, on purpose. The database allows one active rule per
+       group, so "₹2,500 until September, ₹2,800 from October" cannot be
+       two rules — the pair is refused. A date picker here would either
+       always error or leave a batch priced by nothing until October, and
+       both are worse than the screen saying a change applies now. -->
+  <div class="lt-modal-backdrop" id="frBackdrop">
+    <div class="glass lt-modal" style="width:min(440px,100%);">
+      <div class="modal-head">
+        <div><div class="kicker">Fee rule</div><h2 style="font-size:20px;" id="frTitle">Add a rule</h2></div>
+        <button class="btn btn-icon btn-ghost" id="frClose" type="button" aria-label="Close">✕</button>
+      </div>
+
+      <div class="lt-grid" style="gap:var(--gap-3);">
+        <label class="field">
+          <span>Name it</span>
+          <input type="text" id="frLabel" maxlength="60" placeholder="Morning batch" />
+        </label>
+
+        <label class="field" id="frScopeField">
+          <span>Applies to</span>
+          <select id="frScope"></select>
+        </label>
+        <div class="fr-locked hide" id="frScopeLocked"></div>
+
+        <label class="field hide" id="frBatchField">
+          <span>Which batch</span>
+          <select id="frBatch"></select>
+        </label>
+
+        <label class="field">
+          <span>Monthly fee</span>
+          <input type="tel" id="frMonthly" inputmode="numeric" data-digits="6" placeholder="2500" />
+        </label>
+
+        <label class="field">
+          <span>Joining fee <span class="opt">(one-off, optional)</span></span>
+          <input type="tel" id="frAdmission" inputmode="numeric" data-digits="6" placeholder="0" />
+        </label>
+
+        <label class="field">
+          <span>Note <span class="opt">(optional)</span></span>
+          <input type="text" id="frNote" maxlength="80" placeholder="Why this rate exists" />
+        </label>
+
+        <div class="form-msg" id="frMsg"></div>
+        <button class="btn btn-primary btn-block" type="button" id="frSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/core.js?v=26"></script>
+  <script src="assets/js/cloud.js?v=26"></script>
+  <script src="assets/js/dev-data.js?v=26"></script>
+  <script>
+  (function () {
+    "use strict";
+    if (!LT.auth.require({ staffOnly: true })) return;
+
+    /* Finance stays lit in the nav: this screen is part of it, and the
+       dock is deliberately five tabs — core.js says a sixth crowds the
+       phone, and a rules screen opened twice a year is not the sixth. */
+    LT.managerShell("fees.html");
+
+    function byId(id) { return document.getElementById(id); }
+
+    /* core.js formats money but not dates, and this screen shows two:
+       when a rule starts and when it ended. "18 Sep 2026", never the ISO
+       string a manager has to decode. */
+    function fmtDate(iso) {
+      if (!iso) return "";
+      var d = new Date(String(iso) + "T00:00:00");
+      if (isNaN(d)) return String(iso);
+      return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    }
+
+    var state = { rules: [], summary: null, batches: [], editing: null };
+
+    /* ---------- what a rule covers, in words ----------
+       Read from the same fields resolve_fee() matches on, and phrased for
+       someone who has never heard the word "scope". */
+    function whoFor(r) {
+      if (r.member_id) return "One student — " + (r.member_name || "#" + r.member_id);
+      if (r.batch_id)  return (r.batch_name || "Batch #" + r.batch_id) + " batch";
+      if (r.centre_id && r.sport) return (r.centre_name || "one centre") + " · " + r.sport;
+      if (r.sport)     return "Everyone doing " + r.sport;
+      if (r.centre_id) return "Everyone at " + (r.centre_name || "one centre");
+      return "Everyone at the academy";
+    }
+
+    /* The four reasons a rule can be sitting there pricing nobody. Only
+       the last is harmless, so they are never merged. */
+    function pillFor(r) {
+      if (r.status === "off")       return ["off", "Retired"];
+      if (r.status === "scheduled") return ["sched", "Starts " + fmtDate(r.effective_from)];
+      if (r.status === "expired")   return ["exp", "Ended " + fmtDate(r.effective_to)];
+      return ["live", "Live"];
+    }
+
+    function countLine(r) {
+      if (r.status !== "live") return '<div class="fr-count none">Pricing nobody while it is not live.</div>';
+      if (!r.students) return '<div class="fr-count none">Pricing nobody right now — no active student matches it.</div>';
+      return '<div class="fr-count">Pricing <b>' + r.students + "</b> student" +
+             (r.students === 1 ? "" : "s") + " right now.</div>";
+    }
+
+    function paint() {
+      var s = state.summary || {};
+      var priced = Math.max(0, (s.students || 0) - (s.unpriced || 0) - (s.overridden || 0));
+      byId("kpiPriced").textContent = priced;
+      byId("kpiPricedSub").textContent = s.monthly_total != null
+        ? LT.fmtINR(s.monthly_total) + " a month in all"
+        : "";
+      byId("kpiOwn").textContent = s.overridden || 0;
+
+      /* Loud when it is not zero, silent when it is. A warning that is
+         always on screen stops being read. */
+      byId("kpiNone").textContent = s.unpriced || 0;
+      byId("kpiNoneCard").classList.toggle("warn", (s.unpriced || 0) > 0);
+      byId("kpiNoneSub").innerHTML = (s.unpriced || 0) > 0
+        ? "Charged nothing, chased for nothing"
+        : "&nbsp;";
+
+      var host = byId("frList");
+      if (!state.rules.length) {
+        host.innerHTML =
+          '<div class="glass lt-empty"><div class="lt-empty-t">No fee rules yet</div>' +
+          '<div class="lt-empty-s">Nothing is being charged, and no reminder can quote an amount. ' +
+          'Add one rule per batch to start.</div></div>';
+        return;
+      }
+
+      host.innerHTML = state.rules.map(function (r) {
+        var p = pillFor(r);
+        /* NO .reveal here. The scroll-reveal observer and its one-shot
+           safety net both run at boot over the markup that exists then,
+           so a card built later would carry opacity 0 and never be given
+           .in — an invisible list that looks like a failed read. Every
+           .reveal in this app is on static markup for exactly that
+           reason. */
+        return '<div class="glass fr-card' + (r.status === "live" ? "" : " dim") + '">' +
+          '<div class="fr-top">' +
+            "<div>" +
+              '<div class="fr-name">' + LT.esc(r.label || "Untitled rule") + "</div>" +
+              '<div class="fr-who">' + LT.esc(whoFor(r)) + "</div>" +
+            "</div>" +
+            '<span class="fr-pill ' + p[0] + '">' + LT.esc(p[1]) + "</span>" +
+          "</div>" +
+          '<div class="fr-money">' +
+            '<span class="fr-amt">' + LT.fmtINR(r.monthly_amount) + "</span>" +
+            '<span class="fr-per">a month</span>' +
+            (Number(r.admission_fee) > 0
+              ? '<span class="fr-adm">· ' + LT.fmtINR(r.admission_fee) + " to join</span>"
+              : "") +
+          "</div>" +
+          countLine(r) +
+          (r.note ? '<div class="fr-note">' + LT.esc(r.note) + "</div>" : "") +
+          '<div class="fr-acts">' +
+            '<button class="btn btn-glass btn-sm" data-edit="' + r.id + '" type="button">Edit</button>' +
+            (r.active
+              ? '<button class="btn btn-ghost btn-sm" data-retire="' + r.id + '" type="button">Retire</button>'
+              : "") +
+          "</div>" +
+        "</div>";
+      }).join("");
+    }
+
+    /* ---------- load ----------
+       Both reads fired together. Tokyo is ~180ms away and these do not
+       depend on each other; one after the other is a third of a second of
+       nothing happening. */
+    function load() {
+      return Promise.all([
+        LT_CLOUD.feeRulesBoard(),
+        LT_CLOUD.batches()
+      ]).then(function (res) {
+        var board = res[0] || {};
+        state.rules = board.rules || [];
+        state.summary = board.summary || {};
+        state.batches = (res[1] || []).filter(function (b) { return b.active !== false; });
+        paint();
+      }).catch(function (err) {
+        byId("frList").innerHTML =
+          '<div class="glass lt-empty"><div class="lt-empty-t">Could not read the fee rules</div>' +
+          '<div class="lt-empty-s">' + LT.esc((err && err.message) || "Try again in a moment.") +
+          "</div></div>";
+        ["kpiPriced", "kpiOwn", "kpiNone"].forEach(function (id) { byId(id).textContent = "—"; });
+        byId("kpiPricedSub").textContent = "";
+      });
+    }
+
+    /* ---------- the sheet ---------- */
+    var back = byId("frBackdrop");
+    function close() { back.classList.remove("open"); }
+
+    function fillScope(r) {
+      var kind = "all";
+      if (r && r.batch_id) kind = "batch";
+
+      /* A rule scoped by student, sport or centre is SHOWN but not
+         re-scoped here: those are set elsewhere, and a selector offering
+         two of five options would quietly rewrite the other three on
+         save. The scope round-trips untouched instead. */
+      var exotic = !!(r && (r.member_id || r.sport || (r.centre_id && !r.batch_id)));
+      byId("frScopeField").classList.toggle("hide", exotic);
+      byId("frScopeLocked").classList.toggle("hide", !exotic);
+      byId("frBatchField").classList.toggle("hide", exotic || kind !== "batch");
+      if (exotic) {
+        byId("frScopeLocked").textContent =
+          "Applies to: " + whoFor(r) + " — set outside this screen, and left as it is when you save.";
+        return;
+      }
+
+      byId("frScope").innerHTML =
+        '<option value="all">Everyone at the academy</option>' +
+        '<option value="batch">One batch</option>';
+      byId("frScope").value = kind;
+
+      byId("frBatch").innerHTML = state.batches.map(function (b) {
+        return '<option value="' + LT.esc(String(b.id)) + '">' + LT.esc(b.name || ("Batch " + b.id)) + "</option>";
+      }).join("");
+      if (r && r.batch_id) byId("frBatch").value = String(r.batch_id);
+    }
+
+    function open(r) {
+      state.editing = r || null;
+      byId("frTitle").textContent = r ? "Edit this rule" : "Add a rule";
+      byId("frLabel").value = r ? (r.label || "") : "";
+      byId("frMonthly").value = r ? String(Math.round(Number(r.monthly_amount || 0))) : "";
+      byId("frAdmission").value = r && Number(r.admission_fee) > 0
+        ? String(Math.round(Number(r.admission_fee))) : "";
+      byId("frNote").value = r ? (r.note || "") : "";
+      byId("frMsg").textContent = "";
+      byId("frMsg").className = "form-msg";
+      fillScope(r);
+      back.classList.add("open");
+      setTimeout(function () { try { byId("frLabel").focus(); } catch (e) {} }, 60);
+    }
+
+    byId("frAdd").addEventListener("click", function () { open(null); });
+    byId("frClose").addEventListener("click", close);
+    back.addEventListener("click", function (e) { if (e.target === back) close(); });
+    byId("frScope").addEventListener("change", function () {
+      byId("frBatchField").classList.toggle("hide", this.value !== "batch");
+    });
+
+    byId("frList").addEventListener("click", function (e) {
+      var ed = e.target.closest("[data-edit]");
+      if (ed) {
+        var id = Number(ed.getAttribute("data-edit"));
+        var r = state.rules.filter(function (x) { return x.id === id; })[0];
+        if (r) open(r);
+        return;
+      }
+      var rt = e.target.closest("[data-retire]");
+      if (rt) retire(Number(rt.getAttribute("data-retire")));
+    });
+
+    /* ---------- retire ----------
+       The confirmation names the consequence, not the action. "Are you
+       sure?" tells a manager nothing; "the 47 students in Morning will
+       have no fee" tells them exactly what they are about to do. */
+    function retire(id) {
+      var r = state.rules.filter(function (x) { return x.id === id; })[0];
+      if (!r) return;
+      var hit = r.status === "live" && r.students
+        ? " The " + r.students + " student" + (r.students === 1 ? "" : "s") +
+          " it prices will be charged nothing until another rule covers them."
+        : " It is pricing nobody, so nothing changes for anyone today.";
+      LT.ask({
+        kicker: "Fee rule",
+        title: "Retire “" + (r.label || "this rule") + "”?",
+        sub: "It stops pricing anyone." + hit + " The rule is kept, not deleted — it is the record of what people were charged.",
+        confirmLabel: "Retire it",
+        danger: true
+      }).then(function (ok) {
+        if (ok === null) return;
+        LT_CLOUD.retireFeeRule(id, (LT.auth.session() || {}).email || null)
+          .then(function (res) {
+            var n = (res && res.unpriced) || 0;
+            /* "error" rather than a warn kind that glass.css does not
+               style — it is the only one that renders the ⚠, and students
+               left priced by nothing has earned it. */
+            LT.toast(n > 0
+              ? "Retired. " + n + " student" + (n === 1 ? " has" : "s have") + " no fee set now."
+              : "Retired.", n > 0 ? "error" : "ok", 6000);
+            LT_CLOUD.track("fee_rule_retired", {});
+            load();
+          })
+          .catch(function (err) {
+            LT.toast((err && err.message) || "Could not retire that rule.", "error", 6000);
+          });
+      });
+    }
+
+    /* ---------- save ---------- */
+    byId("frSave").addEventListener("click", function () {
+      var btn = this, msg = byId("frMsg"), r = state.editing;
+
+      var label = (byId("frLabel").value || "").trim();
+      var monthlyRaw = (byId("frMonthly").value || "").replace(/\D/g, "");
+      var admRaw = (byId("frAdmission").value || "").replace(/\D/g, "");
+      msg.className = "form-msg";
+
+      if (label.length < 2) {
+        msg.textContent = "Give the rule a name — it is what this screen shows.";
+        msg.className = "form-msg error"; byId("frLabel").focus(); return;
+      }
+      /* Blank is not zero here. An amount is what this rule EXISTS to say,
+         so an empty box is a mistake rather than a free batch — unlike
+         the joining fee, where blank genuinely means none. */
+      if (monthlyRaw === "") {
+        msg.textContent = "Put in the monthly fee. Enter 0 only if this group really pays nothing.";
+        msg.className = "form-msg error"; byId("frMonthly").focus(); return;
+      }
+      var monthly = Number(monthlyRaw);
+      var admission = admRaw === "" ? 0 : Number(admRaw);
+
+      /* THE SCOPE IS SENT WHOLE. save_fee_rule replaces all four fields,
+         so anything not sent becomes null and the rule starts pricing a
+         different group than the one on screen. */
+      var scope = { batch: null, centre: null, sport: null, member: null };
+      var exotic = !!(r && (r.member_id || r.sport || (r.centre_id && !r.batch_id)));
+      if (exotic) {
+        scope = { batch: r.batch_id || null, centre: r.centre_id || null,
+                  sport: r.sport || null, member: r.member_id || null };
+      } else if (byId("frScope").value === "batch") {
+        var bid = Number(byId("frBatch").value);
+        if (!bid) {
+          msg.textContent = "Choose which batch this applies to.";
+          msg.className = "form-msg error"; return;
+        }
+        var b = state.batches.filter(function (x) { return x.id === bid; })[0];
+        /* The batch's own centre goes with it. SKA's seeded rules carry
+           both, and dropping the centre on an edit would quietly rewrite
+           a rule nobody asked to re-scope. */
+        scope = { batch: bid, centre: (b && b.centre_id) || null, sport: null, member: null };
+      }
+
+      /* CONFIRM WHAT MOVES. Only when it actually moves: re-saving the
+         same number, or naming a brand new rule, needs no ceremony. */
+      var moves = r && r.status === "live" && r.students &&
+                  Number(r.monthly_amount) !== monthly;
+      var ask = moves
+        ? LT.ask({
+            kicker: "Fee rule",
+            title: "Change what " + r.students + " student" + (r.students === 1 ? "" : "s") + " pay?",
+            sub: LT.fmtINR(r.monthly_amount) + " becomes " + LT.fmtINR(monthly) +
+                 " a month, from now. Reminders and receipts quote the new amount straight away.",
+            confirmLabel: "Change it"
+          })
+        : Promise.resolve("");
+
+      ask.then(function (ok) {
+        if (ok === null) return;
+        btn.disabled = true;
+        msg.textContent = "Saving…";
+
+        LT_CLOUD.saveFeeRule({
+          id: r ? r.id : null,
+          label: label,
+          monthly: monthly,
+          admission: admission,
+          batch: scope.batch, centre: scope.centre, sport: scope.sport, member: scope.member,
+          note: (byId("frNote").value || "").trim() || null,
+          by: (LT.auth.session() || {}).email || null
+        }).then(function (res) {
+          btn.disabled = false;
+          var out = res || {};
+          close();
+
+          /* ONE toast. LT.toast writes into a single reused element, so a
+             second call replaces the first before it can be read — the
+             overlap warning would have silently eaten the save message. */
+          var n = out.students || 0;
+          var said = (out.created ? "Rule added. " : "Saved. ") +
+                     (n ? "It prices " + n + " student" + (n === 1 ? "" : "s") + " now."
+                        : "It prices nobody yet.");
+          /* An overlap is legal and sometimes intended — writing the
+             replacement before retiring the old one. It is still worth
+             saying, because which of the two wins is then decided by a
+             tie-break nobody chose. */
+          if (out.overlaps) {
+            said += " Another live rule covers some of the same students — retire the one you do not want.";
+          }
+          LT.toast(said, out.overlaps ? "error" : "ok", out.overlaps ? 9000 : 6000);
+          LT_CLOUD.track(out.created ? "fee_rule_added" : "fee_rule_saved", {});
+          load();
+        }).catch(function (err) {
+          btn.disabled = false;
+          msg.textContent = (err && err.message) || "That did not save.";
+          msg.className = "form-msg error";
+        });
+      });
+    });
+
+    /* ---------- go ---------- */
+    load();
+  })();
+  </script>
+</body>
+</html>
