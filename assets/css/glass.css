@@ -1530,3 +1530,30 @@ body.has-devbar .lt-page {
 .dob-row { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 8px; }
 .dob-row select { width: 100%; min-width: 0; }
 @media (max-width: 360px) { .dob-row { grid-template-columns: 1fr 1.3fr 1fr; gap: 6px; } }
+
+/* ---------- one row per net surface (booking) ----------
+   Replaced the two either/or cards: a customer wanting one astro and one
+   matting was being asked to book twice. Each row now carries its own
+   0..n, and "None" is a real answer rather than the absence of one. */
+.surf-list { display: grid; gap: 10px; }
+.surf-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  padding: 13px 15px; border-radius: var(--r-md);
+  border: 1px solid var(--tile-border); background: var(--tile-bg);
+  transition: border-color .18s, background .18s;
+}
+.surf-row.on { border-color: var(--tx-gold); background: var(--tile-bg-hover, var(--tile-bg)); }
+.surf-row .sr-id { min-width: 0; }
+.surf-row .sr-name { display: block; font-weight: 750; font-size: 15px; color: var(--ink-hi); }
+.surf-row .sr-sub { display: block; font-size: 12.5px; color: var(--ink-low); margin-top: 2px; }
+@media (max-width: 460px) {
+  .surf-row { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .surf-row .qty-row { width: 100%; }
+}
+
+/* the per-surface lines inside the quote */
+.q-line { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.q-line + .q-line { margin-top: 4px; }
+.q-line .q-k { font-size: 13px; font-weight: 650; color: var(--ink-mid); }
+.q-line .q-v { font-weight: 750; font-variant-numeric: tabular-nums; }

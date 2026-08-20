@@ -15,7 +15,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=29" />
+<link rel="stylesheet" href="assets/css/glass.css?v=30" />
 <style>
   /* Page-local LAYOUT only. Glass, buttons, fields, pills, .slot,
      .form-msg and .lt-empty all come from glass.css. */
@@ -271,11 +271,6 @@
     <div class="bk-wrap">
       <div class="bk-head" id="bkHead">
         <h1>Book at VAKAMAN FE</h1>
-        <!-- Emptied when the ground is chosen. "Nothing is paid online" is
-             reassurance for a family booking an hour in a net; on a
-             twenty-thousand-rupee ground hire it reads as a warning about
-             how the money is going to be handled. -->
-        <p id="bkSub">Nothing is paid online.</p>
       </div>
 
       <div class="steps mt-4" id="bkSteps">
@@ -330,28 +325,14 @@
                2026-08-18c, because they are priced apart. The two figures
                below are read from public_quote() for the chosen day; this
                page holds neither of them. -->
-          <div class="fac-pick" id="surfPick" role="group" aria-label="Choose a surface">
-            <button type="button" class="fac-card" data-s="astro" aria-pressed="false">
-              <span class="fc-name">Astro nets</span>
-              <span class="fc-sub" data-count="astro"></span>
-              <span class="fc-rate" data-rate="astro"></span>
-            </button>
-            <button type="button" class="fac-card" data-s="matting" aria-pressed="false">
-              <span class="fc-name">Matting nets</span>
-              <span class="fc-sub" data-count="matting"></span>
-              <span class="fc-rate" data-rate="matting"></span>
-            </button>
-          </div>
-          <!-- ---------- how many ----------
-               Built from the academy's own court count for the chosen
-               surface, so it can never offer a third net where there are
-               two. Each net is a separate request to the server, and the
-               server refuses the one that would oversell — so asking for
-               two when one is left books the one and says so. -->
-          <div class="qty-wrap mt-3" id="qtyWrap" hidden>
-            <span class="qty-lab">How many nets?</span>
-            <div class="qty-row" id="qtyRow" role="group" aria-label="How many nets"></div>
-          </div>
+          <!-- ---------- a count per surface ----------
+               NOT a single choice any more. The two surfaces are priced
+               apart and booked apart, and a customer wanting one of each
+               was being asked to come back and do the whole thing twice.
+               Each row carries its own 0..n, built from the academy's own
+               court count so it can never offer a third net where there
+               are two. Zero on both is simply "nothing chosen yet". -->
+          <div class="surf-list" id="surfPick"></div>
         </section>
 
         <!-- 4 · hours (nets only — the ground is never hourly) -->
@@ -445,15 +426,15 @@
     </div>
   </main>
 
-  <script src="assets/js/core.js?v=29"></script>
-  <script src="assets/js/cloud.js?v=29"></script>
+  <script src="assets/js/core.js?v=30"></script>
+  <script src="assets/js/cloud.js?v=30"></script>
   <!-- dev-data.js loads for shell consistency and is DELIBERATELY NOT USED
        here. Sample rows behind the striped banner are a preview on a staff
        screen; on a public page they would be a customer shown invented
        availability with no way to tell. A failed read says "could not
        load" instead — an empty academy and a broken one must not look
        alike. -->
-  <script src="assets/js/dev-data.js?v=29"></script>
+  <script src="assets/js/dev-data.js?v=30"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -530,11 +511,8 @@
         daySel:  LT.$("#daySel"),
         month:   LT.$("#bkMonth"),
         day:     LT.$("#bkDay"),
-        qtyWrap: LT.$("#qtyWrap"),
-        qtyRow:  LT.$("#qtyRow"),
         student: LT.$("#bkStudent"),
         studentField: LT.$("#studentField"),
-        sub:     LT.$("#bkSub"),
         date:    LT.$("#bkDate"),
         ground:  LT.$("#groundState"),
         grid:    LT.$("#slotGrid"),
@@ -704,29 +682,30 @@
         }
       }
 
-      /* ---------- how many nets ----------
-         Bounded by the academy's own court count for the chosen surface, so
-         the control cannot offer what does not exist. Resets to 1 whenever
-         the surface changes: a 2 left over from Astro would silently carry
-         into Matting, which may have a different number of nets. */
-      var qty = 1;
+      /* ---------- how many of each surface ----------
+         `sport` still means "the one facility" on the GROUND track. On the
+         nets track there is no single answer any more: want.astro and
+         want.matting are counts, either of which may be zero. */
+      var want = { astro: 0, matting: 0 };
 
-      function buildQty() {
-        var max = (sport && courts[sport]) || 0;
-        if (track !== NETS || !sport || max < 2) {
-          el.qtyWrap.hidden = true;
-          qty = 1;
-          return;
+      function chosen() {
+        return SURFACES.filter(function (c) { return want[c] > 0; });
+      }
+      function totalNets() {
+        return SURFACES.reduce(function (n, c) { return n + want[c]; }, 0);
+      }
+      function freeAt(code, hour) {
+        return (courts[code] || 0) - takenAt(code, hour);
+      }
+      /* An hour works only if EVERY surface asked for has enough nets left
+         in it. Two astro and one matting means two astro AND one matting —
+         not "three nets somewhere". */
+      function hourOk(hour) {
+        var list = chosen();
+        for (var i = 0; i < list.length; i++) {
+          if (freeAt(list[i], hour) < want[list[i]]) return false;
         }
-        el.qtyWrap.hidden = false;
-        if (qty > max) qty = max;
-        var html = "";
-        for (var i = 1; i <= max; i++) {
-          html += '<button type="button" class="qty-chip' + (i === qty ? " on" : "") +
-                  '" data-q="' + i + '" aria-pressed="' + (i === qty ? "true" : "false") + '">' +
-                  i + "</button>";
-        }
-        el.qtyRow.innerHTML = html;
+        return list.length > 0;
       }
 
       /* THE one place the date changes. Everything downstream of a date —
@@ -949,19 +928,30 @@
         });
       }
 
+      var SURF_LABEL = { astro: "Astro nets", matting: "Matting nets" };
+
       function renderSurfaces() {
-        SURFACES.forEach(function (code) {
-          var rate = LT.$('[data-rate="' + code + '"]', el.surfPick);
-          var cnt  = LT.$('[data-count="' + code + '"]', el.surfPick);
-          if (cnt) cnt.textContent = courts[code] + plural(courts[code], " net", " nets");
-          if (!rate) return;
-          rate.textContent = surfUnit[code] == null ? "" : LT.fmtINR(surfUnit[code]) + " / hour";
-        });
-        LT.$$(".fac-card", el.surfPick).forEach(function (c) {
-          var on = c.getAttribute("data-s") === sport;
-          c.classList.toggle("active", on);
-          c.setAttribute("aria-pressed", on ? "true" : "false");
-        });
+        el.surfPick.innerHTML = SURFACES.map(function (code) {
+          var max  = courts[code] || 0;
+          var rate = surfUnit[code] == null ? "" : LT.fmtINR(surfUnit[code]) + " / hour";
+          var chips = "";
+          for (var i = 0; i <= max; i++) {
+            chips += '<button type="button" class="qty-chip' + (want[code] === i ? " on" : "") +
+                     '" data-s="' + LT.esc(code) + '" data-q="' + i + '"' +
+                     ' aria-pressed="' + (want[code] === i ? "true" : "false") + '"' +
+                     ' aria-label="' + LT.esc(String(i) + " " + SURF_LABEL[code]) + '">' +
+                     (i === 0 ? "None" : i) + "</button>";
+          }
+          return '<div class="surf-row' + (want[code] > 0 ? " on" : "") + '">' +
+            '<div class="sr-id">' +
+              '<span class="sr-name">' + LT.esc(SURF_LABEL[code]) + "</span>" +
+              '<span class="sr-sub">' + max + plural(max, " net", " nets") +
+                (rate ? " · " + LT.esc(rate) : "") + "</span>" +
+            "</div>" +
+            '<div class="qty-row" role="group" aria-label="How many ' +
+              LT.esc(SURF_LABEL[code]) + '">' + chips + "</div>" +
+          "</div>";
+        }).join("");
       }
 
       /* ---------- nets grid ---------- */
@@ -982,19 +972,31 @@
 
         var isToday = el.date.value === LT.today();
         var nowHour = new Date().getHours();
-        var total = courts[sport] || 0;         // 2 for a surface, not 4
+        var list = chosen();
         var html = "", open = 0;
 
         for (var h = HOUR_FROM; h <= HOUR_TO; h++) {
           var past = isToday && h <= nowHour;
-          var left = total - takenAt(sport, h);
-          var full = left <= 0;
+          var full = !hourOk(h);
           if (!past && !full) open++;
           var sel = selected.indexOf(h) !== -1;
-          var sub = past ? '<span class="faint">Passed</span>'
-                  : full ? '<span class="sl-full">Full</span>'
-                  : left === 1 ? '<span class="sl-left">Last net free</span>'
-                  : LT.esc(left + " nets free");
+
+          /* With one surface the old sentence still reads best. With two,
+             say which one is short rather than a single number that hides
+             it — "1 net free" when the customer asked for one of each is
+             an answer to a question nobody asked. */
+          var sub;
+          if (past)      sub = '<span class="faint">Passed</span>';
+          else if (full) sub = '<span class="sl-full">Full</span>';
+          else if (list.length === 1) {
+            var left = freeAt(list[0], h);
+            sub = left === 1 ? '<span class="sl-left">Last net free</span>'
+                             : LT.esc(left + " nets free");
+          } else {
+            sub = LT.esc(list.map(function (c) {
+              return SURF_LABEL[c].split(" ")[0] + " " + freeAt(c, h);
+            }).join(" · ") + " free");
+          }
           html += '<button type="button" class="slot' + (sel ? " sel" : "") + (past || full ? " taken" : "") +
                   '" data-h="' + h + '"' + (past || full ? " disabled" : "") +
                   ' aria-pressed="' + (sel ? "true" : "false") + '">' +
@@ -1009,7 +1011,8 @@
           var note = document.createElement("div");
           note.className = "grid-dead";
           note.innerHTML = "<span>" +
-            (isToday && nowHour >= HOUR_TO ? "Today's last slot has started." : "Every net on this surface is taken.") +
+            (isToday && nowHour >= HOUR_TO ? "Today's last slot has started."
+              : "No hour has that many nets free.") +
             '</span><button type="button" class="btn btn-glass btn-sm" id="nextDayBtn">Try the next day</button>';
           el.grid.appendChild(note);
           var nd = LT.$("#nextDayBtn");
@@ -1058,7 +1061,7 @@
       function renderSteps() {
         var nets = track === NETS;
         var haveDate = !!el.date.value;
-        var haveSurface = nets && !!sport;
+        var haveSurface = nets && totalNets() > 0;
         if (haveDate && (nets ? (haveSurface && selected.length > 0) : groundOk())) lastOpen = true;
 
         /* ...but the GROUND closes it again when the day is gone.
@@ -1093,7 +1096,8 @@
            is 3 — a contiguous 1-2-3, not a 5 with two gaps above it. */
         el.detailsNum.textContent = nets ? "5" : "3";
         el.selCount.hidden = !selected.length;
-        el.selCount.textContent = selected.length + plural(selected.length, " hour", " hours");
+        el.selCount.textContent = selected.length + plural(selected.length, " hour", " hours") +
+          (totalNets() > 1 ? " × " + totalNets() + " nets" : "");
         syncSubmit();
 
         /* Re-quote whenever the selection, the date, the surface or the
@@ -1120,7 +1124,7 @@
          user sees a flicker. The other tiles' numbers have not changed. */
       function render() {
         if (track === GROUND) renderGround();
-        else if (track === NETS && sport) renderSlots();
+        else if (track === NETS && totalNets() > 0) renderSlots();
         renderSteps();
       }
 
@@ -1128,7 +1132,7 @@
         if (String(el.name.value || "").trim().length < 2) return false;
         if (String(el.phone.value || "").replace(/\D/g, "").length < 10) return false;
         if (!el.date.value) return false;
-        return track === NETS ? (!!sport && selected.length > 0) : groundOk();
+        return track === NETS ? (totalNets() > 0 && selected.length > 0) : groundOk();
       }
       function syncSubmit() {
         /* "Book" on both paths. The old wording ("Send request" / "Send
@@ -1154,10 +1158,44 @@
       function loadQuote() {
         var host = el.quote;
         if (!host) return;
-        if (!sport || !el.date.value) { clearQuote(); return; }
-        var wantHours = track === NETS ? selected.slice() : [];
-        if (track === NETS && !wantHours.length) { clearQuote(); return; }
+        if (!el.date.value) { clearQuote(); return; }
 
+        /* NETS: one quote per surface asked for. Each figure comes back
+           from the database for that surface's hours, and they are printed
+           side by side rather than added — a grand total across two
+           surfaces and several nets is arithmetic on money, which this page
+           does not do. The confirmation lists what was actually charged for
+           each booking. */
+        if (track === NETS) {
+          var list = chosen();
+          var hrs = selected.slice();
+          if (!list.length || !hrs.length) { clearQuote(); return; }
+          var mineN = ++quoteSeq;
+          el.quoteLab.textContent = hrs.length + plural(hrs.length, " hour", " hours");
+          el.quoteAmt.textContent = "…";
+          el.quoteNote.textContent = "";
+          host.hidden = false;
+
+          Promise.all(list.map(function (code) {
+            return LT_CLOUD.publicQuote(code, el.date.value, hrs)
+              .then(function (q) { return { code: code, q: q }; })
+              .catch(function () { return { code: code, q: null }; });
+          })).then(function (rows) {
+            if (mineN !== quoteSeq) return;
+            var good = rows.filter(function (r) { return r.q && r.q.total != null; });
+            if (!good.length) { clearQuote(); return; }
+            el.quoteAmt.innerHTML = good.map(function (r) {
+              return '<span class="q-line"><span class="q-k">' +
+                LT.esc(SURF_LABEL[r.code]) + " × " + want[r.code] + "</span>" +
+                '<span class="q-v">' + LT.esc(LT.fmtINR(r.q.total)) + " each</span></span>";
+            }).join("");
+            el.quoteNote.textContent =
+              "Per net, for the hours chosen. The academy confirms the total when it calls.";
+          });
+          return;
+        }
+
+        var wantHours = [];
         var mine = ++quoteSeq;
         el.quoteAmt.textContent = "…";
         el.quoteNote.textContent = "";
@@ -1172,17 +1210,9 @@
           if (q.total == null) { clearQuote(); return; }
           el.quoteLab.textContent = q.full_day
             ? "Full day · " + LT.shortDate(el.date.value)
-            : wantHours.length + (wantHours.length === 1 ? " hour" : " hours") +
-              (q.unit == null ? "" : " × " + LT.fmtINR(q.unit)) +
-              (qty > 1 ? " · per net" : "");
+            : LT.shortDate(el.date.value);
           el.quoteAmt.textContent = LT.fmtINR(q.total);
-          /* NOT MULTIPLIED BY qty. public_quote() priced the hours; a total
-             for several nets is arithmetic on money, and this page does
-             none — it says "per net" and lets the confirmation, which
-             carries the figure the server actually charged for each
-             booking, do the adding. */
-          el.quoteNote.textContent = (qty > 1
-            ? "For each of the " + qty + " nets. " : "") + (q.note || "");
+          el.quoteNote.textContent = q.note || "";
         }).catch(function () {
           if (mine !== quoteSeq) return;
           /* A quote that cannot be fetched says so and gets out of the
@@ -1197,19 +1227,19 @@
         /* Sold marks are ground-only, so switching track changes what the
            chips should say even though no new data has arrived. */
         paintStrip();
-        sport = track === GROUND ? GROUND : "";     // the surface is still unanswered
+        sport = track === GROUND ? GROUND : "";     // only the ground has one
+        want = { astro: 0, matting: 0 };            // nothing asked for yet
         selected = []; lastOpen = false; say("");
         LT.$$(".fac-card", el.facPick).forEach(function (c) {
           var on = c.getAttribute("data-f") === track;
           c.classList.toggle("active", on);
           c.setAttribute("aria-pressed", on ? "true" : "false");
         });
-        /* The ground is a different sale: no per-hour reassurance about
-           online payment, no student rate, no net count. */
-        el.sub.textContent = track === GROUND ? "" : "Nothing is paid online.";
+        /* The ground is a different sale — a full-day hire, often to a
+           company rather than a family — so the student rate does not apply
+           to it. */
         el.studentField.hidden = track === GROUND;
         if (track === GROUND) el.student.checked = false;
-        buildQty();
         renderSurfaces();
         loadAvailability();
         loadSurfaceRates();
@@ -1218,25 +1248,25 @@
       /* Changing the surface needs NO new availability read: public_slots
          returned every facility's rows for this date already, and the grid
          simply counts a different one. One round trip saved per tap. */
-      function setSurface(code) {
+      /* Changing a count needs NO new availability read: public_slots
+         returned every facility's rows for this date already, and the grid
+         simply counts against a different requirement. */
+      function setWant(code, n) {
         if (SURFACES.indexOf(code) === -1) return;
-        sport = code;
-        selected = []; say("");
-        /* Back to one. Astro and Matting can have different numbers of
-           nets, so a 2 chosen on one must not follow the customer to the
-           other and quietly ask for a net that is not there. */
-        qty = 1;
-        buildQty();
+        var max = courts[code] || 0;
+        want[code] = Math.max(0, Math.min(n, max));
+        /* An hour that no longer has room for the new request must not stay
+           selected — it would be submitted and refused. */
+        selected = selected.filter(hourOk);
+        say("");
         renderSurfaces();
         render();
       }
 
-      el.qtyRow.addEventListener("click", function (e) {
-        var b = e.target.closest ? e.target.closest("[data-q]") : null;
+      el.surfPick.addEventListener("click", function (e) {
+        var b = e.target.closest ? e.target.closest("[data-q][data-s]") : null;
         if (!b) return;
-        qty = Number(b.getAttribute("data-q")) || 1;
-        buildQty();
-        loadQuote();
+        setWant(b.getAttribute("data-s"), Number(b.getAttribute("data-q")));
       });
 
       /* ---------- submit ----------
@@ -1251,38 +1281,44 @@
 
       function submitNets(name, phone) {
         var date = el.date.value;
-        var code = sport;
-        var want = Math.max(1, qty);
+        var list = chosen();
         var student = !!el.student.checked;
         var hours = selected.slice().sort(function (a, b) { return a - b; });
 
-        /* One call per NET per hour. The nets within an hour go one after
-           another rather than together: each is capacity-checked by the
-           server, and firing them in parallel means two calls both reading
-           "one net free" before either has written. Hours still run in
+        /* One call per NET per SURFACE per hour. Within an hour they go one
+           after another rather than together: each is capacity-checked by
+           the server, and firing them in parallel means two calls both
+           reading "one net free" before either has written. Hours run in
            parallel — they cannot contend with each other. */
         function askHour(h) {
           var got = [];
-          function next(i) {
-            if (i >= want) return got;
-            return settle(LT_CLOUD.requestBooking({
-              sport: code, date: date, hour: h, name: name, phone: phone, student: student
-            })).then(function (r) {
-              r.hour = h;
-              got.push(r);
-              /* Stop asking for more nets in an hour the academy has just
-                 said is full — the next call would fail identically and
-                 spend a round trip proving it. */
-              if (!r.ok) return got;
-              return next(i + 1);
-            });
+          function nextSurface(si) {
+            if (si >= list.length) return got;
+            var code = list[si];
+            function nextNet(i) {
+              if (i >= want[code]) return nextSurface(si + 1);
+              return settle(LT_CLOUD.requestBooking({
+                sport: code, date: date, hour: h, name: name, phone: phone, student: student
+              })).then(function (r) {
+                r.hour = h;
+                r.code = code;
+                got.push(r);
+                /* Stop asking for more of a surface the academy has just
+                   said is full — the next call would fail identically and
+                   spend a round trip proving it. The OTHER surface is still
+                   tried: astro being full is not matting being full. */
+                if (!r.ok) return nextSurface(si + 1);
+                return nextNet(i + 1);
+              });
+            }
+            return nextNet(0);
           }
-          return Promise.resolve().then(function () { return next(0); });
+          return Promise.resolve().then(function () { return nextSurface(0); });
         }
 
         return Promise.all(hours.map(askHour)).then(function (perHour) {
           var results = [];
-          perHour.forEach(function (list) { results = results.concat(list); });
+          perHour.forEach(function (l) { results = results.concat(l); });
           return results;
         }).then(function (results) {
           var ok = results.filter(function (r) { return r.ok; });
@@ -1291,24 +1327,38 @@
           if (!ok.length) {
             var first = bad.length ? String(bad[0].error && bad[0].error.message) : "";
             say(readable(first) || "Something went wrong. Please try again.", true);
-            LT_CLOUD.track("booking_request_failed", { sport: code, reason: classify(first) });
+            LT_CLOUD.track("booking_request_failed", { sport: list.join("+"), reason: classify(first) });
             selected = [];
             loadAvailability();
             return;
           }
 
-          LT_CLOUD.track("booking_requested", { sport: code, hours: ok.length, nets: want, student: student });
+          LT_CLOUD.track("booking_requested", {
+            sport: list.join("+"), hours: selected.length, nets: totalNets(), student: student
+          });
+
+          /* Name what actually landed, per surface — "4 net-hours" is true
+             and tells a customer who asked for one of each nothing about
+             whether they got one of each. */
+          var byCode = {};
+          ok.forEach(function (r) { byCode[r.code] = (byCode[r.code] || 0) + 1; });
+          var got = SURFACES.filter(function (c) { return byCode[c]; }).map(function (c) {
+            return byCode[c] + plural(byCode[c], " net-hour", " net-hours") + " on the " +
+                   (SURFACE_NAME[c] || c);
+          }).join(", and ");
+
           el.doneTitle.textContent = "Request received";
-          el.doneDetail.innerHTML = "Thanks, <strong>" + LT.esc(name) + "</strong> — " + ok.length +
-            plural(ok.length, " net-hour", " net-hours") + " on the <strong>" + LT.esc(SURFACE_NAME[code] || code) +
-            "</strong> on <strong>" + LT.esc(longDate(date)) + "</strong>.";
+          el.doneDetail.innerHTML = "Thanks, <strong>" + LT.esc(name) + "</strong> — " +
+            LT.esc(got) + " on <strong>" + LT.esc(longDate(date)) + "</strong>.";
 
           /* Each amount is the figure request_booking RETURNED for that
-             hour. Printed one per line and never added up here: a total
+             booking. Printed one per line and never added up here: a total
              this page invented is a number no database agreed to. */
           el.doneLines.innerHTML = ok.map(function (r) {
             var amt = r.value && r.value.amount;
-            return '<div class="dl"><span>' + LT.esc(LT.hourLabel(r.hour)) + "</span><b>" +
+            var when = LT.hourLabel(r.hour) +
+              (list.length > 1 ? " · " + SURF_LABEL[r.code].split(" ")[0] : "");
+            return '<div class="dl"><span>' + LT.esc(when) + "</span><b>" +
                    (amt == null ? "—" : LT.esc(LT.fmtINR(amt))) + "</b></div>";
           }).join("");
 
@@ -1331,7 +1381,12 @@
               LT.esc(readable(String(bad[0].error && bad[0].error.message))) : "");
 
           showDone();
-          offerPayment(ok, code, date);
+          /* One surface: the amount can be quoted by the server for those
+             hours exactly as before. TWO surfaces: there is no single quote
+             to ask for, and adding the two would be this page inventing a
+             total — so the UPI id is offered without a figure and the
+             academy confirms it. */
+          offerPayment(ok, list.length === 1 ? list[0] : null, date);
         });
       }
 
@@ -1450,6 +1505,7 @@
          "no handle" and "could not read" both end in no button, which is
          the only safe outcome. */
       function payTo(code, date, hours) {
+        if (!code) return Promise.resolve(null);
         return LT_CLOUD.publicQuote(code, date, hours)
           .then(function (q) {
             var p = q && q.pay;
@@ -1461,6 +1517,10 @@
       function offerPayment(ok, code, date) {
         el.pay.hidden = true;
         if (!ok.length) return;
+        /* Mixed surfaces: no single quote exists, and a total added up here
+           would be a figure no database agreed to. The academy confirms it
+           on the call. */
+        if (!code) return;
 
         /* The booking reference the academy will match the payment against.
            `tn` is short in most UPI apps, so several hours ride as one ref
@@ -1517,7 +1577,7 @@
       });
 
       el.payBtn.addEventListener("click", function () {
-        LT_CLOUD.track("upi_opened", { sport: sport });
+        LT_CLOUD.track("upi_opened", { sport: sport || chosen().join("+") });
       });
 
       function showDone() {
@@ -1555,11 +1615,6 @@
         if (btn) setTrack(btn.getAttribute("data-f"));
       });
 
-      el.surfPick.addEventListener("click", function (e) {
-        var btn = e.target.closest ? e.target.closest(".fac-card") : null;
-        if (btn) setSurface(btn.getAttribute("data-s"));
-      });
-
       /* Paints THAT tile, then re-runs the steps only — see render(). */
       el.grid.addEventListener("click", function (e) {
         var btn = e.target.closest ? e.target.closest(".slot") : null;
@@ -1594,7 +1649,7 @@
         var phone = LT.phone10(digits);
         if (name.length < 2) { say("Please enter your name.", true); el.name.focus(); return; }
         if (digits.length < 10 || phone.length !== 10) { say("Please enter a 10-digit mobile number.", true); el.phone.focus(); return; }
-        if (track === NETS && !sport) { say("Pick a surface first.", true); return; }
+        if (track === NETS && totalNets() < 1) { say("Choose at least one net first.", true); return; }
         if (track === NETS && !selected.length) { say("Pick at least one hour first.", true); return; }
         say("");
 
@@ -1633,7 +1688,7 @@
       var pre = "";
       if (m) { try { pre = decodeURIComponent(m[1]).toLowerCase(); } catch (e) { pre = ""; } }
       if (pre === GROUND) setTrack(GROUND);
-      else if (SURFACES.indexOf(pre) !== -1) { setTrack(NETS); setSurface(pre); }
+      else if (SURFACES.indexOf(pre) !== -1) { setTrack(NETS); setWant(pre, 1); }
       else if (pre === NETS) setTrack(NETS);
       else render();
     })();
