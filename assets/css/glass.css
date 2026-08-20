@@ -708,7 +708,14 @@ select {
   background-repeat: no-repeat;
   background-position: right 14px center;
   padding-right: 38px;
+  /* A native select shows the ARROW cursor by default, so in an app where
+     every chip, card and button says "pointer" the dropdowns were the one
+     control that looked inert. Twenty-four of them across ten pages —
+     the month picker on Finance, the batch and gender pickers, the date of
+     birth trio, the booking month and day. */
+  cursor: pointer;
 }
+select:disabled { cursor: not-allowed; }
 select option { background: var(--option-bg); color: var(--ink-hi); }
 
 input[type="date"] { color-scheme: var(--scheme); }
