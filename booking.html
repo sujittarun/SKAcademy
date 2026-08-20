@@ -15,7 +15,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=31" />
+<link rel="stylesheet" href="assets/css/glass.css?v=32" />
 <style>
   /* Page-local LAYOUT only. Glass, buttons, fields, pills, .slot,
      .form-msg and .lt-empty all come from glass.css. */
@@ -345,7 +345,13 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>
             </button>
           </div>
-          <div class="slot-grid" id="slotGrid"></div>
+          <!-- ONE GRID PER SURFACE, built in script. A single shared grid
+               could only offer hours where EVERY surface asked for had room,
+               so an astro net free at 5pm went unbookable because matting
+               was full at 5pm — and a customer happy to take astro at 5 and
+               matting at 6 was told the evening was gone. Each surface now
+               answers for itself. -->
+          <div id="slotGrid"></div>
         </section>
 
         <!-- 5 · who, and send -->
@@ -426,15 +432,15 @@
     </div>
   </main>
 
-  <script src="assets/js/core.js?v=31"></script>
-  <script src="assets/js/cloud.js?v=31"></script>
+  <script src="assets/js/core.js?v=32"></script>
+  <script src="assets/js/cloud.js?v=32"></script>
   <!-- dev-data.js loads for shell consistency and is DELIBERATELY NOT USED
        here. Sample rows behind the striped banner are a preview on a staff
        screen; on a public page they would be a customer shown invented
        availability with no way to tell. A failed read says "could not
        load" instead — an empty academy and a broken one must not look
        alike. -->
-  <script src="assets/js/dev-data.js?v=31"></script>
+  <script src="assets/js/dev-data.js?v=32"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -546,7 +552,27 @@
          distinct from "nothing is booked". Nothing renders off a null. */
       var track = "";        // "" | NETS | GROUND — which path through the page
       var sport = "";        // "" | astro | matting | ground — the DB facility
-      var selected = [];
+      /* Hours are per surface, not shared. picked.astro and picked.matting
+         are independent lists; a surface with none chosen is incomplete
+         rather than empty. */
+      var picked = { astro: [], matting: [] };
+
+      function pickedHours(code) { return picked[code] || []; }
+      function anyPicked() {
+        return SURFACES.some(function (c) { return want[c] > 0 && pickedHours(c).length > 0; });
+      }
+      /* Every surface asked for must have at least one hour, or the request
+         is half-answered and would book only part of what was chosen. */
+      function incomplete() {
+        return SURFACES.filter(function (c) { return want[c] > 0 && pickedHours(c).length === 0; });
+      }
+      function totalHours() {
+        var all = {};
+        SURFACES.forEach(function (c) {
+          if (want[c] > 0) pickedHours(c).forEach(function (h) { all[h] = 1; });
+        });
+        return Object.keys(all).length;
+      }
       var slots = null, slotsAt = 0, loadErr = null;
       var courts = { astro: COURTS_FALLBACK.astro, matting: COURTS_FALLBACK.matting, ground: COURTS_FALLBACK.ground };
       /* The per-hour figure for each surface, straight from public_quote().
@@ -697,15 +723,11 @@
       function freeAt(code, hour) {
         return (courts[code] || 0) - takenAt(code, hour);
       }
-      /* An hour works only if EVERY surface asked for has enough nets left
-         in it. Two astro and one matting means two astro AND one matting —
-         not "three nets somewhere". */
-      function hourOk(hour) {
-        var list = chosen();
-        for (var i = 0; i < list.length; i++) {
-          if (freeAt(list[i], hour) < want[list[i]]) return false;
-        }
-        return list.length > 0;
+      /* PER SURFACE. There is no shared verdict any more: astro being full
+         at 5pm says nothing about matting at 5pm, and pretending otherwise
+         is what made half the evening unbookable. */
+      function hourOk(code, hour) {
+        return want[code] > 0 && freeAt(code, hour) >= want[code];
       }
 
       /* THE one place the date changes. Everything downstream of a date —
@@ -718,7 +740,8 @@
         el.date.value = iso;
         centreChip(paintStrip(), true);
         if (!changed) return;
-        selected = []; say("");
+        picked = { astro: [], matting: [] };    // a new day answers nothing
+        say("");
         loadAvailability();
         loadSurfaceRates();
       }
@@ -934,13 +957,17 @@
         el.surfPick.innerHTML = SURFACES.map(function (code) {
           var max  = courts[code] || 0;
           var rate = surfUnit[code] == null ? "" : LT.fmtINR(surfUnit[code]) + " / hour";
+          /* 1 and 2, no "None". Nothing is chosen until something is
+             pressed, and pressing the chosen one again lets it go — a
+             third button whose only job is to mean "no" is a button asking
+             a question the empty state already answers. */
           var chips = "";
-          for (var i = 0; i <= max; i++) {
+          for (var i = 1; i <= max; i++) {
             chips += '<button type="button" class="qty-chip' + (want[code] === i ? " on" : "") +
                      '" data-s="' + LT.esc(code) + '" data-q="' + i + '"' +
                      ' aria-pressed="' + (want[code] === i ? "true" : "false") + '"' +
                      ' aria-label="' + LT.esc(String(i) + " " + SURF_LABEL[code]) + '">' +
-                     (i === 0 ? "None" : i) + "</button>";
+                     i + "</button>";
           }
           return '<div class="surf-row' + (want[code] > 0 ? " on" : "") + '">' +
             '<div class="sr-id">' +
@@ -954,7 +981,7 @@
         }).join("");
       }
 
-      /* ---------- nets grid ---------- */
+      /* ---------- one grid per surface ---------- */
       function renderSlots() {
         if (loadErr) {
           /* A failed read says so and shows nothing else. Painting every
@@ -973,47 +1000,64 @@
         var isToday = el.date.value === LT.today();
         var nowHour = new Date().getHours();
         var list = chosen();
-        var html = "", open = 0;
+        var deadAll = true;
 
-        for (var h = HOUR_FROM; h <= HOUR_TO; h++) {
-          var past = isToday && h <= nowHour;
-          var full = !hourOk(h);
-          if (!past && !full) open++;
-          var sel = selected.indexOf(h) !== -1;
+        el.grid.innerHTML = list.map(function (code) {
+          var mine = pickedHours(code), open = 0, tiles = "";
 
-          /* With one surface the old sentence still reads best. With two,
-             say which one is short rather than a single number that hides
-             it — "1 net free" when the customer asked for one of each is
-             an answer to a question nobody asked. */
-          var sub;
-          if (past)      sub = '<span class="faint">Passed</span>';
-          else if (full) sub = '<span class="sl-full">Full</span>';
-          else if (list.length === 1) {
-            var left = freeAt(list[0], h);
-            sub = left === 1 ? '<span class="sl-left">Last net free</span>'
-                             : LT.esc(left + " nets free");
-          } else {
-            sub = LT.esc(list.map(function (c) {
-              return SURF_LABEL[c].split(" ")[0] + " " + freeAt(c, h);
-            }).join(" · ") + " free");
+          for (var h = HOUR_FROM; h <= HOUR_TO; h++) {
+            var past = isToday && h <= nowHour;
+            var ok   = hourOk(code, h);
+            if (!past && ok) open++;
+            var sel  = mine.indexOf(h) !== -1;
+            var left = freeAt(code, h);
+
+            var sub;
+            if (past)      sub = '<span class="faint">Passed</span>';
+            else if (!ok)  sub = '<span class="sl-full">' +
+                                 (left > 0 ? "Only " + left + " free" : "Full") + "</span>";
+            else if (left === want[code]) sub = '<span class="sl-left">Last ' +
+                                 (want[code] > 1 ? want[code] + " free" : "net free") + "</span>";
+            else           sub = LT.esc(left + " free");
+
+            tiles += '<button type="button" class="slot' + (sel ? " sel" : "") +
+                     (past || !ok ? " taken" : "") + '" data-h="' + h +
+                     '" data-s="' + LT.esc(code) + '"' + (past || !ok ? " disabled" : "") +
+                     ' aria-pressed="' + (sel ? "true" : "false") + '">' +
+                     '<span class="sl-time">' + LT.esc(LT.hourLabel(h)) + "</span>" +
+                     '<span class="sl-rate">' + sub + "</span></button>";
           }
-          html += '<button type="button" class="slot' + (sel ? " sel" : "") + (past || full ? " taken" : "") +
-                  '" data-h="' + h + '"' + (past || full ? " disabled" : "") +
-                  ' aria-pressed="' + (sel ? "true" : "false") + '">' +
-                  '<span class="sl-time">' + LT.esc(LT.hourLabel(h)) + "</span>" +
-                  '<span class="sl-rate">' + sub + "</span></button>";
-        }
-        el.grid.innerHTML = html;
+          if (open > 0) deadAll = false;
 
-        /* A grid of seventeen greyed tiles is a dead end — offer the next
-           date rather than leaving the visitor to find it. */
-        if (open === 0) {
+          /* Each surface says its own piece. "Every net is taken" under one
+             heading when it is only true of one of them is the kind of
+             sentence that sends a customer away for nothing. */
+          var dead = open === 0
+            ? '<div class="grid-dead"><span>' +
+              (isToday && nowHour >= HOUR_TO
+                ? "Today's last slot has started."
+                : "No hour has " + want[code] + plural(want[code], " net", " nets") +
+                  " free on the " + (SURFACE_NAME[code] || code) + ".") +
+              "</span></div>"
+            : "";
+
+          return '<div class="surf-hours" data-for="' + LT.esc(code) + '">' +
+            (list.length > 1
+              ? '<div class="sh-head"><span class="sh-name">' + LT.esc(SURF_LABEL[code]) +
+                " × " + want[code] + "</span>" +
+                '<span class="sh-count">' + (mine.length
+                  ? mine.length + plural(mine.length, " hour", " hours")
+                  : "no hours yet") + "</span></div>"
+              : "") +
+            '<div class="slot-grid">' + tiles + "</div>" + dead +
+          "</div>";
+        }).join("");
+
+        /* One way out, offered once, when NOTHING is free on any surface. */
+        if (deadAll) {
           var note = document.createElement("div");
           note.className = "grid-dead";
-          note.innerHTML = "<span>" +
-            (isToday && nowHour >= HOUR_TO ? "Today's last slot has started."
-              : "No hour has that many nets free.") +
-            '</span><button type="button" class="btn btn-glass btn-sm" id="nextDayBtn">Try the next day</button>';
+          note.innerHTML = '<button type="button" class="btn btn-glass btn-sm" id="nextDayBtn">Try the next day</button>';
           el.grid.appendChild(note);
           var nd = LT.$("#nextDayBtn");
           if (nd) nd.addEventListener("click", function () {
@@ -1062,7 +1106,7 @@
         var nets = track === NETS;
         var haveDate = !!el.date.value;
         var haveSurface = nets && totalNets() > 0;
-        if (haveDate && (nets ? (haveSurface && selected.length > 0) : groundOk())) lastOpen = true;
+        if (haveDate && (nets ? (haveSurface && anyPicked()) : groundOk())) lastOpen = true;
 
         /* ...but the GROUND closes it again when the day is gone.
            lastOpen latches on purpose: for nets it holds the half-typed
@@ -1095,9 +1139,10 @@
         /* The ground has no surface and no hours step, so its details step
            is 3 — a contiguous 1-2-3, not a 5 with two gaps above it. */
         el.detailsNum.textContent = nets ? "5" : "3";
-        el.selCount.hidden = !selected.length;
-        el.selCount.textContent = selected.length + plural(selected.length, " hour", " hours") +
-          (totalNets() > 1 ? " × " + totalNets() + " nets" : "");
+        var th = totalHours();
+        el.selCount.hidden = !th;
+        el.selCount.textContent = th + plural(th, " hour", " hours") +
+          (totalNets() > 1 ? " · " + totalNets() + " nets" : "");
         syncSubmit();
 
         /* Re-quote whenever the selection, the date, the surface or the
@@ -1132,7 +1177,12 @@
         if (String(el.name.value || "").trim().length < 2) return false;
         if (String(el.phone.value || "").replace(/\D/g, "").length < 10) return false;
         if (!el.date.value) return false;
-        return track === NETS ? (totalNets() > 0 && selected.length > 0) : groundOk();
+        /* Every surface asked for needs its own hours — a request that
+           books the astro and silently drops the matting is not what was
+           asked for. */
+        return track === NETS
+          ? (totalNets() > 0 && anyPicked() && incomplete().length === 0)
+          : groundOk();
       }
       function syncSubmit() {
         /* "Book" on both paths. The old wording ("Send request" / "Send
@@ -1167,11 +1217,11 @@
            does not do. The confirmation lists what was actually charged for
            each booking. */
         if (track === NETS) {
-          var list = chosen();
-          var hrs = selected.slice();
-          if (!list.length || !hrs.length) { clearQuote(); return; }
+          var list = chosen().filter(function (c) { return pickedHours(c).length; });
+          if (!list.length) { clearQuote(); return; }
           var mineN = ++quoteSeq;
-          el.quoteLab.textContent = hrs.length + plural(hrs.length, " hour", " hours") +
+          var th = totalHours();
+          el.quoteLab.textContent = th + plural(th, " hour", " hours") +
             (totalNets() > 1 ? " · " + totalNets() + " nets" : "");
           el.quoteAmt.textContent = "…";
           el.quoteNote.textContent = "";
@@ -1181,14 +1231,18 @@
              adds the surfaces and the net counts in SQL — the page prints
              the figure and never derives it. */
           LT_CLOUD.publicQuoteMulti(el.date.value,
-            list.map(function (c) { return { sport: c, nets: want[c] }; }), hrs
+            list.map(function (c) {
+              return { sport: c, nets: want[c], hours: pickedHours(c) };
+            })
           ).then(function (q) {
             if (mineN !== quoteSeq) return;
             if (!q || q.total == null) { clearQuote(); return; }
             var lines = (q.lines || []).map(function (l) {
               return '<span class="q-line"><span class="q-k">' +
                 LT.esc(SURF_LABEL[l.sport] || l.sport) +
-                (l.nets > 1 ? " × " + l.nets : "") + "</span>" +
+                (l.nets > 1 ? " × " + l.nets : "") +
+                (list.length > 1 ? " · " + l.hours + plural(l.hours, " hr", " hrs") : "") +
+                "</span>" +
                 '<span class="q-v">' + LT.esc(LT.fmtINR(l.total)) + "</span></span>";
             }).join("");
             /* The grand total only earns its own row when there is more
@@ -1240,7 +1294,8 @@
         paintStrip();
         sport = track === GROUND ? GROUND : "";     // only the ground has one
         want = { astro: 0, matting: 0 };            // nothing asked for yet
-        selected = []; lastOpen = false; say("");
+        picked = { astro: [], matting: [] };
+        lastOpen = false; say("");
         LT.$$(".fac-card", el.facPick).forEach(function (c) {
           var on = c.getAttribute("data-f") === track;
           c.classList.toggle("active", on);
@@ -1265,10 +1320,18 @@
       function setWant(code, n) {
         if (SURFACES.indexOf(code) === -1) return;
         var max = courts[code] || 0;
-        want[code] = Math.max(0, Math.min(n, max));
-        /* An hour that no longer has room for the new request must not stay
-           selected — it would be submitted and refused. */
-        selected = selected.filter(hourOk);
+        /* Pressing the count already chosen clears it. */
+        var next = (want[code] === n) ? 0 : Math.max(0, Math.min(n, max));
+        want[code] = next;
+
+        if (next === 0) {
+          picked[code] = [];                    // dropped: its hours go too
+        } else {
+          /* Raising the count can strand an hour that had room for one net
+             but not for two. Drop those rather than submit them and have
+             the server refuse. */
+          picked[code] = pickedHours(code).filter(function (h) { return hourOk(code, h); });
+        }
         say("");
         renderSurfaces();
         render();
@@ -1292,44 +1355,45 @@
 
       function submitNets(name, phone) {
         var date = el.date.value;
-        var list = chosen();
+        var list = chosen().filter(function (c) { return pickedHours(c).length; });
         var student = !!el.student.checked;
-        var hours = selected.slice().sort(function (a, b) { return a - b; });
 
-        /* One call per NET per SURFACE per hour. Within an hour they go one
+        /* One call per NET, per HOUR, for each surface — and each surface
+           has its own hours now. Within a surface-hour the nets go one
            after another rather than together: each is capacity-checked by
            the server, and firing them in parallel means two calls both
-           reading "one net free" before either has written. Hours run in
-           parallel — they cannot contend with each other. */
-        function askHour(h) {
+           reading "one net free" before either has written.
+
+           The surfaces run in PARALLEL and cannot contend with each other,
+           so astro filling up never costs the matting request. */
+        function askSurface(code) {
+          var hours = pickedHours(code).slice().sort(function (a, b) { return a - b; });
           var got = [];
-          function nextSurface(si) {
-            if (si >= list.length) return got;
-            var code = list[si];
+          function nextHour(hi) {
+            if (hi >= hours.length) return got;
+            var h = hours[hi];
             function nextNet(i) {
-              if (i >= want[code]) return nextSurface(si + 1);
+              if (i >= want[code]) return nextHour(hi + 1);
               return settle(LT_CLOUD.requestBooking({
                 sport: code, date: date, hour: h, name: name, phone: phone, student: student
               })).then(function (r) {
                 r.hour = h;
                 r.code = code;
                 got.push(r);
-                /* Stop asking for more of a surface the academy has just
-                   said is full — the next call would fail identically and
-                   spend a round trip proving it. The OTHER surface is still
-                   tried: astro being full is not matting being full. */
-                if (!r.ok) return nextSurface(si + 1);
+                /* Stop asking for more nets in an hour the academy has just
+                   said is full; move to this surface's next hour. */
+                if (!r.ok) return nextHour(hi + 1);
                 return nextNet(i + 1);
               });
             }
             return nextNet(0);
           }
-          return Promise.resolve().then(function () { return nextSurface(0); });
+          return Promise.resolve().then(function () { return nextHour(0); });
         }
 
-        return Promise.all(hours.map(askHour)).then(function (perHour) {
+        return Promise.all(list.map(askSurface)).then(function (perSurface) {
           var results = [];
-          perHour.forEach(function (l) { results = results.concat(l); });
+          perSurface.forEach(function (l) { results = results.concat(l); });
           return results;
         }).then(function (results) {
           var ok = results.filter(function (r) { return r.ok; });
@@ -1339,13 +1403,15 @@
             var first = bad.length ? String(bad[0].error && bad[0].error.message) : "";
             say(readable(first) || "Something went wrong. Please try again.", true);
             LT_CLOUD.track("booking_request_failed", { sport: list.join("+"), reason: classify(first) });
-            selected = [];
+            /* Nothing landed, so nothing is held. Re-read availability
+               rather than leaving stale free/full marks on screen. */
+            picked = { astro: [], matting: [] };
             loadAvailability();
             return;
           }
 
           LT_CLOUD.track("booking_requested", {
-            sport: list.join("+"), hours: selected.length, nets: totalNets(), student: student
+            sport: list.join("+"), hours: totalHours(), nets: totalNets(), student: student
           });
 
           /* Name what actually landed, per surface — "4 net-hours" is true
@@ -1595,7 +1661,7 @@
       });
 
       function showDone() {
-        selected = [];
+        picked = { astro: [], matting: [] };
         /* Hidden until offerPayment() has BOTH a server handle and a server
            figure. The ground path never calls it, so this is also what
            keeps a previous booking's amount off an enquiry card. */
@@ -1629,17 +1695,30 @@
         if (btn) setTrack(btn.getAttribute("data-f"));
       });
 
-      /* Paints THAT tile, then re-runs the steps only — see render(). */
+      /* Paints THAT tile, then re-runs the steps only — see render(). The
+         tile carries its surface, so a click can only ever move that
+         surface's hours. */
       el.grid.addEventListener("click", function (e) {
         var btn = e.target.closest ? e.target.closest(".slot") : null;
         if (!btn || btn.disabled) return;
         say("");
-        var h = Number(btn.getAttribute("data-h"));
-        var i = selected.indexOf(h);
-        var on = i === -1;
-        if (on) selected.push(h); else selected.splice(i, 1);
+        var h    = Number(btn.getAttribute("data-h"));
+        var code = btn.getAttribute("data-s");
+        if (SURFACES.indexOf(code) === -1) return;
+        var mine = pickedHours(code);
+        var i    = mine.indexOf(h);
+        var on   = i === -1;
+        if (on) mine.push(h); else mine.splice(i, 1);
+        picked[code] = mine;
         btn.classList.toggle("sel", on);
         btn.setAttribute("aria-pressed", on ? "true" : "false");
+        /* Repaint this surface's hour count in its own header without
+           rebuilding the grid — rebuilding would replace the tile just
+           pressed and drop keyboard focus to <body>. */
+        var head = btn.closest(".surf-hours");
+        var lbl  = head && head.querySelector(".sh-count");
+        if (lbl) lbl.textContent = mine.length
+          ? mine.length + plural(mine.length, " hour", " hours") : "no hours yet";
         renderSteps();
       });
 
@@ -1664,7 +1743,17 @@
         if (name.length < 2) { say("Please enter your name.", true); el.name.focus(); return; }
         if (digits.length < 10 || phone.length !== 10) { say("Please enter a 10-digit mobile number.", true); el.phone.focus(); return; }
         if (track === NETS && totalNets() < 1) { say("Choose at least one net first.", true); return; }
-        if (track === NETS && !selected.length) { say("Pick at least one hour first.", true); return; }
+        if (track === NETS) {
+          var gaps = incomplete();
+          if (!anyPicked()) { say("Pick at least one hour first.", true); return; }
+          if (gaps.length) {
+            /* Name it. "Pick an hour" when the astro already has three and
+               only the matting is empty sends the customer looking at the
+               wrong grid. */
+            say("Choose hours for the " + (SURFACE_NAME[gaps[0]] || gaps[0]) + " too.", true);
+            return;
+          }
+        }
         say("");
 
         busy(true);
@@ -1680,7 +1769,9 @@
       });
 
       el.again.addEventListener("click", function () {
-        selected = []; lastOpen = false;
+        picked = { astro: [], matting: [] };
+        want = { astro: 0, matting: 0 };
+        lastOpen = false;
         el.done.classList.remove("show");
         el.pay.hidden = true;
         el.head.style.display = "";

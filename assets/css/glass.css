@@ -1565,3 +1565,12 @@ body.has-devbar .lt-page {
 .dl.dl-sum { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
 .dl.dl-sum b { color: var(--tx-gold); font-size: 17px; }
 .dn-short { color: var(--ink-low); font-size: 12.5px; }
+
+/* ---------- a block of hours per surface (booking step 4) ----------
+   Each surface answers for itself: astro being full at 5pm says nothing
+   about matting at 5pm, and one shared grid could only ever offer the
+   hours where both had room. */
+.surf-hours + .surf-hours { margin-top: var(--gap-4); padding-top: var(--gap-3); border-top: 1px solid var(--line); }
+.sh-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.sh-name { font-weight: 750; font-size: 14px; color: var(--ink-hi); }
+.sh-count { font-size: 12px; font-weight: 650; color: var(--ink-low); white-space: nowrap; }
