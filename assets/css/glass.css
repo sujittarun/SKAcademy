@@ -1585,3 +1585,18 @@ body.has-devbar .lt-page {
 .pay-back .pb-acts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .pay-back .pb-ref { margin-top: 12px; display: flex; gap: 8px; align-items: flex-end; justify-content: center; flex-wrap: wrap; }
 .pay-back .pb-ref .field { max-width: 240px; margin: 0; text-align: left; }
+
+/* ---------- payment state, inside the Collect dialog ---------- */
+.cl-state { padding: 11px 13px; border-radius: var(--r-md); border: 1px solid var(--tile-border);
+            background: var(--tile-bg); margin-bottom: var(--gap-3); }
+.cl-state.optic { border-color: rgba(126, 179, 255, .45); }
+.cl-state.gold  { border-color: rgba(242, 194, 32, .40); }
+.cl-state .cs-line { font-size: 13px; line-height: 1.5; color: var(--ink-mid); }
+.cl-state .cs-acts { margin-top: 9px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- the customer's screenshot, on the booking page ---------- */
+.pb-proof { margin-top: 12px; }
+.pb-proof .doc-pick.busy { opacity: .6; pointer-events: none; }
+.pb-thumb { margin-top: 10px; display: flex; align-items: center; gap: 10px; justify-content: center; }
+.pb-thumb img { width: 46px; height: 46px; object-fit: cover; border-radius: 8px; border: 1px solid var(--tile-border); }
+.pb-thumb span { font-size: 12.5px; font-weight: 650; color: var(--tx-green); }

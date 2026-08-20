@@ -15,7 +15,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=34" />
+<link rel="stylesheet" href="assets/css/glass.css?v=35" />
 <style>
   /* Page-local LAYOUT only. Glass, buttons, fields, pills, .slot,
      .form-msg and .lt-empty all come from glass.css. */
@@ -437,12 +437,21 @@
               <button type="button" class="btn btn-primary btn-sm" id="pbYes">Yes, I have paid</button>
               <button type="button" class="btn btn-glass btn-sm" id="pbNo">Not yet</button>
             </div>
-            <div class="pb-ref" id="pbRef" hidden>
-              <label class="field">
-                <span>UPI reference <span class="opt">(optional, helps them find it)</span></span>
-                <input type="tel" id="pbRefIn" inputmode="numeric" data-digits="12" placeholder="12-digit reference" />
+            <!-- A SCREENSHOT, not a typed reference. Reading a twelve-digit
+                 UTR off one app and typing it into another is a task most
+                 people abandon, and a mistyped one is worse than none — the
+                 desk then hunts for a number that never existed. Everyone
+                 already knows how to send a screenshot. -->
+            <div class="pb-proof" id="pbProof" hidden>
+              <label class="doc-pick" id="pbPick">
+                <input type="file" id="pbFile" accept="image/*,application/pdf" capture="environment" />
+                <span id="pbPickLbl">Send the payment screenshot</span>
               </label>
-              <button type="button" class="btn btn-glass btn-sm" id="pbRefSave">Save</button>
+              <div class="pb-thumb" id="pbThumb" hidden>
+                <img id="pbImg" alt="" />
+                <span id="pbState">Sent</span>
+              </div>
+              <div class="doc-err" id="pbErr"></div>
             </div>
           </div>
         </div>
@@ -455,15 +464,15 @@
     </div>
   </main>
 
-  <script src="assets/js/core.js?v=34"></script>
-  <script src="assets/js/cloud.js?v=34"></script>
+  <script src="assets/js/core.js?v=35"></script>
+  <script src="assets/js/cloud.js?v=35"></script>
   <!-- dev-data.js loads for shell consistency and is DELIBERATELY NOT USED
        here. Sample rows behind the striped banner are a preview on a staff
        screen; on a public page they would be a customer shown invented
        availability with no way to tell. A failed read says "could not
        load" instead — an empty academy and a broken one must not look
        alike. -->
-  <script src="assets/js/dev-data.js?v=34"></script>
+  <script src="assets/js/dev-data.js?v=35"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -569,9 +578,14 @@
         pbQ:       LT.$("#pbQ"),
         pbYes:     LT.$("#pbYes"),
         pbNo:      LT.$("#pbNo"),
-        pbRef:     LT.$("#pbRef"),
-        pbRefIn:   LT.$("#pbRefIn"),
-        pbRefSave: LT.$("#pbRefSave"),
+        pbProof:   LT.$("#pbProof"),
+        pbPick:    LT.$("#pbPick"),
+        pbPickLbl: LT.$("#pbPickLbl"),
+        pbFile:    LT.$("#pbFile"),
+        pbThumb:   LT.$("#pbThumb"),
+        pbImg:     LT.$("#pbImg"),
+        pbState:   LT.$("#pbState"),
+        pbErr:     LT.$("#pbErr"),
         payVpa:    LT.$("#payVpa"),
         payCopy:   LT.$("#payCopy"),
         payNote:   LT.$("#payNote"),
@@ -1709,6 +1723,15 @@
       el.payBtn.addEventListener("click", function () {
         payTapped = true;
         LT_CLOUD.track("upi_opened", { sport: sport || chosen().join("+") });
+        /* RECORD THE ATTEMPT, not the payment. A customer who pays and then
+           closes the tab without answering the question used to leave no
+           trace at all; the desk saw a booking indistinguishable from one
+           nobody tried to pay. Fire and forget — if it fails, the worst
+           case is the state we had before. */
+        if (payCtx && payCtx.ids.length) {
+          LT_CLOUD.claimBookingPayment(payCtx.ids, payCtx.phone, { attempt: true })
+            .catch(function () {});
+        }
       });
 
       /* ---------- they are back ----------
@@ -1722,20 +1745,20 @@
         el.payBack.scrollIntoView({ behavior: "smooth", block: "center" });
       }
 
-      function claimPaid(ref) {
-        return LT_CLOUD.claimBookingPayment(payCtx.ids, payCtx.phone, ref || null)
+      function claimPaid(o) {
+        return LT_CLOUD.claimBookingPayment(payCtx.ids, payCtx.phone, o || {})
           .catch(function () { /* the academy still finds it in their account */ });
       }
 
       el.pbYes.addEventListener("click", function () {
         el.pbYes.disabled = true;
         el.pbNo.disabled = true;
-        claimPaid(null).then(function () {
+        claimPaid({}).then(function () {
           /* Careful wording: noted, not confirmed. The academy has to see
              the money before anything is settled, and saying otherwise here
              would be the page inventing a fact about money. */
-          el.pbQ.textContent = "Noted — the academy will check their account and confirm on WhatsApp.";
-          el.pbRef.hidden = false;
+          el.pbQ.textContent = "Noted. Send the screenshot and the academy can confirm it faster.";
+          el.pbProof.hidden = false;
           el.payBtn.hidden = true;
           el.payAmt.parentNode.querySelector(".pay-lab").textContent = "Amount";
           el.payNote.textContent = "";
@@ -1747,20 +1770,49 @@
         el.payBack.hidden = true;
       });
 
-      el.pbRefSave.addEventListener("click", function () {
-        var ref = String(el.pbRefIn.value || "").replace(/\D/g, "");
-        if (!ref) { el.pbRef.hidden = true; return; }
-        el.pbRefSave.disabled = true;
-        claimPaid(ref).then(function () {
-          el.pbRef.innerHTML = '<p class="pb-q">Reference saved.</p>';
-        });
+      /* The upload IS the claim: somebody who sends a screenshot has said
+         they paid, whether or not they pressed the button first. */
+      el.pbFile.addEventListener("change", function () {
+        var f = this.files && this.files[0];
+        if (!f || !payCtx) return;
+        el.pbErr.textContent = "";
+        el.pbPickLbl.textContent = "Sending…";
+        el.pbPick.classList.add("busy");
+
+        /* Shown from the local file — the bucket gives the customer no read
+           back, by design, so the preview has to be the file in their hand. */
+        try {
+          el.pbImg.src = URL.createObjectURL(f);
+          el.pbThumb.hidden = false;
+          el.pbState.textContent = "Sending…";
+        } catch (e) {}
+
+        LT_CLOUD.uploadPaymentProof(f, payCtx.ids[0] || "x")
+          .then(function (path) { return claimPaid({ proofPath: path }); })
+          .then(function () {
+            el.pbPick.classList.remove("busy");
+            el.pbPickLbl.textContent = "Send a different one";
+            el.pbState.textContent = "Sent";
+            el.pbQ.textContent = "Got it — the academy will check and confirm on WhatsApp.";
+          })
+          .catch(function (err) {
+            el.pbPick.classList.remove("busy");
+            el.pbPickLbl.textContent = "Send the payment screenshot";
+            el.pbThumb.hidden = true;
+            /* Say what went wrong. A silent failure is a customer who
+               believes the academy has their screenshot. */
+            el.pbErr.textContent = (err && err.message) || "That did not send. Please try again.";
+          });
       });
 
       function showDone() {
         picked = { astro: [], matting: [] };
         payTapped = false;
         el.payBack.hidden = true;
-        el.pbRef.hidden = true;
+        el.pbProof.hidden = true;
+        el.pbThumb.hidden = true;
+        el.pbErr.textContent = "";
+        el.pbPickLbl.textContent = "Send the payment screenshot";
         el.pbYes.disabled = false;
         el.pbNo.disabled = false;
         /* Hidden until offerPayment() has BOTH a server handle and a server

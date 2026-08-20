@@ -15,7 +15,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=34" />
+<link rel="stylesheet" href="assets/css/glass.css?v=35" />
 <style>
   /* ------------------------------------------------------------
      Page-local components only. Anything reusable belongs in
@@ -496,6 +496,11 @@
         <button class="btn btn-icon btn-ghost" id="clClose" type="button" aria-label="Close">✕</button>
       </div>
       <p class="rs-sub" id="clSub"></p>
+      <!-- ---------- what the customer already did ----------
+           Everything the desk needs in the one place they were going
+           anyway. No second screen, no hunting: the state, the screenshot
+           if there is one, and a way to ask for it if there is not. -->
+      <div class="cl-state" id="clState" hidden></div>
       <div class="lt-grid" style="gap:var(--gap-3);">
         <label class="field"><span>Mode</span>
           <select id="clMode">
@@ -537,9 +542,9 @@
     </div>
   </div>
 
-  <script src="assets/js/core.js?v=34"></script>
-  <script src="assets/js/cloud.js?v=34"></script>
-  <script src="assets/js/dev-data.js?v=34"></script>
+  <script src="assets/js/core.js?v=35"></script>
+  <script src="assets/js/cloud.js?v=35"></script>
+  <script src="assets/js/dev-data.js?v=35"></script>
   <script>
     /* ============================================================
        THE OPERATOR BOOKING BOARD
@@ -1108,10 +1113,17 @@
                and different words from "Paid" — this is a prompt to go and
                look at the account, not a receipt. Once it is collected the
                tag is gone, because the academy then knows better. */
+            /* Three different things, three different words. "Says paid"
+               is not "Paid", and "Tried to pay" is not either — the desk
+               needs to tell them apart at a glance on a busy day. */
             (!isPaid(b) && b.paid_claim_at
-              ? '<span class="cell-tag optic" title="' + esc(claimTitle(b)) + '">Says paid' +
-                (b.paid_claim_ref ? " · " + esc(b.paid_claim_ref) : "") + "</span>"
-              : "");
+              ? '<span class="cell-tag optic" title="' + esc(claimTitle(b)) + '">' +
+                (b.paid_proof_path ? "Says paid · screenshot" : "Says paid") + "</span>"
+              : (!isPaid(b) && b.paid_attempt_at
+                  ? '<span class="cell-tag gold" title="' +
+                    esc("They opened a UPI app and did not confirm. It may have gone through.") +
+                    '">Tried to pay</span>'
+                  : ""));
           var acts = '<button class="btn btn-glass btn-sm" type="button" data-open="' + esc(b.id) + '">Details</button>';
           if (!isBlock(b) && !isPaid(b) && amountOf(b) > 0) {
             acts = '<button class="btn btn-primary btn-sm" type="button" data-collect="' + esc(b.id) + '">Collect</button>' + acts;
@@ -1646,6 +1658,7 @@
             { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
         } catch (e) { when = ""; }
         return "The customer said they paid" + (when ? " on " + when : "") +
+               (b.paid_proof_path ? " and sent a screenshot" : "") +
                (b.paid_claim_ref ? " · reference " + b.paid_claim_ref : "") +
                ". Check the account before collecting.";
       }
@@ -1725,9 +1738,67 @@
       byId("clCancel").addEventListener("click", closeCollect);
       clBackdrop.addEventListener("click", function (e) { if (e.target === clBackdrop) closeCollect(); });
 
+      /* THE FOUR STATES, in the order the desk should act on them. Each
+         says what happened AND what to do, because "customer says paid" on
+         its own still leaves someone wondering whether to collect. */
+      function payState(b) {
+        if (b.paid_at) return { key: "paid", tone: "green",
+          line: "Already collected." };
+        if (b.paid_claim_at && b.paid_proof_path) return { key: "proof", tone: "optic",
+          line: "The customer sent a screenshot. Check it against the account, then collect." };
+        if (b.paid_claim_at) return { key: "claim", tone: "optic",
+          line: "The customer says they paid" +
+                (b.paid_claim_ref ? " · reference " + b.paid_claim_ref : "") +
+                ". Check the account, or ask for a screenshot." };
+        if (b.paid_attempt_at) return { key: "attempt", tone: "gold",
+          line: "They opened a UPI app and never confirmed. It may have gone through — ask." };
+        return { key: "none", tone: "", line: "" };
+      }
+
+      function askProofLink(b) {
+        var what = isGround(b) ? "the main ground"
+                 : facilityName(b) + " at " + LT.hourLabel(Number(b.hour));
+        return LT.waLink(b.phone,
+          "Hello from Super Kings Academy — about your booking for " + what +
+          " on " + LT.shortDate(b.date) + ". Could you send a screenshot of the payment " +
+          "so we can confirm it?");
+      }
+
+      function paintCollectState(b) {
+        var box = byId("clState");
+        var st  = payState(b);
+        if (st.key === "none" || st.key === "paid") { box.hidden = true; box.innerHTML = ""; return; }
+        box.hidden = false;
+        box.className = "cl-state " + st.tone;
+        box.innerHTML =
+          '<div class="cs-line">' + esc(st.line) + "</div>" +
+          '<div class="cs-acts">' +
+            (b.paid_proof_path
+              ? '<button class="btn btn-glass btn-sm" type="button" id="clProof">View screenshot</button>'
+              : '<a class="btn btn-glass btn-sm" href="' + esc(askProofLink(b)) +
+                '" target="_blank" rel="noopener">Ask for a screenshot</a>') +
+          "</div>";
+
+        var pb = byId("clProof");
+        if (pb) pb.addEventListener("click", function () {
+          pb.disabled = true; pb.textContent = "Opening…";
+          /* Signed and short-lived: the bucket is private and anon has no
+             read on it at all, so this is the only way to see the file. */
+          LT_CLOUD.signedProofUrl(b.paid_proof_path, 300).then(function (url) {
+            pb.disabled = false; pb.textContent = "View screenshot";
+            if (url) window.open(url, "_blank", "noopener");
+            else LT.toast("Could not open that image.");
+          });
+        });
+      }
+
       function openCollect(id) {
         var b = bookingById(id);
         if (!b) { LT.toast("That booking is no longer on this day."); return; }
+        paintCollectState(b);
+        /* A screenshot is nearly always a UPI payment — preselect it so the
+           common case is one tap, and leave it changeable. */
+        byId("clMode").value = (b.paid_claim_at || b.paid_attempt_at) ? "upi" : "cash";
         clId = b.id;
         clAmountDirty = false;
         byId("clTitle").textContent = "Collect from " + b.name;

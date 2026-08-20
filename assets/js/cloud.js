@@ -689,7 +689,7 @@
     pendingBookings: function () {
       return get("/bookings?tenant_id=eq." + TENANT +
                  "&status=eq.pending" +
-                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,created_at,paid_claim_at,paid_claim_ref" +
+                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,created_at,paid_claim_at,paid_claim_ref,paid_attempt_at,paid_proof_path" +
                  "&order=created_at.asc");
     },
 
@@ -699,13 +699,13 @@
     bookingsOn: function (date) {
       return get("/bookings?tenant_id=eq." + TENANT +
                  "&date=eq." + date +
-                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,paid_at,paid_mode,collected_by,paid_claim_at,paid_claim_ref" +
+                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,paid_at,paid_mode,collected_by,paid_claim_at,paid_claim_ref,paid_attempt_at,paid_proof_path" +
                  "&order=hour.asc,court.asc");
     },
     bookingsBetween: function (from, to) {
       return get("/bookings?tenant_id=eq." + TENANT +
                  "&date=gte." + from + "&date=lte." + to +
-                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,paid_at,paid_mode,collected_by,paid_claim_at,paid_claim_ref" +
+                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,paid_at,paid_mode,collected_by,paid_claim_at,paid_claim_ref,paid_attempt_at,paid_proof_path" +
                  "&order=date.asc,hour.asc");
     },
 
@@ -729,9 +729,15 @@
        paid_claim_at, never paid_at, so nothing a customer taps can put
        money in the books. The academy still has to see it in their account.
        Phone-guarded, so a caller can only speak for their own bookings. */
-    claimBookingPayment: function (ids, phone, ref) {
+    claimBookingPayment: function (ids, phone, o) {
+      o = o || {};
       return rpc("claim_booking_payment", {
-        p_tenant: TENANT, p_ids: ids, p_phone: phone, p_ref: ref || null
+        p_tenant: TENANT, p_ids: ids, p_phone: phone,
+        p_ref: o.ref || null,
+        p_proof_path: o.proofPath || null,
+        /* true records only "they opened the UPI app" — not a claim, and
+           never money. */
+        p_attempt: !!o.attempt
       }, true);
     },
 
@@ -839,6 +845,72 @@
         });
       });
     },
+    /* ---------- the payment screenshot ----------
+       Same shape as uploadDoc and for the same reason: the customer is
+       anonymous, so the tenant folder is the only thing separating one
+       academy's proofs from another's, and the bucket admits INSERT alone
+       — no read, no list, no overwrite. A screenshot is bigger than a
+       document scan and phones produce HEIC, so the ceiling and the type
+       list differ from member-docs. */
+    uploadPaymentProof: function (file, ref) {
+      if (DEV) return devBlocked("the screenshot");
+      if (!file) return Promise.reject(new Error("No file."));
+      if (file.size > 10 * 1024 * 1024) {
+        return Promise.reject(new Error("That image is larger than 10 MB. Please send a smaller one."));
+      }
+      var ok = ["image/jpeg", "image/png", "image/webp", "image/heic", "application/pdf"];
+      if (ok.indexOf(file.type) < 0) {
+        return Promise.reject(new Error("Please send a screenshot — JPG, PNG or PDF."));
+      }
+      var ext = file.type === "application/pdf" ? "pdf"
+              : file.type === "image/png"  ? "png"
+              : file.type === "image/webp" ? "webp"
+              : file.type === "image/heic" ? "heic" : "jpg";
+      /* Stamped, so a second screenshot never collides with the first —
+         the bucket refuses an overwrite by design. */
+      var path = TENANT + "/pay/" + ref + "/" + Date.now().toString(36) + "." + ext;
+
+      return bearer(true).then(function (tok) {
+        return fetch(FILES + "/object/payment-proofs/" + encodeURI(path), {
+          method: "POST",
+          headers: {
+            apikey: KEY,
+            Authorization: "Bearer " + tok,
+            "Content-Type": file.type,
+            "x-upsert": "false"
+          },
+          body: file
+        });
+      }).then(function (res) {
+        if (!res.ok) return res.text().then(function (t) {
+          throw new Error("Could not send that image. " + (t || res.status));
+        });
+        return path;
+      });
+    },
+
+    /* Staff only — the bucket gives anon no read at all, so this is how the
+       desk sees what was sent. Short-lived by design. */
+    signedProofUrl: function (path, seconds) {
+      if (!path) return Promise.resolve(null);
+      return bearer(false).then(function (tok) {
+        return fetch(FILES + "/object/sign/payment-proofs/" + encodeURI(path), {
+          method: "POST",
+          headers: {
+            apikey: KEY,
+            Authorization: "Bearer " + tok,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ expiresIn: seconds || 300 })
+        });
+      }).then(function (res) {
+        if (!res.ok) return null;
+        return res.json();
+      }).then(function (j) {
+        return j && j.signedURL ? PROJECT + "/storage/v1" + j.signedURL : null;
+      }).catch(function () { return null; });
+    },
+
 
     /* A private object is read through a short-lived signed URL, minted by
        the server for a caller the storage policy already trusts. Staff
