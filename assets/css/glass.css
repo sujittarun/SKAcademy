@@ -1557,3 +1557,11 @@ body.has-devbar .lt-page {
 .q-line + .q-line { margin-top: 4px; }
 .q-line .q-k { font-size: 13px; font-weight: 650; color: var(--ink-mid); }
 .q-line .q-v { font-weight: 750; font-variant-numeric: tabular-nums; }
+
+/* the grand-total row, in the quote and on the confirmation */
+.q-line.q-sum { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.q-line.q-sum .q-k { color: var(--ink-hi); font-weight: 750; }
+.q-line.q-sum .q-v { color: var(--tx-gold); font-size: 17px; }
+.dl.dl-sum { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.dl.dl-sum b { color: var(--tx-gold); font-size: 17px; }
+.dn-short { color: var(--ink-low); font-size: 12.5px; }

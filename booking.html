@@ -15,7 +15,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=30" />
+<link rel="stylesheet" href="assets/css/glass.css?v=31" />
 <style>
   /* Page-local LAYOUT only. Glass, buttons, fields, pills, .slot,
      .form-msg and .lt-empty all come from glass.css. */
@@ -426,15 +426,15 @@
     </div>
   </main>
 
-  <script src="assets/js/core.js?v=30"></script>
-  <script src="assets/js/cloud.js?v=30"></script>
+  <script src="assets/js/core.js?v=31"></script>
+  <script src="assets/js/cloud.js?v=31"></script>
   <!-- dev-data.js loads for shell consistency and is DELIBERATELY NOT USED
        here. Sample rows behind the striped banner are a preview on a staff
        screen; on a public page they would be a customer shown invented
        availability with no way to tell. A failed read says "could not
        load" instead — an empty academy and a broken one must not look
        alike. -->
-  <script src="assets/js/dev-data.js?v=30"></script>
+  <script src="assets/js/dev-data.js?v=31"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -1171,26 +1171,37 @@
           var hrs = selected.slice();
           if (!list.length || !hrs.length) { clearQuote(); return; }
           var mineN = ++quoteSeq;
-          el.quoteLab.textContent = hrs.length + plural(hrs.length, " hour", " hours");
+          el.quoteLab.textContent = hrs.length + plural(hrs.length, " hour", " hours") +
+            (totalNets() > 1 ? " · " + totalNets() + " nets" : "");
           el.quoteAmt.textContent = "…";
           el.quoteNote.textContent = "";
           host.hidden = false;
 
-          Promise.all(list.map(function (code) {
-            return LT_CLOUD.publicQuote(code, el.date.value, hrs)
-              .then(function (q) { return { code: code, q: q }; })
-              .catch(function () { return { code: code, q: null }; });
-          })).then(function (rows) {
+          /* ONE call, and the total comes back with it. public_quote_multi
+             adds the surfaces and the net counts in SQL — the page prints
+             the figure and never derives it. */
+          LT_CLOUD.publicQuoteMulti(el.date.value,
+            list.map(function (c) { return { sport: c, nets: want[c] }; }), hrs
+          ).then(function (q) {
             if (mineN !== quoteSeq) return;
-            var good = rows.filter(function (r) { return r.q && r.q.total != null; });
-            if (!good.length) { clearQuote(); return; }
-            el.quoteAmt.innerHTML = good.map(function (r) {
+            if (!q || q.total == null) { clearQuote(); return; }
+            var lines = (q.lines || []).map(function (l) {
               return '<span class="q-line"><span class="q-k">' +
-                LT.esc(SURF_LABEL[r.code]) + " × " + want[r.code] + "</span>" +
-                '<span class="q-v">' + LT.esc(LT.fmtINR(r.q.total)) + " each</span></span>";
+                LT.esc(SURF_LABEL[l.sport] || l.sport) +
+                (l.nets > 1 ? " × " + l.nets : "") + "</span>" +
+                '<span class="q-v">' + LT.esc(LT.fmtINR(l.total)) + "</span></span>";
             }).join("");
-            el.quoteNote.textContent =
-              "Per net, for the hours chosen. The academy confirms the total when it calls.";
+            /* The grand total only earns its own row when there is more
+               than one line to add up. */
+            el.quoteAmt.innerHTML = lines +
+              ((q.lines || []).length > 1
+                ? '<span class="q-line q-sum"><span class="q-k">Total</span>' +
+                  '<span class="q-v">' + LT.esc(LT.fmtINR(q.total)) + "</span></span>"
+                : "");
+            el.quoteNote.textContent = "";
+          }).catch(function () {
+            if (mineN !== quoteSeq) return;
+            clearQuote();
           });
           return;
         }
@@ -1348,8 +1359,8 @@
           }).join(", and ");
 
           el.doneTitle.textContent = "Request received";
-          el.doneDetail.innerHTML = "Thanks, <strong>" + LT.esc(name) + "</strong> — " +
-            LT.esc(got) + " on <strong>" + LT.esc(longDate(date)) + "</strong>.";
+          el.doneDetail.innerHTML = LT.esc(got) + " on <strong>" +
+            LT.esc(longDate(date)) + "</strong>.";
 
           /* Each amount is the figure request_booking RETURNED for that
              booking. Printed one per line and never added up here: a total
@@ -1362,31 +1373,31 @@
                    (amt == null ? "—" : LT.esc(LT.fmtINR(amt))) + "</b></div>";
           }).join("");
 
-          /* Say what the discount did — including when it did nothing.
-             Someone who ticked the box and is charged full price deserves a
-             sentence, not silence. */
+          /* The discount as a FACT, not a paragraph: a pill when it was
+             applied, nothing at all when it was not. A customer who ticked
+             the box and did not match sees the price they are actually
+             being charged, which is the honest answer without the lecture. */
           var disc = ok.filter(function (r) { return r.value && r.value.student; }).length;
-          var claimedOnly = student && !disc;
-          var pct = disc ? (ok.filter(function (r) { return r.value && r.value.student; })[0].value.discount_pct) : 0;
+          var pct  = disc ? ok.filter(function (r) { return r.value && r.value.student; })[0].value.discount_pct : 0;
 
           el.doneHonest.innerHTML =
-            "This is a request, not a confirmed booking. The academy will check the nets and " +
-            "send you a confirmation on WhatsApp at <strong>" + LT.esc(phone) + "</strong>." +
-            (disc ? "<br />The student rate (" + LT.esc(String(pct)) + "% off) has been applied." : "") +
-            (claimedOnly
-              ? "<br />We could not match that number to a student on the roll, so the full rate is shown. " +
-                "The academy will sort it out when they call."
-              : "") +
-            (bad.length ? "<br />" + bad.length + plural(bad.length, " net was", " nets were") + " not available: " +
-              LT.esc(readable(String(bad[0].error && bad[0].error.message))) : "");
+            (disc ? '<span class="pill green">Student rate · ' + LT.esc(String(pct)) + "% off</span> " : "") +
+            "We will confirm on WhatsApp." +
+            (bad.length ? '<br /><span class="dn-short">' + bad.length +
+              plural(bad.length, " net was", " nets were") + " not free at that time.</span>" : "");
+
+          /* THE TOTAL, added in Postgres from the rows that were actually
+             written — so it carries the student rate when it applied, and
+             the page never adds a column of money. */
+          var madeIds = ok.map(function (r) { return r.value && r.value.id; }).filter(Boolean);
+          LT_CLOUD.publicBookingTotal(madeIds, phone).then(function (t) {
+            if (!t || t.total == null) return;
+            el.doneLines.innerHTML += '<div class="dl dl-sum"><span>Total</span><b>' +
+              LT.esc(LT.fmtINR(t.total)) + "</b></div>";
+          }).catch(function () { /* the per-line figures still stand */ });
 
           showDone();
-          /* One surface: the amount can be quoted by the server for those
-             hours exactly as before. TWO surfaces: there is no single quote
-             to ask for, and adding the two would be this page inventing a
-             total — so the UPI id is offered without a figure and the
-             academy confirms it. */
-          offerPayment(ok, list.length === 1 ? list[0] : null, date);
+          offerPayment(ok, list.length === 1 ? list[0] : null, date, phone);
         });
       }
 
@@ -1469,14 +1480,17 @@
             functions, so a future evening premium set on one and not the
             other would show a total here that differs from the sum charged.
             Reconciling those two is platform work.) */
-      function dueAmount(ok, code, date) {
+      function dueAmount(ok, code, date, phone) {
         if (ok.length === 1) {
           var a = ok[0].value && ok[0].value.amount;
           return Promise.resolve(a == null ? null : a);
         }
-        var hours = ok.map(function (r) { return r.hour; });
-        return LT_CLOUD.publicQuote(code, date, hours).then(function (q) {
-          return (q && q.total != null) ? q.total : null;
+        /* Sum the rows that were written, in Postgres. This is the figure
+           that knows about the student rate — a re-quote would hand back
+           the list price and ask the customer to pay it. */
+        var ids = ok.map(function (r) { return r.value && r.value.id; }).filter(Boolean);
+        return LT_CLOUD.publicBookingTotal(ids, phone).then(function (t) {
+          return (t && t.total != null) ? t.total : null;
         }).catch(function () { return null; });
       }
 
@@ -1514,13 +1528,9 @@
           .catch(function () { return null; });
       }
 
-      function offerPayment(ok, code, date) {
+      function offerPayment(ok, code, date, phone) {
         el.pay.hidden = true;
         if (!ok.length) return;
-        /* Mixed surfaces: no single quote exists, and a total added up here
-           would be a figure no database agreed to. The academy confirms it
-           on the call. */
-        if (!code) return;
 
         /* The booking reference the academy will match the payment against.
            `tn` is short in most UPI apps, so several hours ride as one ref
@@ -1530,7 +1540,11 @@
         var ref = ok.length === 1 ? String(first) : String(first) + " +" + (ok.length - 1);
 
         var landed = ok.map(function (r) { return r.hour; });
-        Promise.all([dueAmount(ok, code, date), payTo(code, date, landed)])
+        /* payTo needs A facility to read the academy's UPI id from; with
+           two surfaces either will do, since the destination is the
+           academy's, not the net's. */
+        Promise.all([dueAmount(ok, code, date, phone),
+                     payTo(code || (ok[0] && ok[0].code), date, landed)])
           .then(function (out) {
             var amount = out[0];
             var p = out[1];

@@ -714,6 +714,27 @@
        record_booking_v2 and friends are revoked from public and anon, and
        correctly so. A public request lands as 'pending' with no court and
        is confirmed by staff. */
+    /* What a MIXED selection costs — several surfaces, several nets, one
+       total, all added in Postgres. The page prints it; it never works it
+       out. Quoted at list price on purpose: discounting here would mean
+       checking a typed phone against the roll before anything is booked,
+       which turns the quote box into an oracle for "is this number one of
+       your students?". */
+    publicQuoteMulti: function (date, items, hours) {
+      return rpc("public_quote_multi", {
+        p_tenant: TENANT, p_date: date, p_items: items, p_hours: hours || []
+      }, true);
+    },
+    /* What was ACTUALLY charged, once the rows exist — the only figure that
+       knows about the student rate, because request_booking applied it. The
+       phone is required: it stops the sum being readable by anyone who can
+       guess a booking id. */
+    publicBookingTotal: function (ids, phone) {
+      return rpc("public_booking_total", {
+        p_tenant: TENANT, p_ids: ids, p_phone: phone
+      }, true);
+    },
+
     /* `student` is a CLAIM, not a price. request_booking() checks the
        phone against the academy's own roll and discounts only a match, so
        ticking the box on a number nobody recognises changes nothing. The
