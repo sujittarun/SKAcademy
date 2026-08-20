@@ -15,7 +15,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=33" />
+<link rel="stylesheet" href="assets/css/glass.css?v=34" />
 <style>
   /* ------------------------------------------------------------
      Page-local components only. Anything reusable belongs in
@@ -537,9 +537,9 @@
     </div>
   </div>
 
-  <script src="assets/js/core.js?v=33"></script>
-  <script src="assets/js/cloud.js?v=33"></script>
-  <script src="assets/js/dev-data.js?v=33"></script>
+  <script src="assets/js/core.js?v=34"></script>
+  <script src="assets/js/cloud.js?v=34"></script>
+  <script src="assets/js/dev-data.js?v=34"></script>
   <script>
     /* ============================================================
        THE OPERATOR BOOKING BOARD
@@ -1103,7 +1103,15 @@
           var dot = isBlock(b) ? "" :
             '<span class="paid-dot ' + (isPaid(b) ? "yes" : "no") + '"></span>' +
             '<span class="' + (isPaid(b) ? "cell-tag green" : "cell-tag gold") + '">' +
-            (isPaid(b) ? "Paid" + (b.paid_mode ? " · " + esc(b.paid_mode) : "") : "Unpaid") + "</span>";
+            (isPaid(b) ? "Paid" + (b.paid_mode ? " · " + esc(b.paid_mode) : "") : "Unpaid") + "</span>" +
+            /* The customer SAYS they paid. Deliberately a different colour
+               and different words from "Paid" — this is a prompt to go and
+               look at the account, not a receipt. Once it is collected the
+               tag is gone, because the academy then knows better. */
+            (!isPaid(b) && b.paid_claim_at
+              ? '<span class="cell-tag optic" title="' + esc(claimTitle(b)) + '">Says paid' +
+                (b.paid_claim_ref ? " · " + esc(b.paid_claim_ref) : "") + "</span>"
+              : "");
           var acts = '<button class="btn btn-glass btn-sm" type="button" data-open="' + esc(b.id) + '">Details</button>';
           if (!isBlock(b) && !isPaid(b) && amountOf(b) > 0) {
             acts = '<button class="btn btn-primary btn-sm" type="button" data-collect="' + esc(b.id) + '">Collect</button>' + acts;
@@ -1627,6 +1635,19 @@
           if (okd === null) return;
           window.open(LT.waLink(phone, confirmText(b, r)), "_blank", "noopener");
         });
+      }
+
+      /* When the customer said it, in the reader's own timezone — the
+         column is timestamptz, so this is the desk's clock, not UTC. */
+      function claimTitle(b) {
+        var when = "";
+        try {
+          when = new Date(b.paid_claim_at).toLocaleString("en-IN",
+            { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+        } catch (e) { when = ""; }
+        return "The customer said they paid" + (when ? " on " + when : "") +
+               (b.paid_claim_ref ? " · reference " + b.paid_claim_ref : "") +
+               ". Check the account before collecting.";
       }
 
       function bookingById(id) {

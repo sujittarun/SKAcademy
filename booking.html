@@ -15,7 +15,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=33" />
+<link rel="stylesheet" href="assets/css/glass.css?v=34" />
 <style>
   /* Page-local LAYOUT only. Glass, buttons, fields, pills, .slot,
      .form-msg and .lt-empty all come from glass.css. */
@@ -422,6 +422,29 @@
             <button type="button" class="btn btn-glass btn-sm" id="payCopy">Copy</button>
           </div>
           <p class="pay-note" id="payNote"></p>
+
+          <!-- ---------- coming back from the UPI app ----------
+               A upi:// link has no callback: the customer pays in GPay and
+               returns to a page that has learned nothing. Leaving the "Pay"
+               button sitting there reads as a failed payment, so the page
+               asks the one question it cannot answer for itself.
+
+               "Yes" records a CLAIM, never a payment — the academy still
+               has to see the money. -->
+          <div class="pay-back" id="payBack" hidden>
+            <p class="pb-q" id="pbQ">Did the payment go through?</p>
+            <div class="pb-acts">
+              <button type="button" class="btn btn-primary btn-sm" id="pbYes">Yes, I have paid</button>
+              <button type="button" class="btn btn-glass btn-sm" id="pbNo">Not yet</button>
+            </div>
+            <div class="pb-ref" id="pbRef" hidden>
+              <label class="field">
+                <span>UPI reference <span class="opt">(optional, helps them find it)</span></span>
+                <input type="tel" id="pbRefIn" inputmode="numeric" data-digits="12" placeholder="12-digit reference" />
+              </label>
+              <button type="button" class="btn btn-glass btn-sm" id="pbRefSave">Save</button>
+            </div>
+          </div>
         </div>
 
         <div class="mt-4 flex" style="justify-content:center; flex-wrap:wrap;">
@@ -432,15 +455,15 @@
     </div>
   </main>
 
-  <script src="assets/js/core.js?v=33"></script>
-  <script src="assets/js/cloud.js?v=33"></script>
+  <script src="assets/js/core.js?v=34"></script>
+  <script src="assets/js/cloud.js?v=34"></script>
   <!-- dev-data.js loads for shell consistency and is DELIBERATELY NOT USED
        here. Sample rows behind the striped banner are a preview on a staff
        screen; on a public page they would be a customer shown invented
        availability with no way to tell. A failed read says "could not
        load" instead — an empty academy and a broken one must not look
        alike. -->
-  <script src="assets/js/dev-data.js?v=33"></script>
+  <script src="assets/js/dev-data.js?v=34"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -542,6 +565,13 @@
         pay:       LT.$("#payBlock"),
         payAmt:    LT.$("#payAmt"),
         payBtn:    LT.$("#payBtn"),
+        payBack:   LT.$("#payBack"),
+        pbQ:       LT.$("#pbQ"),
+        pbYes:     LT.$("#pbYes"),
+        pbNo:      LT.$("#pbNo"),
+        pbRef:     LT.$("#pbRef"),
+        pbRefIn:   LT.$("#pbRefIn"),
+        pbRefSave: LT.$("#pbRefSave"),
         payVpa:    LT.$("#payVpa"),
         payCopy:   LT.$("#payCopy"),
         payNote:   LT.$("#payNote"),
@@ -1637,6 +1667,11 @@
             el.payBtn.setAttribute("href", upiLink(vpa, payee, amount, ref));
             el.payVpa.textContent = vpa;
             el.payCopy.dataset.vpa = vpa;
+            /* Held for the claim: which bookings, and the number that made
+               them. Both are needed because claim_booking_payment will only
+               speak for rows whose phone matches. */
+            payCtx = { ids: ok.map(function (r) { return r.value && r.value.id; }).filter(Boolean),
+                       phone: phone };
             el.payNote.textContent =
               "Paying now is optional. The academy still confirms your slot — a payment on its own does not reserve anything.";
             el.pay.hidden = false;
@@ -1666,12 +1701,68 @@
         }
       });
 
+      /* Set the moment the UPI app is opened, read when the tab comes
+         back. Without it the question would appear for someone who simply
+         switched tabs and never went near GPay. */
+      var payCtx = null, payTapped = false;
+
       el.payBtn.addEventListener("click", function () {
+        payTapped = true;
         LT_CLOUD.track("upi_opened", { sport: sport || chosen().join("+") });
+      });
+
+      /* ---------- they are back ----------
+         A upi:// link tells us nothing on return, so the page asks. It does
+         NOT guess: no timer, no "assume paid", no marking anything on the
+         strength of an app switch. */
+      function askIfPaid() {
+        if (!payTapped || !payCtx || !payCtx.ids.length) return;
+        payTapped = false;                       // asked once, not on every switch
+        el.payBack.hidden = false;
+        el.payBack.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      function claimPaid(ref) {
+        return LT_CLOUD.claimBookingPayment(payCtx.ids, payCtx.phone, ref || null)
+          .catch(function () { /* the academy still finds it in their account */ });
+      }
+
+      el.pbYes.addEventListener("click", function () {
+        el.pbYes.disabled = true;
+        el.pbNo.disabled = true;
+        claimPaid(null).then(function () {
+          /* Careful wording: noted, not confirmed. The academy has to see
+             the money before anything is settled, and saying otherwise here
+             would be the page inventing a fact about money. */
+          el.pbQ.textContent = "Noted — the academy will check their account and confirm on WhatsApp.";
+          el.pbRef.hidden = false;
+          el.payBtn.hidden = true;
+          el.payAmt.parentNode.querySelector(".pay-lab").textContent = "Amount";
+          el.payNote.textContent = "";
+        });
+      });
+
+      el.pbNo.addEventListener("click", function () {
+        /* Nothing recorded, nothing implied — the button is still there. */
+        el.payBack.hidden = true;
+      });
+
+      el.pbRefSave.addEventListener("click", function () {
+        var ref = String(el.pbRefIn.value || "").replace(/\D/g, "");
+        if (!ref) { el.pbRef.hidden = true; return; }
+        el.pbRefSave.disabled = true;
+        claimPaid(ref).then(function () {
+          el.pbRef.innerHTML = '<p class="pb-q">Reference saved.</p>';
+        });
       });
 
       function showDone() {
         picked = { astro: [], matting: [] };
+        payTapped = false;
+        el.payBack.hidden = true;
+        el.pbRef.hidden = true;
+        el.pbYes.disabled = false;
+        el.pbNo.disabled = false;
         /* Hidden until offerPayment() has BOTH a server handle and a server
            figure. The ground path never calls it, so this is also what
            keeps a previous booking's amount off an enquiry card. */
@@ -1736,10 +1827,14 @@
       el.name.addEventListener("input", syncSubmit);
       el.phone.addEventListener("input", syncSubmit);
 
-      /* A page left open in a pocket goes stale. */
+      /* A page left open in a pocket goes stale — and a page returning
+         from a UPI app has a question to ask. The done screen used to be
+         skipped entirely here, which is exactly where the customer lands
+         after paying. */
       document.addEventListener("visibilitychange", function () {
         if (document.visibilityState !== "visible") return;
-        if (el.done.classList.contains("show") || !track) return;
+        if (el.done.classList.contains("show")) { askIfPaid(); return; }
+        if (!track) return;
         if (Date.now() - slotsAt > 60000) loadAvailability();
       });
 

@@ -689,7 +689,7 @@
     pendingBookings: function () {
       return get("/bookings?tenant_id=eq." + TENANT +
                  "&status=eq.pending" +
-                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,created_at" +
+                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,created_at,paid_claim_at,paid_claim_ref" +
                  "&order=created_at.asc");
     },
 
@@ -699,13 +699,13 @@
     bookingsOn: function (date) {
       return get("/bookings?tenant_id=eq." + TENANT +
                  "&date=eq." + date +
-                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,paid_at,paid_mode,collected_by" +
+                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,paid_at,paid_mode,collected_by,paid_claim_at,paid_claim_ref" +
                  "&order=hour.asc,court.asc");
     },
     bookingsBetween: function (from, to) {
       return get("/bookings?tenant_id=eq." + TENANT +
                  "&date=gte." + from + "&date=lte." + to +
-                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,paid_at,paid_mode,collected_by" +
+                 "&select=id,name,phone,sport,court,date,hour,amount,status,source,paid_at,paid_mode,collected_by,paid_claim_at,paid_claim_ref" +
                  "&order=date.asc,hour.asc");
     },
 
@@ -725,6 +725,16 @@
         p_tenant: TENANT, p_date: date, p_items: items, p_hours: hours || []
       }, true);
     },
+    /* The customer saying they have paid. A CLAIM — it writes
+       paid_claim_at, never paid_at, so nothing a customer taps can put
+       money in the books. The academy still has to see it in their account.
+       Phone-guarded, so a caller can only speak for their own bookings. */
+    claimBookingPayment: function (ids, phone, ref) {
+      return rpc("claim_booking_payment", {
+        p_tenant: TENANT, p_ids: ids, p_phone: phone, p_ref: ref || null
+      }, true);
+    },
+
     /* What was ACTUALLY charged, once the rows exist — the only figure that
        knows about the student rate, because request_booking applied it. The
        phone is required: it stops the sum being readable by anyone who can

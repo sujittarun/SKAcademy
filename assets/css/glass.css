@@ -1574,3 +1574,14 @@ body.has-devbar .lt-page {
 .sh-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .sh-name { font-weight: 750; font-size: 14px; color: var(--ink-hi); }
 .sh-count { font-size: 12px; font-weight: 650; color: var(--ink-low); white-space: nowrap; }
+
+/* "Says paid" — the customer's claim, never the academy's receipt. A
+   distinct colour from .green on purpose: green means the money arrived. */
+.cell-tag.optic { color: var(--tx-optic); }
+
+/* ---------- back from the UPI app ---------- */
+.pay-back { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pay-back .pb-q { font-size: 13.5px; color: var(--ink-mid); margin-bottom: 10px; line-height: 1.5; }
+.pay-back .pb-acts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.pay-back .pb-ref { margin-top: 12px; display: flex; gap: 8px; align-items: flex-end; justify-content: center; flex-wrap: wrap; }
+.pay-back .pb-ref .field { max-width: 240px; margin: 0; text-align: left; }
