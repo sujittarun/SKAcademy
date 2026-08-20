@@ -1515,3 +1515,11 @@ body.has-devbar .lt-page {
   .att-tile .att-acts { flex: 1 1 100%; }
   .att-tile .att-acts .att-btn { flex: 1 1 0; min-width: 0; }
 }
+
+/* ---------- three-part date of birth (admission) ----------
+   A native date input opens on the current month, so a parent entering a
+   2013 birthday scrolls back a hundred and fifty of them. Three selects
+   instead, sized so day and month keep their labels on a 320px phone. */
+.dob-row { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 8px; }
+.dob-row select { width: 100%; min-width: 0; }
+@media (max-width: 360px) { .dob-row { grid-template-columns: 1fr 1.3fr 1fr; gap: 6px; } }

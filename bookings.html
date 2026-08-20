@@ -15,7 +15,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=27" />
+<link rel="stylesheet" href="assets/css/glass.css?v=28" />
 <style>
   /* ------------------------------------------------------------
      Page-local components only. Anything reusable belongs in
@@ -537,9 +537,9 @@
     </div>
   </div>
 
-  <script src="assets/js/core.js?v=27"></script>
-  <script src="assets/js/cloud.js?v=27"></script>
-  <script src="assets/js/dev-data.js?v=27"></script>
+  <script src="assets/js/core.js?v=28"></script>
+  <script src="assets/js/cloud.js?v=28"></script>
+  <script src="assets/js/dev-data.js?v=28"></script>
   <script>
     /* ============================================================
        THE OPERATOR BOOKING BOARD
@@ -1597,6 +1597,38 @@
       /* Ids come back from PostgREST as whatever the column is — a uuid, a
          bigint, a text key. The DOM only ever holds strings, so compare as
          strings rather than assuming the column type. */
+      /* The message a customer actually gets. Facts only — what, when, how
+         much and who to call — and the amount is the one the database
+         stored on the booking, never a figure recomputed here. */
+      function confirmText(b, r) {
+        var court = (r && r.court) || (b && b.court);
+        var what = !b ? "your booking"
+          : isGround(b) ? "the main ground for the whole day"
+          : facilityName(b) + (court ? " · " + LT.courtLabel(court) : "");
+        var when = !b ? "" :
+          (isGround(b) ? "" : LT.hourLabel(Number(b.hour)) + ", ") + longDate(b.date);
+        var amt = b && b.amount != null ? LT.fmtINR(b.amount) : null;
+        return "Super Kings Academy — your booking is confirmed.\n\n" +
+               what + (when ? "\n" + when : "") +
+               (amt ? "\nAmount: " + amt : "") +
+               "\n\nPlease reach the venue ten minutes early. " +
+               "Reply here if you need to change anything.";
+      }
+
+      function offerConfirmMessage(b, r) {
+        var phone = b && b.phone;
+        if (!phone) return;                     /* nothing to send to */
+        LT.ask({
+          kicker: "Confirmed",
+          title: "Send " + (b.name ? b.name.split(" ")[0] : "the customer") + " a WhatsApp?",
+          sub: "It opens WhatsApp with the confirmation already written. You send it.",
+          confirmLabel: "Open WhatsApp"
+        }).then(function (okd) {
+          if (okd === null) return;
+          window.open(LT.waLink(phone, confirmText(b, r)), "_blank", "noopener");
+        });
+      }
+
       function bookingById(id) {
         if (!state.rows) return null;
         var want = String(id);
@@ -1886,12 +1918,29 @@
 
         if ((el = t.closest("[data-confirm]"))) {
           var cid = el.getAttribute("data-confirm");
+          /* Read the row BEFORE confirming: refreshBoard() reloads the
+             queue and the pending row this came from is gone by the time
+             the message is composed. */
+          var was = bookingById(cid);
           el.disabled = true;
           LT_CLOUD.confirmBooking(cid).then(function (res) {
             var r = objOf(res) || {};
             closeDetail();
             LT.toast("Confirmed" + (r.court ? " · " + LT.courtLabel(r.court) : ""));
             refreshBoard();         // it has left the queue AND changed the calendar
+            /* ---------- tell the customer ----------
+               Nothing on this platform messages a booking customer: the
+               database marks it confirmed and notifies nobody, so until now
+               "accepted" meant somebody remembered to ring. This opens
+               WhatsApp with the message already written, on the staff
+               member's own number — no template approval, no per-message
+               cost, and the send is still a person's decision.
+
+               Deliberately NOT automatic. Automatic delivery needs the
+               WhatsApp Business API, which for this academy is switched off
+               and unverified; a button that opens a draft is honest about
+               who is sending. */
+            offerConfirmMessage(was, r);
           }).catch(function (err) {
             el.disabled = false;
             LT.toast((err && err.message) || "Could not confirm.");

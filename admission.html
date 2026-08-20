@@ -15,7 +15,7 @@
   try { document.documentElement.dataset.theme = localStorage.getItem("ska-theme") || "dark"; } catch (e) {}
   document.documentElement.className += " lt-js";
 </script>
-<link rel="stylesheet" href="assets/css/glass.css?v=27" />
+<link rel="stylesheet" href="assets/css/glass.css?v=28" />
 <style>
   /* Page-local layout only. Everything with a look — .glass, .field,
      .choice, .adm-stepper, .adm-step, .adm-nav, .pill, .btn — comes from
@@ -44,7 +44,6 @@
      only ever one set of fields to read, validate and send. */
   .form-grid.adult #parentField      { order: 3; }
   .form-grid.adult #parentPhoneField { order: 4; }
-  .form-grid.adult #batchField       { order: 5; }
   .is-hidden { display: none !important; }
 
   /* What the person is agreeing to. A LIST above ONE checkbox — four boxes
@@ -141,7 +140,6 @@
     </a>
     <div class="nav-actions">
       <button type="button" class="theme-toggle"></button>
-      <a class="btn btn-ghost btn-sm hide-mobile" href="booking.html">Book a net</a>
       <a class="btn btn-glass btn-sm" href="index.html">← Back to site</a>
     </div>
   </nav>
@@ -158,14 +156,14 @@
         <!-- No trial date, no callback window, no fee. The academy has not
              agreed to any of those, and a public page that promises one
              commits them to it. -->
-        <p>Three short steps — the player, a contact number, and the batch you would prefer. The academy confirms everything with you afterwards.</p>
+        <p>Three short steps — the player, how to reach you, and your consent. The academy confirms everything with you afterwards.</p>
       </div>
 
       <div class="glass glass-card reveal d1" id="wizard">
         <div class="adm-stepper" id="stepper">
           <div class="step active" data-s="1"><span class="num"><span class="n">1</span></span><span class="lbl">The player</span></div>
           <div class="bar" id="bar1"></div>
-          <div class="step" data-s="2"><span class="num"><span class="n">2</span></span><span class="lbl" id="step2Lbl">Parent &amp; batch</span></div>
+          <div class="step" data-s="2"><span class="num"><span class="n">2</span></span><span class="lbl" id="step2Lbl">Parent &amp; details</span></div>
           <div class="bar" id="bar2"></div>
           <div class="step" data-s="3"><span class="num"><span class="n">3</span></span><span class="lbl">Confirm</span></div>
         </div>
@@ -181,13 +179,33 @@
                      helpfully fill the child's row with the adult's details. -->
                 <input type="text" id="player" name="player" autocomplete="off" placeholder="As it should appear on the register" required />
               </label>
-              <label class="field">
+              <!-- ---------- date of birth ----------
+                   THREE DROPDOWNS, NOT A DATE INPUT. A native date picker
+                   opens on the current month, and a parent entering 2013
+                   has to scroll back a hundred and fifty of them. The year
+                   list is built newest-first from the ages this academy
+                   actually coaches, so the common answers are at the top
+                   and nothing outside them can be chosen at all.
+
+                   Day counts are recomputed when month or year changes, so
+                   31 February cannot be picked and a 29 February selected
+                   in a leap year is dropped when the year moves. -->
+              <div class="field full">
                 <span>Date of birth</span>
-                <input type="date" id="dob" name="dob" autocomplete="off" />
-              </label>
+                <div class="dob-row">
+                  <select id="dobD" aria-label="Day"></select>
+                  <select id="dobM" aria-label="Month"></select>
+                  <select id="dobY" aria-label="Year"></select>
+                </div>
+                <input type="hidden" id="dob" name="dob" />
+              </div>
               <label class="field">
                 <span>Age <span class="opt">(if the date isn't handy)</span></span>
-                <input type="number" id="age" name="age" inputmode="numeric" min="3" max="75" step="1" placeholder="e.g. 11" />
+                <!-- type=text + inputmode=numeric, not type=number. The
+                     spinner arrows on a number input invite tapping, and a
+                     parent of a fifteen-year-old was tapping fifteen times.
+                     It was always typable; nothing about it said so. -->
+                <input type="text" id="age" name="age" inputmode="numeric" data-digits="2" placeholder="e.g. 11" />
               </label>
               <label class="field full">
                 <span>Gender <span class="opt">(optional)</span></span>
@@ -203,10 +221,9 @@
             </div>
               <!-- ---------- the student's photo ----------
                    In step 1 because it is a fact about the PLAYER. It sat
-                   under "Parent & batch" first, next to the parent's
-                   Aadhaar, purely because both were documents — which is a
-                   filing-cabinet reason, not a reason for the person
-                   filling the form.
+                   under "Parent & batch" first, purely because it was a
+                   document — a filing-cabinet reason, not a reason for the
+                   person filling the form.
 
                    Optional, and the form says so: a family without a photo
                    to hand at 9pm must still be able to finish.
@@ -217,7 +234,11 @@
                    bucket and deliberately cannot read it back, so the
                    preview has to be the file in your hand. -->
               <div class="field full doc-field">
-                <span class="doc-lbl">Student photo <span class="opt">(optional)</span></span>
+                <!-- Still optional in behaviour — nothing validates it and a
+                     family without one at 9pm can still finish — but the
+                     academy asked that the word not be advertised, because
+                     a label reading "optional" is an instruction to skip. -->
+                <span class="doc-lbl">Student photo</span>
                 <div class="doc-row">
                   <label class="doc-pick">
                     <input type="file" id="photoFile" accept="image/jpeg,image/png,image/webp" />
@@ -254,7 +275,7 @@
                    parent's number, so a second box would ask the same thing
                    twice and then disagree with itself. -->
               <label class="field is-hidden" id="parentPhoneField">
-                <span>Emergency contact number <span class="opt">(optional)</span></span>
+                <span>Emergency contact number</span>
                 <input type="tel" id="parentPhone" name="parentPhone" inputmode="numeric" autocomplete="off" data-digits="10" placeholder="10-digit mobile" />
               </label>
               <label class="field" id="phoneField">
@@ -264,38 +285,35 @@
                 <input type="tel" id="phone" name="phone" inputmode="numeric" autocomplete="tel" data-digits="10" placeholder="10-digit mobile" required />
               </label>
               <label class="field" id="emailField">
-                <span>Email <span class="opt">(optional)</span></span>
-                <input type="email" id="email" name="email" autocomplete="email" placeholder="you@example.com" />
+                <span>Email</span>
+                <input type="email" id="email" name="email" autocomplete="email" placeholder="you@example.com" required />
               </label>
-              <div class="field full doc-field">
-                <span class="doc-lbl">Parent's Aadhaar <span class="opt">(optional)</span></span>
-                <input type="tel" id="aadhaar" name="aadhaar" inputmode="numeric" data-digits="12"
-                       placeholder="12-digit number" autocomplete="off" />
-                <div class="doc-row" style="margin-top:8px;">
-                  <label class="doc-pick">
-                    <input type="file" id="aadhaarFile" accept="image/jpeg,image/png,image/webp,application/pdf" />
-                    <span>Attach a copy</span>
-                  </label>
-                  <div class="doc-prev" id="aadhaarPrev" hidden>
-                    <span class="thumb"><img id="aadhaarImg" alt="" /></span>
-                    <div class="doc-meta"><span id="aadhaarName"></span>
-                      <button type="button" class="lnk" data-clear="aadhaar">Remove</button></div>
-                  </div>
-                </div>
-                <div class="doc-err" id="aadhaarErr"></div>
-                <div class="doc-note">Kept private to the academy and used only for your child's record.</div>
-              </div>
+              <!-- ---------- where the player is from ----------
+                   The three columns already existed on both applications
+                   and members with nothing writing to them; this is the
+                   form catching up, not a schema change.
 
-              <label class="field full" id="batchField">
-                <span>Preferred batch <span class="opt">(optional)</span></span>
-                <select id="batch" name="batch">
-                  <option value="">No preference — whatever suits</option>
-                  <option value="Morning">Morning</option>
-                  <option value="Evening">Evening</option>
-                </select>
+                   NO BATCH PICKER. The academy groups by age, not by
+                   preference, and asking a family to choose a session the
+                   academy is going to overrule is a question whose answer
+                   gets thrown away. The age band is worked out from the
+                   date of birth already collected and shown to staff on
+                   the application, so the grouping happens where the
+                   decision is actually made. -->
+              <label class="field">
+                <span>School</span>
+                <input type="text" id="school" name="school" autocomplete="off" placeholder="Which school does the player attend?" required />
+              </label>
+              <label class="field">
+                <span>City</span>
+                <input type="text" id="city" name="city" autocomplete="address-level2" placeholder="Coimbatore" required />
+              </label>
+              <label class="field full">
+                <span>Address</span>
+                <input type="text" id="address" name="address" autocomplete="street-address" placeholder="House, street and area" required />
               </label>
             </div>
-            <p class="hint">The academy calls this number to confirm the batch, so please check it. Coaching runs at VAKAMAN FE, Coimbatore.</p>
+            <p class="hint">The academy calls this number to confirm the group and the joining date, so please check it. Coaching runs at VAKAMAN FE, Coimbatore.</p>
           </section>
 
           <!-- step 3: check it, then consent -->
@@ -420,7 +438,7 @@
              no trial date, no callback window, no fee, no joining date. -->
         <ol class="next-list">
           <li><span class="n">1</span><span>The academy reviews the application at VAKAMAN FE.</span></li>
-          <li><span class="n">2</span><span>Someone calls the number you gave us to agree a batch and a joining date.</span></li>
+          <li><span class="n">2</span><span>Someone calls the number you gave us to agree the group and a joining date.</span></li>
           <li><span class="n">3</span><span>Nothing is booked and nothing is payable until you have spoken to them.</span></li>
         </ol>
         <p class="fineprint" id="doneConsent"></p>
@@ -433,15 +451,15 @@
     </div>
   </main>
 
-  <script src="assets/js/core.js?v=27"></script>
-  <script src="assets/js/cloud.js?v=27"></script>
+  <script src="assets/js/core.js?v=28"></script>
+  <script src="assets/js/cloud.js?v=28"></script>
   <!-- dev-data.js is loaded for shape consistency with the rest of the app.
        Nothing on this page reads it: a public form has no reads to fall back
        on, and its ONE write is real even while LT_CLOUD.DEV is true —
        submit_application is anon-executable by design, so a parent filling
        this in before staff sign-in is wired still reaches Postgres. There is
        no fake success anywhere on this page. -->
-  <script src="assets/js/dev-data.js?v=27"></script>
+  <script src="assets/js/dev-data.js?v=28"></script>
   <script>
     /* page script last. core.js MUST NOT be in <head> — its ink-filter
        IIFE returns early if document.body is missing and never retries. */
@@ -468,8 +486,78 @@
          before 05:30 IST toISOString() reports YESTERDAY, and a "born on or
          before today" bound would reject a baby born this morning. LT.today()
          builds the same way, for the same reason. */
-      dobEl.max = LT.today();
-      dobEl.min = (new Date().getFullYear() - 80) + "-01-01";
+      /* ---------- the three date-of-birth dropdowns ----------
+         #dob is now a hidden input that these three write into, so every
+         line further down that reads txt("#dob") is untouched and the
+         payload is the same ISO string it always was.
+
+         Days are rebuilt whenever the month or the year changes: without
+         that, 31 is selectable in February, and a 29 February chosen in a
+         leap year survives a move to a non-leap one. */
+      var dobD = LT.$("#dobD"), dobM = LT.$("#dobM"), dobY = LT.$("#dobY");
+      var MONTHS = ["January","February","March","April","May","June",
+                    "July","August","September","October","November","December"];
+
+      function opts(el, list, placeholder) {
+        el.innerHTML = '<option value="">' + placeholder + "</option>" +
+          list.map(function (o) {
+            return '<option value="' + LT.esc(String(o.v)) + '">' + LT.esc(o.t) + "</option>";
+          }).join("");
+      }
+
+      function daysIn(y, m) {                       /* m is 1-12 */
+        if (!y || !m) return 31;
+        return new Date(Number(y), Number(m), 0).getDate();
+      }
+
+      function buildDob() {
+        var thisYear = new Date().getFullYear();
+        var years = [];
+        /* Newest first: an academy's applicants are children, so the years
+           they were born in are the ones nearest the top. */
+        for (var y = thisYear - 3; y >= thisYear - 80; y--) years.push({ v: y, t: String(y) });
+        opts(dobY, years, "Year");
+        opts(dobM, MONTHS.map(function (t, i) { return { v: i + 1, t: t }; }), "Month");
+        buildDays();
+      }
+
+      function buildDays() {
+        var keep = dobD.value;
+        var n = daysIn(dobY.value, dobM.value);
+        var list = [];
+        for (var d = 1; d <= n; d++) list.push({ v: d, t: String(d) });
+        opts(dobD, list, "Day");
+        /* A day that no longer exists in the chosen month is dropped rather
+           than silently rolled into the next one. */
+        if (keep && Number(keep) <= n) dobD.value = keep;
+      }
+
+      function syncDob() {
+        var y = dobY.value, m = dobM.value, d = dobD.value;
+        dobEl.value = (y && m && d)
+          ? y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0")
+          : "";
+        /* The same event the native input used to fire, so age, the consent
+           wording and the adult/child switch all still react. */
+        dobEl.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+
+      buildDob();
+      dobY.addEventListener("change", function () { buildDays(); syncDob(); });
+      dobM.addEventListener("change", function () { buildDays(); syncDob(); });
+      dobD.addEventListener("change", syncDob);
+
+      /* ---------- the age band ----------
+         The academy's groups, given 2026-08-19: 5-8, 9-12 and 13-17. Worked
+         out here and shown to staff; the family is never asked to pick. */
+      function ageBand(a) {
+        if (a === null || a === undefined || isNaN(a)) return null;
+        if (a < 5)  return "Under 5";
+        if (a <= 8) return "5-8";
+        if (a <= 12) return "9-12";
+        if (a <= 17) return "13-17";
+        return "Adult";
+      }
 
       function ageFromDob(iso) {
         var p = String(iso || "").split("-");
@@ -540,6 +628,14 @@
          same four facts: a parent is told about their child, an adult about
          themselves. Anything longer than this goes unread, and an unread
          paragraph is not consent however well drafted it is. */
+      /* Added at the academy's request, 2026-08-19, and kept to one plain
+         sentence for the same reason as the other four: a paragraph of
+         exclusions is read by nobody, and an unread paragraph is not
+         consent however well drafted. Whether a disclaimer of this kind
+         binds anyone is a question for the academy's own advisers — the
+         form states it, it does not decide it. */
+      var THEFT = "The academy is not responsible for the theft or loss of personal belongings.";
+
       function consentPoints(minor, name) {
         var risk = "Cricket is a physical sport and carries a risk of injury \u2014 " +
                    "being struck by a ball or bat, sprains and fractures, and heat-related illness.";
@@ -548,7 +644,8 @@
             risk,
             "I am medically fit to take part, and I have told the academy about any medical condition, allergy or medication.",
             "In an emergency, the academy may arrange medical treatment for me.",
-            "I will follow the academy's rules and the coaches' instructions."
+            "I will follow the academy's rules and the coaches' instructions.",
+            THEFT
           ];
         }
         var who = name || "The player";
@@ -556,7 +653,8 @@
           risk,
           who + " is medically fit to take part, and you have told the academy about any medical condition, allergy or medication.",
           "In an emergency, if you cannot be reached, the academy may arrange medical treatment.",
-          who + " will follow the academy's rules and the coaches' instructions."
+          who + " will follow the academy's rules and the coaches' instructions.",
+          THEFT
         ];
       }
 
@@ -577,7 +675,7 @@
         LT.$("#phoneLbl").textContent = minor ? "Parent's mobile number" : "Your mobile number";
         LT.$("#parent").placeholder = minor ? "Who should the academy speak to?" : "Someone we can call if needed";
         LT.$("#parent").required = minor;
-        LT.$("#step2Lbl").textContent = minor ? "Parent & batch" : "Contact & batch";
+        LT.$("#step2Lbl").textContent = minor ? "Parent & details" : "Contact & details";
 
         /* step 3 — the consent itself */
         LT.$("#consentTitle").textContent = minor ? "Parent / guardian consent" : "Your consent";
@@ -613,7 +711,6 @@
       }
 
       function collect() {
-        var batch = txt("#batch");
         var minor = isMinor();
         return {
           player: txt("#player"),
@@ -630,12 +727,14 @@
              not be sent as a parent's number. */
           parentPhone: minor ? "" : normPhone(txt("#parentPhone")),
           email: txt("#email") || null,
-          /* Digits only. People type Aadhaar with spaces; the server wants
-             twelve digits and refuses anything else, so strip here rather
-             than bounce the family for a formatting habit. */
-          aadhaar: (txt("#aadhaar") || "").replace(/\D/g, "") || null,
-          batch: batch,
-          batchLabel: batch ? batch + " batch" : "No preference"
+          school: txt("#school") || null,
+          city: txt("#city") || null,
+          address: txt("#address") || null,
+          /* Worked out, never asked. The band decides which group the
+             player trains with, and the academy would override a family's
+             guess anyway — so the form collects the date of birth it needs
+             for other reasons and derives this from it. */
+          ageGroup: ageBand(currentAge())
         };
       }
 
@@ -679,8 +778,13 @@
           ["Gender", v.gender ? v.gender.charAt(0).toUpperCase() + v.gender.slice(1) : "Not given"],
           [v.minor ? "Parent / guardian" : "Emergency contact", contact || "Not given"],
           [v.minor ? "Parent's mobile" : "Mobile", v.phone],
-          ["Email", v.email || "Not given"],
-          ["Preferred batch", v.batchLabel],
+          ["Email", v.email],
+          ["School", v.school],
+          ["City", v.city],
+          ["Address", v.address],
+          /* Shown so a family can see the grouping is automatic and object
+             before submitting, rather than discovering it on day one. */
+          ["Age group", v.ageGroup || "The academy will decide"],
           ["Venue", CENTRE_NAME]
         ];
         /* Every value here was typed by whoever is at the keyboard, and staff
@@ -703,15 +807,31 @@
           if (v.age < 3 || v.age > 75) return "Please check the date of birth or the age.";
         }
         if (step === 2) {
-          /* Required for a child, optional for an adult — the difference the
-             whole age mode exists for. */
-          if (v.minor && v.parent.length < 2) return "Please enter the parent or guardian's name.";
+          /* A NAME AND A SECOND NUMBER ARE NOW REQUIRED BOTH WAYS. For a
+             child it is the parent, for an adult it is whoever the academy
+             rings if something happens on the field — the academy asked for
+             both to be compulsory, and an emergency contact that is optional
+             is one nobody fills in. */
+          if (v.parent.length < 2) {
+            return v.minor ? "Please enter the parent or guardian's name."
+                           : "Please enter an emergency contact name.";
+          }
           if (v.phone.length !== 10) return "Please enter a 10-digit mobile number.";
           if (!/^[6-9]/.test(v.phone)) return "That does not look like a mobile number — please check it.";
-          if (v.parentPhone && (v.parentPhone.length !== 10 || !/^[6-9]/.test(v.parentPhone))) {
-            return "Please check the emergency contact number, or leave it blank.";
+          if (!v.minor) {
+            if (v.parentPhone.length !== 10 || !/^[6-9]/.test(v.parentPhone)) {
+              return "Please enter a 10-digit emergency contact number.";
+            }
+            if (v.parentPhone === v.phone) {
+              /* An emergency contact that is your own number is not one. */
+              return "The emergency contact should be someone other than you.";
+            }
           }
-          if (v.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)) return "Please check the email address, or leave it blank.";
+          if (!v.email) return "Please enter an email address.";
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)) return "Please check the email address.";
+          if (!v.school || v.school.length < 2) return "Please enter the school's name.";
+          if (!v.city || v.city.length < 2) return "Please enter the city.";
+          if (!v.address || v.address.length < 6) return "Please enter the address.";
         }
         if (step === TOTAL && !LT.$("#consent").checked) {
           return v.minor
@@ -733,7 +853,7 @@
           p_level: null,                      /* not asked — basics only */
           p_goal: null,
           p_program: PROGRAM,
-          p_slot: CENTRE_NAME + " · " + v.batchLabel,
+          p_slot: CENTRE_NAME + (v.ageGroup ? " · " + v.ageGroup : ""),
           p_trial: null,                      /* no trial date is promised here */
           p_dob: v.dob,
           p_age: v.age,
@@ -752,8 +872,9 @@
              land; null when the family attached nothing, which is the
              ordinary case. */
           p_photo_path: docs.photoPath,
-          p_aadhaar_path: docs.aadhaarPath,
-          p_aadhaar: v.aadhaar || null
+          p_school: v.school,
+          p_city: v.city,
+          p_address: v.address
         };
       }
 
@@ -782,7 +903,7 @@
           p_level: null,
           p_goal: note,
           p_program: PROGRAM,
-          p_slot: CENTRE_NAME + " · " + v.batchLabel,
+          p_slot: CENTRE_NAME + (v.ageGroup ? " · " + v.ageGroup : ""),
           p_trial: null
         };
       }
@@ -821,7 +942,7 @@
          bucket with files from every abandoned form; uploading on submit
          means what is stored matches what was sent.
          ============================================================ */
-      var docs = { photo: null, aadhaar: null, photoPath: null, aadhaarPath: null, ref: null };
+      var docs = { photo: null, photoPath: null, ref: null };
 
       /* Groups one family's files under a single folder. Not a security
          boundary — the tenant prefix and the storage policy are that — just
@@ -836,8 +957,7 @@
 
       var DOC_MAX = 5 * 1024 * 1024;
       var DOC_OK = {
-        photo:   ["image/jpeg", "image/png", "image/webp"],
-        aadhaar: ["image/jpeg", "image/png", "image/webp", "application/pdf"]
+        photo: ["image/jpeg", "image/png", "image/webp"]
       };
 
       /* Drops whatever is attached WITHOUT touching the error line. Kept
@@ -896,7 +1016,7 @@
         }
       }
 
-      ["photo", "aadhaar"].forEach(function (kind) {
+      ["photo"].forEach(function (kind) {
         LT.$("#" + kind + "File").addEventListener("change", function () {
           showDoc(kind, this.files && this.files[0]);
         });
@@ -916,31 +1036,19 @@
           jobs.push(LT_CLOUD.uploadDoc(docs.photo, "photo", docRef())
             .then(function (p) { docs.photoPath = p; }));
         }
-        if (docs.aadhaar) {
-          jobs.push(LT_CLOUD.uploadDoc(docs.aadhaar, "aadhaar", docRef())
-            .then(function (p) { docs.aadhaarPath = p; }));
-        }
         return jobs.length ? Promise.all(jobs) : Promise.resolve();
       }
 
       function submit() {
         if (busy) return;
         var v = collect();
-        /* Twelve digits or nothing. The server enforces the same rule; this
-           just puts the message next to the box the family typed in. */
-        if (v.aadhaar && v.aadhaar.length !== 12) {
-          LT.$("#aadhaarErr").textContent = "An Aadhaar number is 12 digits.";
-          var ae = LT.$("#aadhaar"); if (ae) ae.focus();
-          return;
-        }
-        LT.$("#aadhaarErr").textContent = "";
         busy = true;
         nextBtn.disabled = true;
         backBtn.disabled = true;
         nextBtn.textContent = "Sending…";
         say("Sending your application…");
 
-        (docs.photo || docs.aadhaar ? say("Uploading your files…") : 0, uploadDocs())
+        (docs.photo ? say("Uploading the photo…") : 0, uploadDocs())
           .then(function () { say("Sending your application…"); return LT_CLOUD.submitApplication(payloadWide(v)); })
           .then(function () { done(v, true); })
           .catch(function (err) {
@@ -977,7 +1085,7 @@
            tenant is taking admissions the database cannot record consent for. */
         try {
           LT_CLOUD.track("admission_submitted", {
-            batch: v.batch || "none",
+            age_group: v.ageGroup || "none",
             has_dob: !!v.dob,
             consent_stored: !!consentStored
           });

@@ -714,10 +714,16 @@
        record_booking_v2 and friends are revoked from public and anon, and
        correctly so. A public request lands as 'pending' with no court and
        is confirmed by staff. */
+    /* `student` is a CLAIM, not a price. request_booking() checks the
+       phone against the academy's own roll and discounts only a match, so
+       ticking the box on a number nobody recognises changes nothing. The
+       reply carries list_amount, student and discount_pct so the page can
+       say which of those happened instead of quietly charging full price. */
     requestBooking: function (o) {
       return rpc("request_booking", {
         p_tenant: TENANT, p_sport: o.sport, p_date: o.date,
-        p_hour: o.hour, p_name: o.name, p_phone: o.phone
+        p_hour: o.hour, p_name: o.name, p_phone: o.phone,
+        p_is_student: !!o.student
       }, true);
     },
 
